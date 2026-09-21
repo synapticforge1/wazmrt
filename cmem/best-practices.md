@@ -365,7 +365,7 @@ audited the interpreter, the ceilings, every unchecked cast and the fuzzer — a
 found hours later, by the *sibling project's* measurements, using the very flag the track had just
 added. ⚠️ The audit's attention follows the code it set out to review; the code it *writes on the way*
 inherits none of it. **Before closing a hardening pass, re-run its own checklist against whatever the
-pass itself added.** — Track H7, 2026-08-19
+pass itself added.** — Track zH7, 2026-08-19
 
 **A one-directional protection has a second direction, and it is not automatically safe.** wazmrt only
 recognises host flags in the leading run after the module path, so a guest's `--no-verify` can never be
@@ -374,22 +374,22 @@ never been asked:** a *host* flag written after a guest argument is silently don
 `--no-verify` that is still fail-closed; for `--verify`, `--pins` and every `--max-*` it is
 **fail-OPEN** — the user asked for a restriction, got no error, and ran without it. 🎓 **When you write
 a rule that discards input in one direction, enumerate what the same rule does to the other.**
-— Track H7, 2026-08-19
+— Track zH7, 2026-08-19
 
 **A warning that fires on everything is as useless as one that never fires — assert the SILENCE too.**
 The misplaced-flag warning has six assertions and **three are negative**: correct placement stays
 quiet, anything after an explicit `--` stays quiet (the user *said* it was the guest's), and a
 look-alike guest argument (`--verifyx`) is not ours. Without those, the natural over-fix — warn on
 anything starting with `--` — passes the positive tests and makes the tool cry wolf on every legitimate
-guest argv. — Track H7, 2026-08-19
+guest argv. — Track zH7, 2026-08-19
 
 **A comment that explains a REFUSAL is the thing to re-read when the limitation is lifted — nothing
 else points at it.** `fuzz.zig` refused to fuzz execution and said exactly why: *"the interpreter has no
-instruction/fuel limit, so a fuzzed infinite loop would hang the fuzzer."* The moment H3 added the
+instruction/fuel limit, so a fuzzed infinite loop would hang the fuzzer."* The moment zH3 added the
 budget, that paragraph became false — and nothing pointed from the new feature back to the refusal it
 invalidated. ⚠️ **A refusal outlives its cause silently**, because the code still works and no test
 fails. **When you remove a limitation, grep for the notes that named it** (`grep -rn "no .* limit"`,
-the feature's own name); the exclusions written around it are the payoff you are owed. — Track H5,
+the feature's own name); the exclusions written around it are the payoff you are owed. — Track zH5,
 2026-08-19
 
 **When a comment explains why a check is weak, verify the explanation before trusting it.** The
@@ -398,7 +398,7 @@ under the comment *"a test helper with no Instance in hand, so it checks the def
 first clause was false — it runs during real instantiation from three call sites — and the second
 clause is what made it look deliberate. 🎓 **A wrong reason attached to a real weakness is worse than
 no comment**, because it converts "why is this like that?" into "someone already thought about it".
-The check is cheap: grep the function's callers. — Track H2, 2026-08-19
+The check is cheap: grep the function's callers. — Track zH2, 2026-08-19
 
 **A configurable ceiling with no test is a preference, not a control.** `max_gc_objects` was settable
 through the C ABI, documented in the header, threaded into the instance — and enforced on only one of
@@ -406,7 +406,7 @@ its two allocation paths, for as long as it had existed, because **nothing had e
 anything**. ⚠️ The general form: *for every knob an embedder can turn, there must be one test that
 turns it and one that proves the other side* — set it low and see the refusal, set it high and see the
 success. A knob tested in only one direction can be implemented as `return error` and still pass.
-— Track H2, 2026-08-19
+— Track zH2, 2026-08-19
 
 **Enumerate the SHAPES a limit must cover, then write one test per shape in one test.** Non-termination
 has two shapes (loop back-edge, tail call) and the GC ceiling has two paths (run-time, const-expr). In
@@ -422,14 +422,14 @@ and still hangs on `(func $f (return_call $f))` — because a local `return_call
 by design, so it makes no backward branch and grows no call depth for `max_call_depth` to catch. ⚠️ The
 failure mode is the nasty one: delete the second tick and **the first test keeps passing**, which is
 exactly what "the tests still pass" looks like after a gate has been quietly removed. Write the test so
-it names both shapes. — Track H3, 2026-08-19
+it names both shapes. — Track zH3, 2026-08-19
 
 **Pick a ceiling by LOWERING it until the corpus breaks, then read what broke.** The iteration
 default was not chosen, it was bracketed: green at `1<<20`, 11 failures at `1<<18` — *only* the three
 `return_call*` files — and 36 across 8 files at `1<<14`. That named the heaviest legitimate workload in
 the suite (a million-hop tail-call chain) instead of guessing at one, and it turned "the default is
 generous" into "the default is ~1000x the measured peak". **The number and the reason arrive in the
-same experiment**, and the failing runs are the more informative half. — Track H3, 2026-08-19
+same experiment**, and the failing runs are the more informative half. — Track zH3, 2026-08-19
 
 **A new engine-resource error must be classified in `isRuntimeTrap` DELIBERATELY, and usually the
 answer is "not a trap".** `IterationLimitExceeded` is excluded, like `GcHeapExhausted` and
@@ -438,7 +438,7 @@ meant for real trapping behaviour. The exclusion has a second, larger payoff —
 run a live measurement of the ceiling**, because a budget set too low fails loudly instead of banking
 the timeout as the expected trap. (`CallStackExhausted` IS admitted, and the asymmetry is the point:
 `call.wast`'s "runaway" cases exist to make a recursion cap fire; no spec test asks an engine to loop
-forever.) — Track H3, 2026-08-19
+forever.) — Track zH3, 2026-08-19
 
 **When one mechanism only DELIVERS a decision and another MAKES it, say so before comparing costs.**
 An epoch/interrupt flag and a fuel counter look like two points on a cost curve; they are not the same
@@ -446,7 +446,7 @@ kind of thing. The flag needs an outside agent — a watchdog thread with a cloc
 single-threaded, clock-free, freestanding-capable runtime has no such agent, so the flag would never
 fire at all and the loop would still hang. **Check that a candidate mechanism closes the loop by itself
 before pricing its per-instruction overhead** — the cheaper option was not a weaker version of the
-answer, it was not an answer. — Track H3, 2026-08-19
+answer, it was not an answer. — Track zH3, 2026-08-19
 
 
 **A gate that exists only as a FLAG is not a gate.** `zig build test -Doptimize=ReleaseSmall` worked
@@ -1365,7 +1365,7 @@ docs, before adopting anything. — `design-decisions.md`, the adoption checklis
 is the worst failure mode in this codebase's taxonomy — and a disabled proposal must be rejected
 loudly, never silently ignored. — the audit trigger, `INDEX.md`
 
-**A baseline that does not name its corpus cannot referee anything.** H4 re-measured the startup
+**A baseline that does not name its corpus cannot referee anything.** zH4 re-measured the startup
 numbers *specifically* so Track O could state every proposal as a delta against them — and recorded the
 figures without the module set. They turned out to be toy-scale, ~100× off the same metric measured on
 real modules five days earlier, and nothing in the gate set could see the difference because a number
@@ -1373,8 +1373,8 @@ with no corpus attached looks exactly like a number with one. **Record the input
 the measurement expires the moment its author forgets what they ran.** — Track O, `testing.md`
 
 **A single run that matches a recorded number to two decimals is a coincidence you can afford to
-check.** One `bench hash` pass reproduced H4's decode figure exactly and the conclusion was written as
-"three of three, the first to two decimals". Four runs put the validate delta *outside* H4's range: the
+check.** One `bench hash` pass reproduced zH4's decode figure exactly and the conclusion was written as
+"three of three, the first to two decimals". Four runs put the validate delta *outside* zH4's range: the
 identification was right in kind (toy-scale) and wrong in precision. **The cheap repeat is what
 separates the claim you can publish from the one that dies on someone else's box** — and it costs one
 command. — 2026-08-19, `roadmap.md` Track O
@@ -1556,7 +1556,7 @@ itself. — 2026-09-20, `wat.zig` annotation pre-pass
 
 ### 🎓 A check that REPORTS is not a check that REFUSES — and a test on the message cannot tell them apart
 
-The H7 flip (warn → error) shipped with three tests over its message text. An inversion proof then
+The zH7 flip (warn → error) shipped with three tests over its message text. An inversion proof then
 deleted `return exit_failure;` from the call site: it **compiled, and every test passed.** The suite
 asserted what the function printed; nothing asserted that the run stopped.
 
@@ -1622,3 +1622,69 @@ containing a backtick is more dangerous than a fifty-line edit to prose.
 `$`, a `"`, a `\` or a newline, it goes in a file.** In this project that is every edit to source or
 to `cmem/`. `Write` the script, then run the script — and the script asserts its match counts and
 writes atomically, which the one-liner never does either. — 2026-09-20, third repeat offence
+
+⚠️ **FOURTH repeat, 2026-09-21**: `deno eval "await Deno.writeTextFile(…)"` twice, to create a probe
+fixture. It did not corrupt anything this time, which is exactly why it went unnoticed until the probes
+were saved into `cmem/probes/`. The fixture is now part of `guest-fixtures.ts`. *A banned form that
+happens to work is still banned; its failure is proportional to the content, not to the intent.*
+
+---
+
+### 🎓 A clean cross-compile is evidence about the artifact it built — not about the TESTS
+
+`zig build -Dtarget=x86_64-linux-gnu` and `-Dtarget=aarch64-macos` both exited 0, and that was all
+the evidence that wazmrt worked on POSIX. **The unit suite could not even COMPILE on Linux**: one test
+helper used a Windows-only environ block. And once it ran natively, it found three silent
+**wrong-file** opens in the sandbox resolver that no Windows run could show.
+
+🔒 **The rule: a platform is supported when the suite has RUN there, not when the binary builds for
+it.** A cross-compile compiles the program and zero tests. A cross-compile plus an emulator runs the
+tests but not the filesystem. Only a native run exercises both. — 2026-09-21, first native Linux run
+(`known-issues.md`, the POSIX resolver entry)
+
+---
+
+### 🎓 Every byte rule that is OS-specific needs a platform branch — and the platform should be a PARAMETER
+
+`\` as a separator, `<letter>:` as a drive and `:` as an alternate data stream are Windows syntax.
+They were applied **unconditionally**, in four places, and on POSIX they did not refuse. They
+**resolved to a different file**. The fix made the rules a value (`path_rules.zig`) passed to every
+site, rather than a `builtin` read at each one, so **the POSIX rows run under unit test on a Windows
+host** and vice versa. *A platform branch you can only test on that platform is a branch you will not
+test.* — 2026-09-21, `path_rules.zig`
+
+---
+
+### 🎓 One operation can serve two purposes that need DIFFERENT rules
+
+The resolver answers "which file does this name mean HERE, NOW": the host's rules, nothing else.
+Symlink CREATION answers something else: "what could this target mean to the next reader", who may be
+on another OS. So creation refuses a target that escapes under **either** rule set. A link to
+`..\..\x` is harmless on Linux and an escape once the tree is unpacked on Windows. ⚠️ And the two
+walks disagree in **both** directions (`a\b/../..`), so neither can stand in for the other. 🎓 *When
+a fix makes a check host-specific, ask of each call site whose question it answers; the same helper
+may be right for one and a hole for the other.* — 2026-09-21, `plantsLandmine`
+
+---
+
+### 🎓 Measure what ARRIVED, not what you typed — the shell is a transformation
+
+`--dir ./data:/m` failed with `FileNotFound '.\data;M'`, which reads as a wazmrt parsing bug. It was
+**Git Bash**: MSYS rewrote the argument before wazmrt saw a byte. A program that prints its own argv
+(`probes/argv-echo.ts`) settled it in one run per shell. Three shells, three different corruptions:
+Git Bash rewrites `:`-lists, PowerShell 5.1 strips embedded quotes and splits `-x=a.b` at the dot;
+cmd and Linux bash are verbatim. 🔒 **Before attributing a CLI failure to the program, run the same
+argv through an echo in the same shell.** And measure CLI behaviour through `Deno.Command` or a
+native shell, never through a layer that rewrites. — 2026-09-21, `probes/README.md`
+
+---
+
+### 🎓 Record a decision AS SAID — an inference from a phrase is not a decision
+
+The owner said lockstep engages *"when [wasmrt] hits 1.0.1"*. The record said the version numbers
+would be **equal and stay equal**, derived from the word "lockstep". It then concluded that shipping
+wazmrt `1.0.2` "moves the target", and it manufactured a reason to hold a release. The owner's next
+decision (`1.0.2` ships first) showed the constraint had never been theirs. 🔒 **Write the trigger in
+the speaker's words. Mark anything derived from it as a reading, and ask before a derived constraint
+blocks work.** *A precise reading of an imprecise phrase is a guess wearing a decision's clothes.* —
+2026-09-21, `interop.md` §1e (corrected the same day)

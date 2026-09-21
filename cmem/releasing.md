@@ -8,6 +8,11 @@ what earns it.
 
 ## 🔖 THE VERSION IS `1.0.1` — Track H shipped 2026-08-19. It was SET to `1.0.0` before the first track, on purpose
 
+> 🤝 **LOCKSTEP ENGAGES WHEN wasmrt REACHES `1.0.1` (owner, 2026-09-21)**, and from then neither
+> runtime releases alone (`interop.md` §1e, gate 11 below). 🔒 **`1.0.2` ships BEFORE that** (owner,
+> same day), under the ordinary checklist. ⚠️ *A same-day draft said wazmrt must hold at `1.0.1` so the
+> numbers would match. That was an inference, not a decision, and it is withdrawn.*
+
 wazmrt was `0.1.0` from 2026-07-02 until today, which had stopped being true long before it was changed.
 What `1.0.0` asserts is **complete on wazmrt's own terms**, and every clause of that is already measured,
 not aspirational:
@@ -143,6 +148,14 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
 10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
     ladder, and `INDEX.md`'s STATE AT PAUSE. A doc pass scheduled "after the release" is a doc pass that
     does not happen.
+11. 🆕 🤝 **THE LOCKSTEP GATE — once wasmrt reaches `1.0.1`** (owner, 2026-09-21; `interop.md` §1e).
+    From that point neither runtime releases alone, and **two things must be true before the bump**:
+    the **coordination pass** has run in full (`interop.md` §1b — compare copies, diff every in-scope
+    row, **verify by running both on the same bytes**), and the **contract mirror is current**, meaning
+    `interop.md` is identical in both trees. ⚠️ **Until wasmrt reaches `1.0.1` this gate is NOT armed**
+    — it is listed now so that arming it is a one-line state change rather than a remembered intention.
+    🔒 **Before then wazmrt releases on its own:** `1.0.2` ships ahead of wasmrt's `1.0.1` (owner,
+    2026-09-21).
 
 ## What this project deliberately does NOT have
 

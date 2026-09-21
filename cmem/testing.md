@@ -150,7 +150,7 @@ The CLI now also type-checks each module (`validation: OK` / `FAILED — <error>
 | gate | result |
 | --- | --- |
 | conformance | **288 files · 64,092 passed · 0 failed · 0 skipped · 0 file-errors** (baseline still EMPTY). ✅ The last 20 skips closed 2026-09-20 by the custom-annotations pass — they were the three `custom/` files (`custom_annot` 14, `name_annot` 3, `branch_hint` 3), and the tally now matches the canonical runtime's own adjudication of the same directory exactly. ⚠️ The counts differ from Track H's `284 · 63,934 · 0 skipped` because this is a **different testsuite checkout**, not a regression — verified by running the same command on `HEAD` before and after every change on 2026-09-20. *(Superseded: 64,072 passed · 20 skipped.)* |
-| `test` (Debug) | **804/808, 4 skipped** (2026-09-20 — custom-annotations +6, the H7 verdict pin +2; the four skips are exFAT symlink tests) — was **802/802** — was **765/765** — was 758. **+4** iteration budget (2 tests, and `interp.zig`'s tests run in *both* the module and capi binaries), **+2** GC ceiling (1 test × 2), **+1** misplaced-flag warning (CLI binary only) |
+| `test` (Debug) | **808/812, 4 skipped on Windows from `D:`; 🐧 812/812, 0 skipped on native LINUX** (2026-09-21 — `--dir` grammar +2, `path_rules` +2. The four Windows skips are exFAT symlink tests, and on Linux they RUN. ⚠️ **The suite could not COMPILE on Linux before 2026-09-21**: `securityStrict` used Windows' `.global` environ block; fixed to `std.testing.environ`. Its first Linux run found the POSIX resolver defects, `known-issues.md`). Was **804/808** (2026-09-20 — custom-annotations +6, the zH7 verdict pin +2) — was **802/802** — was **765/765** — was 758. **+4** iteration budget (2 tests, and `interp.zig`'s tests run in *both* the module and capi binaries), **+2** GC ceiling (1 test × 2), **+1** misplaced-flag warning (CLI binary only) |
 | `test-safe` (ReleaseSafe) | **802/806, 4 skipped** (was 800/800, was 765) |
 | **`test-shipped` (ReleaseSmall — the config that ships)** | **802/806, 4 skipped** (was 800/800, was 765) |
 | `test-security` | 3/3 from an NTFS cwd |
@@ -161,7 +161,7 @@ The CLI now also type-checks each module (`validation: OK` / `FAILED — <error>
 iteration budget (exe +1,024 · lib +512 · dll +0) and the GC-ceiling fix (exe +512 · lib +76 · dll +0).
 📏 **The DLL — the artifact the `universalWasmLoader-*` ports link — did not move at all, either time.**
 
-### ▶️ Execution is fuzzed now (H5) — and the corpus contains two runaways on purpose
+### ▶️ Execution is fuzzed now (zH5) — and the corpus contains two runaways on purpose
 
 `fuzz.zig` invokes `_start` and every export on each mutated module under a 10,000-iteration budget.
 Two seeds **never terminate** (`(loop (br 0))` and `(func $f (return_call $f))`), so every run exercises
@@ -169,8 +169,8 @@ the budget. The sweep asserts `r.executed > 100` alongside its existing decode/i
 counters, so the target cannot silently degrade to fuzzing only the front half again.
 
 ✅ **Inversion-proven, and this is the part worth keeping:** setting the fuzz budget to unlimited makes
-`zig build test` **hang** (killed at 120 s); restoring it returns to green. **H5 provably depends on
-H3** — delete the iteration budget and this file stops finishing instead of quietly passing.
+`zig build test` **hang** (killed at 120 s); restoring it returns to green. **zH5 provably depends on
+zH3** — delete the iteration budget and this file stops finishing instead of quietly passing.
 
 ### The ceiling tests that did not exist before
 
@@ -183,7 +183,7 @@ unwinding a partially built instance).
 🎓 **General rule this produced:** *for every knob an embedder can turn, one test turns it and proves
 both directions.* A knob tested in one direction only can be implemented as `return error` and pass.
 
-## 🆕 THE ITERATION BUDGET — how its default was measured (Track H3, 2026-08-19)
+## 🆕 THE ITERATION BUDGET — how its default was measured (Track zH3, 2026-08-19)
 
 The ceiling that stops a guest which never returns was **not chosen; it was bracketed.** The whole
 284-file corpus was re-run at descending budgets until it broke:
@@ -252,9 +252,9 @@ you have to remember is not a gate** — the same argument that put the CLI into
 ⚠️ **Conformance takes `-Doptimize` too**, and running the corpus in the shipped mode is cheap. It
 belongs in any pass that touches the interpreter, not only in a release.
 
-## 📊 THE NAMED-MODULE STARTUP BASELINE (2026-08-19, late) — **it SUPERSEDES H4's speed row**
+## 📊 THE NAMED-MODULE STARTUP BASELINE (2026-08-19, late) — **it SUPERSEDES zH4's speed row**
 
-**H4's speed row recorded no module set, and that made it unusable as Track O's referee.** Re-measured
+**zH4's speed row recorded no module set, and that made it unusable as Track O's referee.** Re-measured
 with `zig build bench -- hash <files>` (ReleaseFast bench binary, one box, **4 runs**, ranges not
 medians). ⚠️ **Quote the module WITH the number** — that is the whole point of this section.
 
@@ -267,7 +267,7 @@ medians). ⚠️ **Quote the module WITH the number** — that is the whole poin
 *(Reproduce: `zig build-exe examples/<f>.zig -target wasm32-wasi -O <mode> -femit-bin=<f>.wasm`, then
 `zig build bench -- hash toy.wasm <f>.wasm`. `bench <path>` alone writes the 70-byte toy module.)*
 
-🔑 **H4's row was TOY-SCALE.** Its decode (0.56–0.58 µs) and decode+instantiate (1.23–2.56 µs) both sit
+🔑 **zH4's row was TOY-SCALE.** Its decode (0.56–0.58 µs) and decode+instantiate (1.23–2.56 µs) both sit
 inside the toy module's measured ranges; only its validate delta (0.46–0.81 µs) reproduces low. **So
 `4 336–6 772×` is wasmtime's fixed compile-and-write floor divided by ~70 bytes, and it is not an engine
 ratio.** Track 3's `20–55×` on real modules (2026-08-14) is the comparable figure. ⚠️ This is the *same*

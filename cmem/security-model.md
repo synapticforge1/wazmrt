@@ -681,6 +681,16 @@ targets can inject `..` and absolute paths:
 > pins the inode, and a swapped-in symlink is caught by the next lstat. **Targets go through the same
 > machinery** — no bypass channel.
 >
+> 🐧 **WHAT IS A "COMPONENT" DEPENDS ON THE HOST (2026-09-21, `path_rules.zig`).** Resolution splits on
+> the **host's** separators: `/` and `\` on Windows, `/` **alone** on POSIX, where `\` and `:` are
+> ordinary filename bytes. Splitting POSIX names by Windows rules never escaped, since it only ever
+> counts *more* `..`. It **resolved to the wrong file**, though: `x\y` became `x/y`, and a link to
+> `a:b` became `b`. That was measured on the first native Linux run and fixed the same day.
+> 🔒 **Symlink CREATION is the exception, and it is stricter, not looser:** a target is refused if it
+> is absolute or escaping under **either** rule set (`plantsLandmine`). The next privileged reader
+> may be on another OS, and a link to `..\..\x` planted on Linux becomes an escape when the tree is
+> unpacked on Windows.
+>
 > Ops pass **`follow_final`**: `path_open`/`*_filestat_get` with `SYMLINK_FOLLOW` = true; `path_unlink`,
 > `path_readlink`, and the no-`SYMLINK_FOLLOW` stats = false (operate on the link itself).
 >
@@ -702,7 +712,7 @@ targets can inject `..` and absolute paths:
 Windows. Tests run on POSIX CI, skip on unprivileged Windows.
 
 
-## 🆕 Denial of service by NON-TERMINATION is bounded (Track H3, 2026-08-19)
+## 🆕 Denial of service by NON-TERMINATION is bounded (Track zH3, 2026-08-19)
 
 **Until this landed, a hostile — or merely buggy — guest could hang the host process outright**, and
 nothing in this file said so. Every other guest-driven resource had a ceiling (memory, tables, GC

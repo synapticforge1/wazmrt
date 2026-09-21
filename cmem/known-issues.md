@@ -13,6 +13,57 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## ✅ FIXED SAME DAY — 🐧 The WASI resolver applied WINDOWS path rules on POSIX — silent WRONG-FILE opens (2026-09-21)
+
+> ✅ **FIXED 2026-09-21, owner-directed.** A new `src/path_rules.zig` holds the one `PathRules` type,
+> shared by `main.zig`'s `--dir` grammar and the resolver. `resolve`, `walkFull`, `pushReversed` and
+> `isAbsoluteTarget` take the **host's** rules. Symlink **creation** takes the **union** of both rule
+> sets (`plantsLandmine`), because the next reader of a planted link may be on another OS. That half
+> is deliberately stricter, not looser. **Re-measured end to end on Linux after the fix:** `x\y`,
+> `a:b` and `c:` open themselves, including via symlinks. `../../../../etc/passwd` is still
+> `NOTCAPABLE`, and the backslash spelling of it is `NOENT` (one odd filename), never `/etc/passwd`.
+> Windows is unchanged by the same guest run. Gates: unit **808/812 Windows, 812/812 Linux**;
+> `test-security` **3/3 on both** (Windows from an NTFS cwd, where the D: exFAT drive cannot create
+> the symlink fixtures); `features` 4/4 combos; size lib +204, ceiling raised. The analysis below is
+> kept as the record of what was wrong and how it hid.
+
+**Anchor:** `resolve`, `isAbsoluteTarget` and `pushReversed` in `src/wasi.zig` (`escapesRelative` has
+the same shape, read but not run). None has a platform branch. On Windows `\` is a separator and `:`
+means a drive or an alternate data stream, so refusing and splitting on them is correct there. On
+POSIX both are **ordinary filename bytes**, and WASI guest paths are POSIX-style by spec.
+
+**Measured on the FIRST NATIVE LINUX RUN** (WSL2, Ubuntu 26.04, ext4, Zig 0.16.0). A `wasm32-wasi`
+guest opened names whose file contents say which file they are, so a mis-resolution shows as the
+wrong content, not as a success:
+
+| guest opens | on Linux | class |
+| --- | --- | --- |
+| `x\y` (one legal file) | **opens `x/y`**, SUCCESS | 🚨 **silent wrong file** — a write overwrites `x/y` |
+| symlink → `x\y` | **opens `x/y`**, SUCCESS | 🚨 **silent wrong file** (`pushReversed` splits targets) |
+| symlink → `a:b` | **opens `b`**, SUCCESS | 🚨 **silent wrong file** — `isAbsoluteTarget` reads `t[1] == ':'` as a drive and strips `a:` |
+| `a:b`, `c:` | `NOTCAPABLE` | over-refusal (fail-closed) of legal names |
+
+⚠️ **No escape was observed and none is expected:** every wrong file sat inside the preopen, and the
+extra splitting only ever counts *more* `..` components. The strict security gate passes 3/3 natively.
+**This is data integrity, not confinement** — but it is the silent-wrong-output class, the worst one.
+
+🎓 **How it hid:** the unit suite **could not even compile on Linux** until the same day
+(`securityStrict` used Windows' `.global` environ block), and `zig build -Dtarget=x86_64-linux-gnu`
+exits 0 without compiling a single test. There is no CI. *A clean cross-compile was the only
+evidence, and it was evidence about the wrong artifact.* macOS runs the same code, so it is affected
+**by construction**, but has not been measured.
+
+**The fix, same shape as `splitPreopen`'s (v27):** make the separator set and the `:` checks
+platform-gated. On POSIX the separator is `/` alone and `:` is ordinary. Every Windows guard stays
+exactly as it is on Windows. ⚠️ **A change to the sandbox resolver: `security-model.md` governs it**,
+so it needs a native Linux run of `test-security` under `WAZMRT_SECURITY_STRICT=1` plus these four
+cases pinned as tests. Not started, pending the owner.
+
+**Surfaces when:** any POSIX guest touches a filename containing `\` or `:`. Both are common in the
+wild (Windows-origin archives, URL-derived names, `host:port` caches).
+
+---
+
 ## 🆕 `(@name "…")` is REFUSED on eleven name-bearing forms the canonical toolchain accepts (2026-09-20)
 
 **Anchor:** `honoured_name_forms` in `src/wat.zig`. wazmrt honours the override on **`module`, `func`
@@ -100,7 +151,7 @@ handling: a large, error-prone, Windows-specific lift out of all proportion to `
 **Reopens when:** Zig implements `Dir.hardLink` on Windows — so **recheck on every Zig upgrade**,
 along with the other two holes in that family.
 
-🔁 **RE-TESTED 2026-08-19 (Track H, H6) — condition still NOT met, and it was checked at the SOURCE.**
+🔁 **RE-TESTED 2026-08-19 (Track H, zH6) — condition still NOT met, and it was checked at the SOURCE.**
 Zig is still `0.16.0`, but a version number is not the condition and the SD-3 lesson below is exactly
 that: `lib/std/Io/Threaded.zig:9509` still reads `if (is_windows) return error.OperationUnsupported;` —
 **the same line this entry cites, unchanged.** SD-2 stays open. *(Method note: `hardLink` no longer
@@ -109,7 +160,7 @@ public `Io.Dir.hardLink` spelling alone finds nothing and could easily be misrea
 therefore reopened". Follow the vtable, not the public name.)*
 
 
-### 🔬 H1 — INVESTIGATED 2026-09-20 at the owner's direction. **The entry said TWO. There are 23.**
+### 🔬 zH1 — INVESTIGATED 2026-09-20 at the owner's direction. **The entry said TWO. There are 23.**
 
 🔒 Owner, 2026-09-20: *"The third delta needs to be investigated further. The wasmrt project doesn't
 seem to have that issue."* Findings, all measured:
@@ -122,12 +173,12 @@ validate.zig 3, interp.zig 3, capi.zig 2, and one each in sign/opcode/wast/wasi/
 named the two that a specific audit happened to walk past, and the shape of the entry — a table with
 exactly two rows — made that read as the population.*
 
-**2. The two named sites are not the whole family even within their own files.** H1-a cites
+**2. The two named sites are not the whole family even within their own files.** zH1-a cites
 `types.zig` `refHeap`; its invariant is actually enforced one level up in **`concreteRefEx`**, which
-has an `else => unreachable` of its own. H1-b cites the memory dispatch; `interp.zig` also has
+has an `else => unreachable` of its own. zH1-b cites the memory dispatch; `interp.zig` also has
 **`fieldFromBytes`** switching on `bytes.len` over 1/2/4/8 with the same shape. Neither was listed.
 
-**3. ⚠️ H1-a IS REACHABLE — not from module input, but from the PUBLIC API.** Traced both ways:
+**3. ⚠️ zH1-a IS REACHABLE — not from module input, but from the PUBLIC API.** Traced both ways:
 - **From a module: no.** The only input path is `refTypeValType` → `Module.refHead`, whose `.concrete`
   arm switches on `comp_types[ti].kind()` (always func/struct/array) and bounds-checks `ti` first. A
   malformed module cannot get there.
@@ -161,7 +212,7 @@ stated as a hypothesis and not a finding: Rust's `unreachable!()` panics in rele
 Zig's `unreachable` is UB in ReleaseSmall — so the same invariant expressed the same way fails safe
 there and unsafely here.
 
-### 🟡 H1-a / H1-b — two `unreachable`s that are safe TODAY by construction, not by check (Track H, 2026-08-19) — *the original entry, superseded above*
+### 🟡 zH1-a / zH1-b — two `unreachable`s that are safe TODAY by construction, not by check (Track H, 2026-08-19) — *the original entry, superseded above*
 
 **Neither is a defect and neither is reachable now.** They are logged because both are one edit away
 from being silent UB in the **shipped** build — `ReleaseSmall` compiles `unreachable` to nothing, so
@@ -169,16 +220,16 @@ the failure mode is not a panic but undefined behaviour.
 
 | # | site | why it holds | what would break it |
 | --- | --- | --- | --- |
-| **H1-a** | `types.zig` — `refHeap` switches a **2-bit** kind field (4 possible values) over **3** arms with `else => unreachable` | `concreteRefEx` is the **only** constructor of a concrete ref and it writes 0/1/2 | any second constructor, or a future heap kind (`exn`, `cont`) taking a concrete form |
-| **H1-b** | `interp.zig` — `else => unreachable` closing the memory-op dispatch | the caller pre-narrows `op` to the memory set | a **new memory opcode** added to the set without an arm — the shape that has bitten this project four times as "the emitter dropped a fact nobody read" |
+| **zH1-a** | `types.zig` — `refHeap` switches a **2-bit** kind field (4 possible values) over **3** arms with `else => unreachable` | `concreteRefEx` is the **only** constructor of a concrete ref and it writes 0/1/2 | any second constructor, or a future heap kind (`exn`, `cont`) taking a concrete form |
+| **zH1-b** | `interp.zig` — `else => unreachable` closing the memory-op dispatch | the caller pre-narrows `op` to the memory set | a **new memory opcode** added to the set without an arm — the shape that has bitten this project four times as "the emitter dropped a fact nobody read" |
 
 **Deliberately NOT "fixed" by turning them into errors.** Both are genuine invariants, and converting a
 a real invariant into a runtime branch costs bytes in a build whose size is gated to the byte, for a case
 that cannot occur. ⚠️ **The cost of being wrong is asymmetric, though**, which is why they are written
 down rather than left implicit.
 
-**REOPEN CONDITION — check H1-a when adding any `RefHeap` variant or any second concrete-ref
-constructor; check H1-b when adding a memory opcode.** Both are grep-able in seconds: `concreteRefEx`
+**REOPEN CONDITION — check zH1-a when adding any `RefHeap` variant or any second concrete-ref
+constructor; check zH1-b when adding a memory opcode.** Both are grep-able in seconds: `concreteRefEx`
 and the memory-op switch respectively.
 ### ✅ SD-3 — RETIRED 2026-08-18. `delegate` is implemented; **there are only TWO Standing Deltas**
 

@@ -214,7 +214,17 @@ A module exporting `_start` runs as a WASI command. Anything after the module
 path is passed through as the guest's `argv`, except the preopen flags:
 
 ```
-wazmrt files.wasm --dir ./data:/data --ro-dir ./assets:/assets --env LANG=C -- app args…
+wazmrt files.wasm --dir ./data::/data --ro-dir ./assets::/assets --env LANG=C -- app args…
+```
+
+A guest argument that is spelled exactly like a wazmrt flag must come after `--`.
+Written where only the guest would see it, an exact wazmrt flag name is an error,
+because it looks like it applies and would not:
+
+```sh
+wazmrt prog.wasm install --yes      # error: '--yes' would be passed to the GUEST
+wazmrt prog.wasm install -- --yes   # the guest receives --yes
+wazmrt prog.wasm install --yess     # not a wazmrt flag: passed through untouched
 ```
 
 `--dir <host>[:<guest>]` **preopens** a host directory and is the guest's *only*
@@ -223,6 +233,23 @@ and with one it can reach that directory and nothing above it. The guest sees it
 under `<guest>` (defaulting to the host path). wazmrt resolves guest paths itself
 and refuses absolute paths, `..` escapes, and NT/device prefixes — an interior
 `..` that stays inside is fine. See [`examples/wasi_files.zig`](examples/wasi_files.zig).
+
+**How to write `<host>`.** A relative path **must** start with `./` or `../`, so
+`--dir data` is an error: write `--dir ./data`. Accepted everywhere: `.`, `..`,
+`./p`, `../p` and `/p`. On Windows only: `C:/p`, `C:\p` and `\\server\share`.
+`C:` alone and `C:Users` are errors, because they mean "the current directory on
+drive C". Requiring `./` is what makes `q:/m` unambiguous: on Windows it is drive
+`Q:`, and a directory named `q` is `./q:/m`.
+
+**Separating host from guest.** `::` always separates and is never ambiguous;
+a single `:` also works. **Prefer `::` in Git Bash**, which rewrites `:` inside
+arguments before wazmrt sees them (`./data:/m` arrives as `.\data;M:\`).
+PowerShell, cmd and Linux shells pass `--dir` through unchanged.
+
+On Linux and macOS, `\` and `:` are ordinary filename characters, both in
+`--dir` and in the paths a guest opens: a guest can open a file named `a:b` or
+`x\y`, and a directory with a colon in its name is mounted with `::`
+(`--dir ./a:b::/m`).
 
 `--ro-dir` preopens a directory **read-only**: it hands out every read right but
 no mutating one (write, create, delete, rename, link, truncate, set-times). Because
