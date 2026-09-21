@@ -486,7 +486,12 @@ its `file:line` and why it was left.
 
 ---
 
-### ✅ Track B — Bug hunt + code hygiene. **COMPLETE 2026-09-20** `1.0.2` `[x]`
+### ✅ Track B — Bug hunt + code hygiene. **COMPLETE 2026-09-20, SHIPPED AS `1.0.2` 2026-09-21** `[x]`
+
+> 🔖 **`1.0.2` also carries the 2026-09-21 work:** the `--dir` host grammar, the POSIX WASI
+> resolver fix, and workspace letter H13 (module bodies match wasm-tools). Two of those are
+> breaking under `releasing.md`'s own definition; the owner kept the patch number deliberately:
+> *"Since the consumers are not involved yet, keep our cadence and release 1.0.2."*
 
 **Five named items (B-a, B-b, B-c 5/5, B-d, B-e) AND the general hunt (categories 3, 4, 5).**
 ⚠️ **NOT VERSIONED** — `releasing.md`'s checklist has not been run, and whether `1.0.2` ships is the

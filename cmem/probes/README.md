@@ -19,6 +19,12 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `posix-forms.ts` | the `--dir` grammar on a POSIX host; creates `a:b` and `back\slash` itself | `deno run -A posix-forms.ts <wazmrt> <abs module.wat>` |
 | `guest_names.zig` | a `wasm32-wasi` guest that opens names whose CONTENTS say which file they are | `zig build-exe guest_names.zig -target wasm32-wasi -O ReleaseSmall "-femit-bin=guest_names.wasm"` |
 | `guest-fixtures.ts` | the fixtures for it: `x\y`, `x/y`, `a:b`, `c:`, `b`, two symlinks | `deno run -A guest-fixtures.ts <dir>`, then `wazmrt guest_names.wasm --dir <dir>::/` |
+| `body-parity.ts` | letter H13: wazmrt's module BODIES vs `wasm-tools parse`, custom sections stripped, each difference classed as local-runs or other | `deno run -A body-parity.ts <wazmrt> <corpus dir> <out dir> [--list]` |
+| `pin-parity.ts` | `.wat` PIN parity: full-file equality (= equal pins) vs wasmrt's built binary, or vs `wasm-tools` | `deno run -A pin-parity.ts <wazmrt> <wasmrt.exe \| wasm-tools> <corpus dir> <out dir>` |
+| `type-order.ts` | one file's TYPE SECTION from wazmrt and wasm-tools side by side, differing indices marked | `deno run -A type-order.ts <wazmrt> <file.wat> <out dir>` |
+| `i14-interleave.wat` | the two-function module that separates "function by function" from "all signatures first" interning | with `type-order.ts` |
+| `h13-fixtures/` | the three minimal modules whose wasm-tools bytes the H13 unit test asserts | `body-parity.ts` on the dir: 3/3 same |
+| `h13-invert.ts` | undoes each H13 fix in turn; each must fail the unit test AND bring back its own corpus files. Restores `src/wat.zig` byte-for-byte | `deno run -A h13-invert.ts <repo root> <corpus dir> <out dir>` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -37,6 +43,13 @@ Zig 0.16.0, Deno 2.9.7:**
   `x/y`, and a symlink to `a:b` opened `b` (all SUCCESS, all the wrong file). `a:b` and `c:` were
   `NOTCAPABLE`. **AFTER:** each opens itself, `../../../../etc/passwd` is `NOTCAPABLE`, and its
   backslash spelling is `NOENT`. On Windows the same guest is unchanged by the fix.
+
+**2026-09-21, letter H13 (Windows, wasm-tools 1.259.0, the 532 `.wat` of `wasmtk/tests`):** bodies
+equal wasm-tools' on **64/528 before, 528/528 after**; the 464 were 460 local-runs + 2 export-order
++ 2 type-order. Full files (= `.wat` pins) after the fix: **528/528 identical to `wasm-tools parse`**,
+and **64/528 identical to wasmrt's 2026-09-20 build** (down from 528, until wasmrt fixes the same).
+All three fixes inversion-proven by `h13-invert.ts`. ⚠️ Its first draft reported one fix as
+unguarded because the sabotage did not COMPILE; it now builds first and says so.
 
 ## ⬜ Open: the macOS pass
 

@@ -6,7 +6,25 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `1.0.1` — Track H shipped 2026-08-19. It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `1.0.2` — Track B shipped 2026-09-21 (Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`1.0.2` CONTAINS TWO CHANGES THIS FILE'S OWN RULE CALLS BREAKING, and it is a patch number on
+> purpose (owner, 2026-09-21): *"Since the consumers are not involved yet, keep our cadence and
+> release 1.0.2."*** (1) `--dir` now refuses a bare relative host path (`--dir data:/m`), where it
+> used to work: "accepting less is breaking" (rule 4 below). (2) The assembler's output changed
+> (letter H13), so **every `.wat` pin made by `1.0.1` must be re-made**: under `# mode: enforce`, a
+> pinned `.wat` is refused until it is. `.wasm` pins are unaffected. ⚠️ **The reason is SCOPED to
+> "consumers not involved yet"**: once `universalWasmLoader-*`, wasmtk or rsxtk consume wazmrt, rule 4
+> binds again. Record the decision as said, and do not read it as a relaxation of the rule.
+>
+> ✅ **Checklist run 2026-09-21, every gate, in order:** track gate (Track B, done 2026-09-20) ·
+> `test` 810/814, `test-safe` 808/812, `test-shipped` 808/812, all +6 on baseline with the constant
+> gap of 2 accounted (`version_agreement` runs under `test` only) · `test-security` 3/3 from an NTFS
+> cwd · conformance 288 / 64,092 / 0 failed / 0 skipped, baseline file empty · `features` 4/4 ·
+> size EXACT (exe 1,022,976 / lib 1,072,594 / dll 921,088) · `capi-smoke` ✅ · standalone: exe and
+> dll import only `ntdll` + `KERNEL32`, and the exe copied to an empty dir with `PATH` cut to the
+> system dirs prints `wazmrt 1.0.2 (abi 2)` and runs a WASI module · four places bumped, grep clean,
+> the version test green. 🐧 **Beyond the checklist: 814/814 and `test-security` 3/3 on native Linux.**
 
 > 🤝 **LOCKSTEP ENGAGES WHEN wasmrt REACHES `1.0.1` (owner, 2026-09-21)**, and from then neither
 > runtime releases alone (`interop.md` §1e, gate 11 below). 🔒 **`1.0.2` ships BEFORE that** (owner,
@@ -61,7 +79,7 @@ odometer rule means it cannot be extended by widening a component.
 | --- | --- |
 | **`1.0.0`** | ✅ set 2026-08-19 — the state in the table above |
 | **`1.0.1`** | ✅ **Track H** — hardening (shipped 2026-08-19) |
-| **`1.0.2`** | **Track B** — bug hunt + code hygiene |
+| **`1.0.2`** | ✅ **Track B** — bug hunt + code hygiene (shipped 2026-09-21, with the `--dir` grammar, the POSIX resolver fix and letter H13) |
 | **`1.0.3`** | **Track O** — optimization review |
 | **`1.0.4`** | **Track S** — security review |
 | `1.0.5` … `1.0.9` | whatever follows; the release after `1.0.9` is `1.1.0` |

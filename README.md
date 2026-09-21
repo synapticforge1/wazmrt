@@ -388,13 +388,20 @@ tree, hashes each `.wasm`/`.wat` (assembling `.wat` first so the hash matches th
 binary that runs), and appends them all. A `.wat` is assembled before hashing;
 non-module files are skipped.
 
-A `.wat` digest is **portable in practice**: wazmrt's assembler emits the same
-bytes a `wasm-tools`-based toolchain does — including the `name` custom section
-built from the identifiers in the text — so a pin recorded with one matches the
-module the other assembles. Measured over the 954 `.wat` files of the `wasmtk`
-corpus that both assemble: all 954 agree. (Warnings about files that could not be assembled are
-printed alongside the pin lines — filter on the `<64-hex>  <path>` shape when
-redirecting the output into a database file.)
+A `.wat` digest is **portable in practice**: since 1.0.2, wazmrt's assembler
+emits byte-for-byte what `wasm-tools parse` emits, including the `name` custom
+section built from the identifiers in the text, so a pin recorded with one
+matches the module the other assembles. Measured over the 528 `.wat` files of
+the `wasmtk` test corpus that both assemble: all 528 are identical. (Warnings
+about files that could not be assembled are printed alongside the pin lines —
+filter on the `<64-hex>  <path>` shape when redirecting the output into a
+database file.)
+
+> ⚠️ **Upgrading from 1.0.1: re-pin your `.wat` modules.** 1.0.2 encodes some
+> modules differently (local declarations grouped into runs, exports in source
+> order, types numbered in first-use order), so a `.wat` pinned by 1.0.1 usually
+> hashes differently now and is refused under `mode: enforce` until it is re-pinned.
+> `.wasm` pins are unaffected.
 
 The database is meant to be **root-owned and read-only to the user** (created at
 install time, with privilege); wazmrt only ever reads it. Its first line may set

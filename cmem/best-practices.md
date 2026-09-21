@@ -1688,3 +1688,25 @@ decision (`1.0.2` ships first) showed the constraint had never been theirs. 🔒
 the speaker's words. Mark anything derived from it as a reading, and ask before a derived constraint
 blocks work.** *A precise reading of an imprecise phrase is a guess wearing a decision's clothes.* —
 2026-09-21, `interop.md` §1e (corrected the same day)
+
+---
+
+### 🎓 Two implementations agreeing is not two implementations being right — compare to the CANONICAL one
+
+The Z4 gate compared wazmrt's `.wat` output to wasmrt's and reached **954/954**. That was true, and
+the README turned it into "emits the same bytes a wasm-tools-based toolchain does", which was not:
+against wasm-tools the bodies agreed on **64/528**. Both runtimes wrote one local group per local,
+deferred exports to the end, and interned every signature before any block type. **They shared
+the divergences, so a differential between them could not see any of them.** After the fix, 528/528
+full files equal `wasm-tools parse`. 🔒 **When a canonical implementation exists, the gate compares
+to IT; a sibling-to-sibling differential only finds where the two disagree with each other.** Also:
+**a claim's wording must name what was compared.** "Portable" had been measured against one
+thing and written about another. — 2026-09-21, letter H13, `interop.md` v29
+
+### 🎓 An inversion whose sabotage does not compile proves nothing — build before you judge
+
+`probes/h13-invert.ts` first reported one fix as **unguarded**: the unit test "did not fail" when the
+fix was removed. In fact the sabotaged source never compiled (Zig rejects `_ = t;` for a used `t`),
+so no test ran at all. 🔒 **An inversion harness must build first and report "no verdict" on a
+build failure**, never "passed" or "unguarded". *The absence of a failure is only evidence if the
+thing that could fail actually ran.* — 2026-09-21, `probes/h13-invert.ts`
