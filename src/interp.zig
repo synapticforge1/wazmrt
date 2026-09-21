@@ -4904,7 +4904,7 @@ const ConstCtx = struct {
     /// element initializer produces a funcref that names THAT instance. Null in
     /// the offset-only contexts, which cannot contain `ref.func`.
     store_slot: ?u32 = null,
-    /// 🔒 **The instance's CONFIGURED GC ceiling — H2, 2026-08-19.** Const-exprs
+    /// 🔒 **The instance's CONFIGURED GC ceiling — zH2, 2026-08-19.** Const-exprs
     /// run before an `Instance` exists, so this path used to check
     /// `default_max_gc_objects` directly and an embedder's lowered ceiling was
     /// **silently ignored** for every object a global or element initializer
@@ -5010,7 +5010,7 @@ fn evalConstGc(ctx: ConstCtx, r: *Reader, stack: *[16]Value, sp: *usize) Error!v
     const alloc = struct {
         fn f(h: *std.ArrayList(Instance.HeapObject), g: std.mem.Allocator, slot: u32, ti: u32, fields: []Value, desc: Value, max: usize) Error!Value {
             const idx = h.items.len;
-            // 🔒 The INSTANCE's ceiling, threaded in via `ConstCtx` (H2,
+            // 🔒 The INSTANCE's ceiling, threaded in via `ConstCtx` (zH2,
             // 2026-08-19). ⚠️ This used to read `default_max_gc_objects`
             // directly, under a comment calling it "a test helper with no
             // Instance in hand" — but this path runs during REAL instantiation
@@ -6838,7 +6838,7 @@ test "wide-arithmetic: the (lo, hi) operand order, which NO type check can catch
     }
 }
 
-test "H3: the iteration budget stops BOTH shapes of non-termination" {
+test "zH3: the iteration budget stops BOTH shapes of non-termination" {
     // 🔒 **THE INVERSION TEST FOR THE BUDGET, AND IT NEEDS TWO CASES, NOT ONE.**
     // A guest can run forever in exactly two ways, and a design that ticks only
     // the obvious one ships a limit with a hole in it:
@@ -6906,7 +6906,7 @@ test "H3: the iteration budget stops BOTH shapes of non-termination" {
     }
 }
 
-test "H3: the budget REFILLS per top-level call and is not consumed cumulatively" {
+test "zH3: the budget REFILLS per top-level call and is not consumed cumulatively" {
     // A budget that is spent once and never refilled would let the first call
     // succeed and fail every later one — a runtime that gets slower and then
     // stops, with no diagnosis. Three identical calls, each needing most of the
@@ -6939,8 +6939,8 @@ test "H3: the budget REFILLS per top-level call and is not consumed cumulatively
     }
 }
 
-test "H2: a CONFIGURED gc ceiling binds the const-expr path, not just the run path" {
-    // 🔒 **THE INVARIANT-SWEEP FINDING, 2026-08-19 (Track H2).** `max_gc_objects`
+test "zH2: a CONFIGURED gc ceiling binds the const-expr path, not just the run path" {
+    // 🔒 **THE INVARIANT-SWEEP FINDING, 2026-08-19 (Track zH2).** `max_gc_objects`
     // had TWO enforcement sites and they did not agree: `Instance.allocObject`
     // checked `self.max_gc_objects` (the embedder's configured value), while the
     // const-expr allocator in `evalConstGc` checked `default_max_gc_objects` —

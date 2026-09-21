@@ -39,21 +39,21 @@ test; now make it hold up against things we do not test."*
 
 | item | outcome |
 | --- | --- |
-| **H1** — ReleaseSmall safety sweep | ✅ 3 construct classes swept **in full**, zero defects; the un-fuzzed surfaces (C ABI 9, WASI 25) read individually and clean; the rest now covered **mechanically** by H5 |
-| **H2** — resource ceilings, per entry point | ✅ 6 ceilings × 11 allocation paths tabled — **1 real defect found and fixed** |
-| **H3** — execution bound | ✅ shipped, measured, contract row §3.7a |
-| **H4** — re-measure the baselines | ✅ size **and** speed, so Track O is unblocked |
-| **H5** — fuzz coverage | ✅ **execution is fuzzed for the first time**, inversion-proven |
-| **H6** — SD-2 reopen condition | ✅ re-tested at the source; stays open |
-| **H7** — misplaced-flag warning | ✅ **added AFTER the track shipped** — found by cross-coordination; fail-open flags now warn; **zero bytes** |
-| **H8** — `--features` position | ✅ **added AFTER the track shipped, 2026-09-19** (owner) — writing it after the module path was **silently ignored**, so a run the user restricted to `mvp` executed under the FULL feature set with rc 0. Now an error; help + README state the position. `interop.md` **§2.4b / v16** |
+| **zH1** — ReleaseSmall safety sweep | ✅ 3 construct classes swept **in full**, zero defects; the un-fuzzed surfaces (C ABI 9, WASI 25) read individually and clean; the rest now covered **mechanically** by zH5 |
+| **zH2** — resource ceilings, per entry point | ✅ 6 ceilings × 11 allocation paths tabled — **1 real defect found and fixed** |
+| **zH3** — execution bound | ✅ shipped, measured, contract row §3.7a |
+| **zH4** — re-measure the baselines | ✅ size **and** speed, so Track O is unblocked |
+| **zH5** — fuzz coverage | ✅ **execution is fuzzed for the first time**, inversion-proven |
+| **zH6** — SD-2 reopen condition | ✅ re-tested at the source; stays open |
+| **zH7** — misplaced-flag warning | ✅ **added AFTER the track shipped** — found by cross-coordination; fail-open flags now warn; **zero bytes** |
+| **zH8** — `--features` position | ✅ **added AFTER the track shipped, 2026-09-19** (owner) — writing it after the module path was **silently ignored**, so a run the user restricted to `mvp` executed under the FULL feature set with rc 0. Now an error; help + README state the position. `interop.md` **§2.4b / v16** |
 
 🎓 **THE TRACK'S LESSON, and it is not about any one bug: the two most valuable findings were holes in
 the GATE SET, not in the code.** The corpus had never run in the config that ships, and the
 interpreter had never been fuzzed at all. Both were invisible to every existing gate *because* the
 gates were the thing that was wrong — a suite that passes cannot report the test nobody wrote.
 
-##### ✅ H8's finding — the one flag that REFUSES modules was silently dropped
+##### ✅ zH8's finding — the one flag that REFUSES modules was silently dropped
 
 🔒 **Owner, 2026-09-19:** *"we need an error thrown when it is in the wrong location."*
 
@@ -64,15 +64,15 @@ got no error and no warning, and ran with SIMD, GC, atomics and exception machin
 
 ⚠️ **It fell between the two mechanisms that exist to catch exactly this.** `flagRegion` deliberately
 excludes `--features` — a guest's own `--features mvp` must never narrow the language, the same
-reasoning that keeps `--no-verify` out of the trailing region. **H7 warns only for names in those same
+reasoning that keeps `--no-verify` out of the trailing region. **zH7 warns only for names in those same
 lists.** So the flag had no position in which being wrong was noticed. 🎓 *A rule that names the things
 it guards will not guard the thing it does not name* — and this is the **third** time this project has
-found a configured restriction that silently did not apply (H2's GC ceiling, §2.4's `install --yes`,
+found a configured restriction that silently did not apply (zH2's GC ceiling, §2.4's `install --yes`,
 now this). **All three were fail-OPEN, and all three were invisible to a green suite.**
 
 **Fixed** by `misplacedFeaturesFlag`, a walk that mirrors `flagRegion`'s over the same two lists and
 errors when a `--features` spelling appears in the leading host-flag run. ⚠️ **Error, not warn** — the
-token is in a position where the user is unambiguously addressing wazmrt, unlike H7's case where the
+token is in a position where the user is unambiguously addressing wazmrt, unlike zH7's case where the
 guest may legitimately own the spelling. Nothing after `--` or after the first guest argument is
 examined. **Inversion-tested**: stubbing the detector to `return null` fails the new test; restored,
 the suite is green at **767** (4 skipped — the known exFAT symlink cases on a `D:` cwd).
@@ -82,7 +82,7 @@ USAGE and in the FEATURE FLAGS entry, and in the README's `--features` section r
 its closing paragraph. *A constraint documented only where the reader already knows to look is not
 documented.*
 
-##### ✅ H2's finding — a configured ceiling that silently did not apply
+##### ✅ zH2's finding — a configured ceiling that silently did not apply
 
 `max_gc_objects` had **two** enforcement sites that did not agree: the run path (`allocObject`) checked
 the instance's **configured** ceiling; the const-expr path (`evalConstGc`) checked
@@ -101,14 +101,14 @@ check makes the new test fail (and leak, which is the const-expr path unwinding)
 That is the *"three of the four do X"* shape, and it is the fourth time this project has hit it.
 ⚠️ **The GC ceiling had NO test at all before this**; it was configurable, documented, and unverified.
 
-##### ✅ H5 — the interpreter is fuzzed now, and it was blocked on H3
+##### ✅ zH5 — the interpreter is fuzzed now, and it was blocked on zH3
 
 `fuzz.zig` covered decode / instantiate / assemble but **explicitly refused to execute**, with a stated
 reason: *"the interpreter has no instruction/fuel limit, so a fuzzed infinite loop would hang the
-fuzzer."* **H3 removed that reason.** `_start` and every export are now invoked on every mutated
+fuzzer."* **zH3 removed that reason.** `_start` and every export are now invoked on every mutated
 module under a 10 000-iteration budget.
 
-🎯 **This is the mechanical answer to most of H1's residual.** The interpreter is where the
+🎯 **This is the mechanical answer to most of zH1's residual.** The interpreter is where the
 guest-controlled `@intCast`s, slice indices and arithmetic live, and in `ReleaseSmall` every one of
 those checks is compiled out — so running mutated modules under `test-safe` reaches sites no
 hand-written test enumerates. Clean on the first run, under both Debug and ReleaseSafe.
@@ -116,7 +116,7 @@ hand-written test enumerates. Clean on the first run, under both Debug and Relea
 ⚠️ **Two seeds that NEVER TERMINATE are now in the corpus**, one per shape (`(loop (br 0))` and
 `(func $f (return_call $f))`), so the sweep's dependence on the budget is permanent and loud.
 ✅ **Inversion-proven**: setting the fuzz budget to unlimited makes `zig build test` **hang** (killed at
-120 s); restoring it returns to green. **Delete H3 and this file stops finishing** — which is exactly
+120 s); restoring it returns to green. **Delete zH3 and this file stops finishing** — which is exactly
 how the two should be tied together.
 
 🎓 *A refusal outlives its cause silently.* The comment explaining why execution was excluded was
@@ -124,7 +124,7 @@ correct when written and false for as long as it took to read it again. **The no
 refusal is the thing to re-read when the limitation is lifted** — nothing else points at it.
 
 
-##### ✅ H7 — a MISPLACED wazmrt flag is no longer silent (found by cross-coordination, 2026-08-19)
+##### ✅ zH7 — a MISPLACED wazmrt flag is no longer silent (found by cross-coordination, 2026-08-19)
 
 **Track H was already committed when the sibling's annex found this**, and it is the clearest argument
 for the coordination cadence existing at all: **nothing in wazmrt's own gate set was ever going to
@@ -170,10 +170,10 @@ that never fires.
 📏 **Cost: ZERO bytes.** All three ceilings unchanged and still EXACT.
 
 🎓 **THE LESSON, and it is about the METHOD, not the flag: I shipped the defect myself, hours earlier.**
-`--max-iterations` was added in H3 and is the flag the demonstration uses. A hardening track audited
+`--max-iterations` was added in zH3 and is the flag the demonstration uses. A hardening track audited
 the interpreter, the ceilings, the casts and the fuzzer — and did not audit **the surface it had just
 added to**. *A change's own new surface is the one place the audit that produced it will not look.*
-##### 📊 H4 — the baselines Track O was blocked on
+##### 📊 zH4 — the baselines Track O was blocked on
 
 | metric | value |
 | --- | --- |
@@ -225,7 +225,7 @@ was injected, `test-shipped` reported `758/760 · 2 failed`, and the test was re
 re-confirmed green. ⚠️ **It was always possible to run this by hand (`zig build test
 -Doptimize=ReleaseSmall`) and nobody ever had — a flag you have to remember is not a gate.**
 
-##### H1 — the ReleaseSmall safety sweep: three classes swept ENTIRELY, zero defects
+##### zH1 — the ReleaseSmall safety sweep: three classes swept ENTIRELY, zero defects
 
 Swept as tables, not read-throughs. **What was checked in full:**
 
@@ -251,7 +251,7 @@ Swept as tables, not read-throughs. **What was checked in full:**
 allocation-bounded). Bucketed by file — `interp.zig` 58, `wasi.zig` 25, `wat.zig` 23, `capi.zig` 9,
 `validate.zig` 7, others 25 — and the interpreter's 58 were scanned and are dominated by
 **post-bounds-check narrowings** (`@intCast(slot)` after `if (slot >= len) return error…`) and
-`@mod`-guarded shift amounts. **They still need the table treatment**, and that is the next H1 step.
+`@mod`-guarded shift amounts. **They still need the table treatment**, and that is the next zH1 step.
 
 **Two documented fragilities — not defects, and worth a defensive line each:**
 
@@ -261,16 +261,16 @@ allocation-bounded). Bucketed by file — `interp.zig` 58, `wasi.zig` 25, `wat.z
 2. `interp.zig:3894` — `else => unreachable` closing the memory-op dispatch. Correct while the caller
    pre-narrows `op`; a newly added memory opcode that misses an arm lands there.
 
-##### H4 — size half ✅ done (ceilings EXACT, above). Speed/startup baselines still to re-measure.
+##### zH4 — size half ✅ done (ceilings EXACT, above). Speed/startup baselines still to re-measure.
 
-##### H6 — ✅ done. **SD-2 re-tested at the SOURCE, not inferred from the version number**
+##### zH6 — ✅ done. **SD-2 re-tested at the SOURCE, not inferred from the version number**
 
 Zig is still **0.16.0**, but the point of the SD-3 habit is that a version number is not the condition.
 Read it directly: `lib/std/Io/Threaded.zig:9509` is still `if (is_windows) return
 error.OperationUnsupported;` — **the exact line the entry cites, unchanged.** SD-2 **stays open**,
 condition **not** met, verified 2026-08-19.
 
-##### ✅ H3 — DONE 2026-08-19. **The iteration budget: a guest that never returns now TRAPS.**
+##### ✅ zH3 — DONE 2026-08-19. **The iteration budget: a guest that never returns now TRAPS.**
 
 **Owner decision, 2026-08-19:** *"we do not want an infinite loop on purpose or by accident by the
 user — we need an internal check mechanism, an error message to the user, and a break on
@@ -322,12 +322,12 @@ across calls.
 ports link — **did not move at all**; the growth is CLI flag-parsing and the message string.
 Ceilings raised in the same change with the reason recorded (`tools/size-ceilings.txt`).
 
-🔓 **H5 is now unblocked** — execution was excluded from `fuzz.zig` only because a fuzzed
+🔓 **zH5 is now unblocked** — execution was excluded from `fuzz.zig` only because a fuzzed
 `(loop br 0)` would hang the fuzzer, and it can no longer hang.
 
-##### 🤝 H3 IS A CONTRACT ROW NOW — and coordinating it surfaced work on BOTH sides
+##### 🤝 zH3 IS A CONTRACT ROW NOW — and coordinating it surfaced work on BOTH sides
 
-**`interop.md` §3.7a, CONTRACT VERSION 5.** H3 was built while that file still said *"neither has one"*,
+**`interop.md` §3.7a, CONTRACT VERSION 5.** zH3 was built while that file still said *"neither has one"*,
 which §1 rule 1 forbids (*coordinate BEFORE shipping a contract surface, not after*). ⚠️ **The breach is
 recorded in the contract rather than tidied away** — it is why the owner then made **`coordinate`** a
 one-word binding order (`INDEX.md`, and `interop.md` §1).
@@ -436,7 +436,7 @@ runtime safety checks, and `ReleaseSmall` is what ships** (`design-decisions.md`
 `src/fuzz.zig` and `test-security` ARE the memory-safety floor** — not a nice-to-have on top of one. Every
 item below follows from that.
 
-- **H1 — the ReleaseSmall safety sweep.** Enumerate every construct whose safety check *vanishes in the
+- **zH1 — the ReleaseSmall safety sweep.** Enumerate every construct whose safety check *vanishes in the
   shipped build* on a path reachable from guest-controlled or file-controlled data: `unreachable`,
   `catch unreachable`, `@intCast`, `@truncate` used as a narrowing assumption, `@ptrCast`/`@alignCast`,
   raw slice indexing, and `orelse unreachable`. Each one is then either (a) proven unreachable by a
@@ -445,13 +445,13 @@ item below follows from that.
   the exercise is the untested ones. **Method: the invariant sweep (see Track S) — a table of every site,
   not a read-through.**
 
-- **H2 — resource ceilings, enumerated rather than assumed.** The C ABI exposes real per-engine ceilings
+- **zH2 — resource ceilings, enumerated rather than assumed.** The C ABI exposes real per-engine ceilings
   (`wazmrt_config_set_*`, `max_call_depth` default 512) and `sexpr.zig` refuses a `((((…`-bomb at depth
   1024. **Table every allocation path and every recursion path, then check each honours its ceiling.**
   The bug this looks for is the "three of the four do X" shape, which has already bitten this project
   twice.
 
-- **H3 — 🚦 DECISION GATE: there is no instruction or fuel limit, so a hostile guest can hang the host.**
+- **zH3 — 🚦 DECISION GATE: there is no instruction or fuel limit, so a hostile guest can hang the host.**
   `src/fuzz.zig` states it outright, and it is why **execution is deliberately not fuzzed**: a fuzzed
   `(loop br 0)` would hang the fuzzer. `max_call_depth` bounds *recursion*, nothing bounds *time*. The
   embedder has no interrupt and no timeout. **This is an owner decision, not an implementation choice** —
@@ -462,26 +462,26 @@ item below follows from that.
   **Whatever is decided, it must be written down** — an undocumented unbounded loop is a surface Track S
   will find anyway, and finding it twice costs more than deciding it once.
 
-- **H4 — re-measure everything Track O will be judged against.** Size (all three artifacts, EXACT against
+- **zH4 — re-measure everything Track O will be judged against.** Size (all three artifacts, EXACT against
   `tools/size-ceilings.txt`), `decode → validate → instantiate` (a **first-class** metric since the
   dev-loop decision), steady-state throughput, and cold start. **An optimization review without a
   baseline is guesswork**; O cannot start until these numbers exist and are recorded so every proposal
   can be stated as a delta. ⚠️ The last time nobody re-checked, the shipped artifacts **roughly doubled
   in a month** while "smallest binary" was a stated goal. *A goal with no gate is a preference.*
 
-- **H5 — fuzz coverage, and what H3 unlocks.** `src/fuzz.zig` fuzzes decode/validate/instantiate and the
-  text front end; **execution is excluded only because of H3.** If H3 lands any bound, execution becomes
+- **zH5 — fuzz coverage, and what zH3 unlocks.** `src/fuzz.zig` fuzzes decode/validate/instantiate and the
+  text front end; **execution is excluded only because of zH3.** If zH3 lands any bound, execution becomes
   fuzzable and this item grows an `invoke` target. Also worth a pass: the `.wast` and `.wat` lexers (the
   `annotations.wast` lexer death was found by a corpus count, not by a fuzzer) and the C ABI lifecycle
   (that fuzz has already paid for itself — see `capi.zig`'s header comment).
 
-- **H6 — re-test the deferred entries' reopen conditions.** SD-2 (`path_link` ENOTSUP, upstream Zig) is
+- **zH6 — re-test the deferred entries' reopen conditions.** SD-2 (`path_link` ENOTSUP, upstream Zig) is
   trigger-based: **re-check it on every Zig upgrade, and re-check it when PRICING it.** That habit is
   what SD-3 taught — its condition had already been met on the day it was written and nobody looked.
 
 **Gate:** zero regressions on all gates in `releasing.md`'s checklist, with **counts diffed** rather than
-exit codes checked; the size ceilings still EXACT or moved deliberately with the reason recorded; H4's
-numbers written into `testing.md`; and every H1/H2 site either fixed or listed in `known-issues.md` with
+exit codes checked; the size ceilings still EXACT or moved deliberately with the reason recorded; zH4's
+numbers written into `testing.md`; and every zH1/zH2 site either fixed or listed in `known-issues.md` with
 its `file:line` and why it was left.
 
 ---
@@ -815,8 +815,8 @@ the test is inversion-proven (the mutant fails 2 tests).
 🎓 **The "one list, because a second copy would drift" comment sits directly above that list and the
 drift had happened anyway** — the list was in one place and the PARSER was reading a different
 vocabulary. *A list kept in one place is not the same as a list kept in agreement with its consumer.*
-That is the **third** configured restriction this project has found silently not applying, after H2's
-GC ceiling and H8's `--features`. All three were fail-OPEN and all three were invisible to a green suite.
+That is the **third** configured restriction this project has found silently not applying, after zH2's
+GC ceiling and zH8's `--features`. All three were fail-OPEN and all three were invisible to a green suite.
 
 #### ~~B-b~~ — original scope, retained for the record `[x]`
 
@@ -851,7 +851,7 @@ dropped only on the run where everything else succeeded.
 ⚠️ **Z2 is the one that can be over-fixed.** Erroring on anything flag-shaped is wrong and §2.4 already
 records what it costs: `… prog.wasm install --yes` must reach the guest untouched, or a guest's own
 `--yes` silently disables verification — **a trap this project has already paid for once.** The rule is
-resolved by **position**, not by spelling. **H7 stays and is complementary**: a *known* host flag
+resolved by **position**, not by spelling. **zH7 stays and is complementary**: a *known* host flag
 stranded in a guest position still only **warns** (it may be the guest's own); an *unknown* one in a
 **host** position **errors**.
 
@@ -1150,7 +1150,7 @@ commits** and was never attributed, because nothing ever measured it. Ceiling no
 2026-09-20 nobody had.** `main` at `41a96aa3` was **4,608 bytes over the exe ceiling**: `0a48957a`
 (B-b) and `22437455` (B-c1/c3/c5) both grew the CLI without raising the number, which
 `tools/size-ceilings.txt`'s own header says every growth must do *in the same commit*. The ceiling
-was last touched by Track H2.
+was last touched by Track zH2.
 
 🎓 **A rule nobody has watched fail is not enforcement** — the same argument that turned the ABI
 version into a real gate, and B-5 already lists it as this track's documentation theme. The exact
@@ -1169,7 +1169,7 @@ that refusal is correct.
 build, and the C ABI's own call overhead. **A change that wins a microbenchmark and moves none of those
 has not earned its complexity.**
 
-- **Blocked on H4's baselines.** Non-negotiable: every proposal is stated as a delta against a recorded
+- **Blocked on zH4's baselines.** Non-negotiable: every proposal is stated as a delta against a recorded
   number, or it is an opinion.
 - **The size gate is the referee.** Speed and `ReleaseSmall` genuinely pull against each other, so
   **every optimization pays its way in measured bytes** against the ceilings. Reject on measured
@@ -1191,11 +1191,11 @@ has not earned its complexity.**
 - ⚠️ **~90% of the CLI benchmark is process spawn.** Measure the engine pipeline with spawn excluded
   (`zig build phases`), or the number is about Windows, not about wazmrt.
 
-- ✅ **RESOLVED BY MEASUREMENT 2026-08-19 — H4's baseline row was measured on a TOY-SCALE module, not on
+- ✅ **RESOLVED BY MEASUREMENT 2026-08-19 — zH4's baseline row was measured on a TOY-SCALE module, not on
   anything a consumer runs.** The row recorded no module set and disagreed ~100× with Track 3's. Re-ran
   `bench hash` **4×** on the 70-byte module `zig build bench` emits:
 
-  | | measured (4 runs) | H4's row | verdict |
+  | | measured (4 runs) | zH4's row | verdict |
   | --- | --- | --- | --- |
   | decode | 0.54–0.66 µs | 0.56–0.58 µs | ✅ contains it |
   | decode+instantiate | 1.39–1.62 µs | 1.23–2.56 µs | ✅ inside |
@@ -1203,14 +1203,14 @@ has not earned its complexity.**
 
   ⚠️ **CORRECTION to the first pass of this entry, which claimed "three of three, the first to two
   decimals":** one run looked like an exact match and four runs do not. The validate delta reproduces
-  *above* H4's range, so the row is **toy-SCALE — not provably this exact module.** The conclusion is
+  *above* zH4's range, so the row is **toy-SCALE — not provably this exact module.** The conclusion is
   unchanged and is the part that matters: **`4 336–6 772×` is wasmtime's fixed compile-and-write floor
   divided by a ~70-byte module and must never be quoted as an engine ratio.** `testing.md` has carried
   the standing correction for that range since 2026-07-16 (*"quote ~4.4 ms as a real script's cold
   start, not 0.8 µs"*) and `bench/bench.zig:38` says it in the source. 🎓 *A single run that matches a
   recorded number to two decimals is a coincidence you can afford to check.*
 
-  🎯 **First O item: supersede the H4 row with a NAMED module set.** Same box, ReleaseFast bench binary,
+  🎯 **First O item: supersede the zH4 row with a NAMED module set.** Same box, ReleaseFast bench binary,
   4 runs, ranges not medians:
 
   | module | bytes | decode | validate Δ | instantiate Δ | cold start | dec+val share |
@@ -1238,7 +1238,7 @@ has not earned its complexity.**
   validate's IR to instantiate** instead of re-decoding it, and **(b) decode bodies lazily**, only for
   functions actually called. ⭐ **This ranks ABOVE the IR cache below it**: same cost attacked with **no
   new format, no trust boundary, no serializer bytes**, and no emitter-asymmetry hazard. ⚠️ Price the
-  memory trade — keeping validate's IR raises peak footprint, which is an H2 ceiling question as well as
+  memory trade — keeping validate's IR raises peak footprint, which is an zH2 ceiling question as well as
   a speed one. 🔗 **Stays in O rather than B** (considered and rejected 2026-08-19): it is a redundancy
   with a **trade-off**, not a defect — nothing computes a wrong answer — and the ladder's order is
   load-bearing, so moving it into B would optimize code **before** the bug hunt that may change it.
@@ -1290,7 +1290,7 @@ dependencies, `ReleaseSmall` and the size ceilings, and those trades are the own
 So the method is **not** "audit file by file". It is: **name an invariant, enumerate EVERY entry point in
 a table, check the property at each.** One table per invariant. Candidates worth a table each:
 validation before execution; **bounds-checking every guest-derived index**; store/handle tagging on every
-C-ABI handle; **resource ceilings honoured on every allocation path** (shared with H2); the
+C-ABI handle; **resource ceilings honoured on every allocation path** (shared with zH2); the
 `-Dwat`/`-Dwasi` build combinations (a feature-gated arm that silently no-ops is the same class); and
 **pin/signature verification on every path that executes bytes**.
 
@@ -1298,8 +1298,8 @@ C-ABI handle; **resource ceilings honoured on every allocation path** (shared wi
 
 - 🔒 **`ReleaseSmall` ships without Zig's safety checks.** This is the single biggest input to the threat
   model and it is a *decided* trade, not an oversight. S's job is to say what it costs and whether any
-  path needs a check that survives it — H1 is the inventory, S is the judgement.
-- ⚠️ **Unbounded execution (H3).** If H3 decided "the embedder must bound it", S records that as an
+  path needs a check that survives it — zH1 is the inventory, S is the judgement.
+- ⚠️ **Unbounded execution (zH3).** If zH3 decided "the embedder must bound it", S records that as an
   accepted risk **with the mitigation an embedder is expected to implement**, not as a silent gap.
 - **The WASI sandbox.** `test-security` must be **3/3 from an NTFS cwd** — ⚠️ **a SKIP here is a
   FAILURE**, and this is exactly the track where a self-skipping escape test is worthless. Do not accept

@@ -29,13 +29,13 @@
 //! vendored as binaries, so the corpus needs no fixture files and stays honest
 //! about what the current assembler accepts.
 //!
-//! ▶️ **Instruction EXECUTION is fuzzed too, since Track H5 (2026-08-19).**
+//! ▶️ **Instruction EXECUTION is fuzzed too, since Track zH5 (2026-08-19).**
 //! `_start` and every exported function are invoked on the mutated module under
 //! a small iteration budget.
 //!
 //! ⚠️ **This paragraph used to say the opposite**, and the reason it gave was
 //! real: *"the interpreter has no instruction/fuel limit, so a fuzzed infinite
-//! loop (`(loop br 0)`) would hang the fuzzer."* **H3 removed that reason** — a
+//! loop (`(loop br 0)`) would hang the fuzzer."* **zH3 removed that reason** — a
 //! runaway guest now traps `IterationLimitExceeded` — so the exclusion became a
 //! workaround for a limitation that no longer existed. 🎓 *A refusal outlives
 //! its cause silently; the note that explains one is the thing to re-read when
@@ -68,11 +68,11 @@ const seed_wat = [_][]const u8{
     "(module (func (export \"f\") (param i32) (result i32) (block (result i32) (loop (result i32) (br_if 1 (local.get 0)) (i32.const 3)))))",
     "(module (func (export \"f\") (result i32 i32) (i32.const 1) (i32.const 2)))",
     "(module (memory 1) (func (export \"f\") (result i32) (memory.grow (i32.const 1))))",
-    // ▶️ Track H5: two seeds that NEVER TERMINATE, one of each shape. They make
+    // ▶️ Track zH5: two seeds that NEVER TERMINATE, one of each shape. They make
     // the sweep's dependency on the iteration budget explicit and permanent —
     // every run now invokes a guaranteed-runaway function and must come back.
     // ⚠️ Delete the budget and this file hangs instead of failing, which is the
-    // loudest possible way to keep H3 and H5 tied together.
+    // loudest possible way to keep zH3 and zH5 tied together.
     "(module (func (export \"spin\") (loop (br 0))))",
     "(module (func $t (export \"tailspin\") (return_call $t)))",
 };
@@ -97,7 +97,7 @@ fn mutate(rand: std.Random, buf: []u8, n: usize) void {
 const Reached = struct {
     decoded: usize = 0,
     instantiated: usize = 0,
-    /// Guest functions actually RUN to a result or a trap (Track H5, 2026-08-19).
+    /// Guest functions actually RUN to a result or a trap (Track zH5, 2026-08-19).
     executed: usize = 0,
     assembled: usize = 0,
 };
@@ -180,12 +180,12 @@ fn tryDecodeAndInstantiate(gpa: std.mem.Allocator, input: []const u8, r: *Reache
 /// than the seeds need and completes instantly.
 const fuzz_max_iterations: u64 = 10_000;
 
-/// ▶️ **EXECUTE the mutated module — added by Track H5, 2026-08-19.**
+/// ▶️ **EXECUTE the mutated module — added by Track zH5, 2026-08-19.**
 ///
 /// This is the half `fuzz.zig` refused to do until the iteration budget existed:
 /// the module doc used to say *"instruction execution is intentionally NOT
 /// fuzzed here: the interpreter has no instruction/fuel limit, so a fuzzed
-/// infinite loop would hang the fuzzer."* ✅ **H3 removed that reason** — a
+/// infinite loop would hang the fuzzer."* ✅ **zH3 removed that reason** — a
 /// runaway now traps `IterationLimitExceeded`, so the interpreter is fuzzable.
 ///
 /// 🎯 **Why this is worth more than the crafted `hardening:` cases it
@@ -395,7 +395,7 @@ test "fuzz: deterministic mutation sweep (runs every `zig build test`)" {
     try std.testing.expect(r.decoded > 100); // decoder accepted mutated modules
     try std.testing.expect(r.instantiated > 100); // …and instantiation ran
     try std.testing.expect(r.assembled > 10); // assembler ran to completion
-    // ▶️ …and guest code actually RAN (Track H5). ⚠️ This assertion is the whole
+    // ▶️ …and guest code actually RAN (Track zH5). ⚠️ This assertion is the whole
     // reason the target cannot silently degrade back to fuzzing only the front
     // half: without it, an `execute` that returned early on every input — or a
     // future change that stopped calling it — would leave every other number

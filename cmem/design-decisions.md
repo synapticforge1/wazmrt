@@ -394,7 +394,7 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   `V.concreteRef(true, kind, imm.type_index)`;** `subtypeOf` already walks the declared supertype chain.
 
 - 🔒 **AN ITERATION BUDGET BOUNDS NON-TERMINATION — a COUNT, not a clock, and it ticks in TWO places
-  (owner, 2026-08-19, Track H3).** The owner's requirement was *"we do not want an infinite loop on
+  (owner, 2026-08-19, Track zH3).** The owner's requirement was *"we do not want an infinite loop on
   purpose or by accident by the user — we need an internal check mechanism, an error message, and a
   break on occurrence."* Until this landed, nothing bounded execution time at all: `max_call_depth`
   bounded recursion, `sexpr.zig` bounded nesting, and a `(loop br 0)` ran forever with no interrupt.
