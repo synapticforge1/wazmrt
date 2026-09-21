@@ -28,6 +28,7 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `four-assemblers.ts` | letter H8: one or more `.wat` through wasm-tools, wazmrt, wasmrt and binaryang; exit, custom-section list, equality with wasm-tools | `deno run -A four-assemblers.ts <wazmrt> <wasmrt.exe> <binaryang dir> <out dir> <file.wat>...` |
 | `h8-fixtures/` | the two `(@custom "name" …)` inputs for I8, with and without identifiers | with `four-assemblers.ts` |
 | `feature-names.ts` | letter H8 / I6: which of wasm-tools' `--features` names (read from the tool) each runtime knows | `deno run -A feature-names.ts <module.wat> <runtime exe>...` |
+| `feature-matrix.ts` | what every wasm-tools `--features` name ADMITS: presets × one-module-per-feature, then the single name (or minimal pair) that suffices for each module. Pass a runtime exe to run the same matrix on it | `deno run -A feature-matrix.ts <out dir> [runtime exe]` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -53,6 +54,24 @@ equal wasm-tools' on **64/528 before, 528/528 after**; the 464 were 460 local-ru
 and **64/528 identical to wasmrt's 2026-09-20 build** (down from 528, until wasmrt fixes the same).
 All three fixes inversion-proven by `h13-invert.ts`. ⚠️ Its first draft reported one fix as
 unguarded because the sabotage did not COMPILE; it now builds first and says so.
+
+**2026-09-21, wasm-tools 1.259.0 feature semantics (`feature-matrix.ts`), the basis for supporting
+every wat/wasm feature name (owner: "broadest compatibility"):**
+
+| preset | admits (measured, one module per feature) |
+| --- | --- |
+| `mvp` | the 1.0 core only. ⚠️ **NOT the same as `wasm1`**: `mvp` refuses a mutable-global EXPORT, although `--help` says the two select the same thing |
+| `wasm1` | `mvp` + `mutable-global` |
+| `wasm2` | `wasm1` + sign-extension, saturating-float-to-int, multi-value, reference-types, bulk-memory (+ `-opt`), simd, call-indirect-overlong |
+| `wasm3` | `wasm2` + relaxed-simd, threads, tail-call, multi-memory, exceptions, memory64, extended-const, function-references, gc, gc-types. **Not** legacy-exceptions, custom-page-sizes, wide-arithmetic |
+| `lime1` | mutable-global, floats, sign-extension, saturating-float-to-int, multi-value, bulk-memory-OPT (not bulk-memory), extended-const, call-indirect-overlong |
+
+Dependencies: `bulk-memory` ⇒ `bulk-memory-opt`; `reference-types` ⇒ `call-indirect-overlong`; `gc` ⇒
+`function-references`; saturating truncation needs `floats`; **`externref` needs reference-types AND
+`gc-types`**; legacy `try` needs exceptions AND `legacy-exceptions`; `(type (struct))` needs gc AND
+gc-types. ⚠️ The first run scored every module "refused" because `--features -all,x` as TWO arguments
+makes clap read `-all` as a flag; `--features=-all,x` is one argument. *A probe that fails the control
+row is measuring itself.*
 
 ## ⬜ Open: the macOS pass
 
