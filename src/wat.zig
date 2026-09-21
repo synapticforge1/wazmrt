@@ -3263,6 +3263,39 @@ fn emitFlatOne(ctx: *Ctx, items: []const Sexpr, i: usize, name: []const u8) Erro
             try pushLabel(ctx, label);
             return j;
         },
+        // Legacy exception handling, FLAT: `try $l? bt … catch $t … catch_all … end` and
+        // `try $l? bt … delegate $l`. The same encoding `emitFoldedTry` writes, reached one token
+        // at a time. A clause in the wrong place (a stray `catch_all`) is left to the VALIDATOR,
+        // which rejects it for text and binary alike — see `lookupOp`.
+        .try_ => {
+            try ctx.out.append(ctx.a, @intFromEnum(Op.try_));
+            var j = i + 1;
+            const label = parseOptLabel(items, &j);
+            try emitBlockTypeSig(ctx, try parseBlockTypeSig(ctx, items, &j));
+            try pushLabel(ctx, label);
+            return j;
+        },
+        .catch_ => {
+            if (i + 1 >= items.len) return error.BadImmediate;
+            try ctx.out.append(ctx.a, @intFromEnum(Op.catch_));
+            try uleb(ctx.a, ctx.out, try resolveByName(ctx.tag_names, items[i + 1]));
+            return i + 2;
+        },
+        .catch_all => {
+            try ctx.out.append(ctx.a, @intFromEnum(Op.catch_all));
+            return i + 1;
+        },
+        // `delegate` REPLACES the try's `end`, and its label counts from OUTSIDE the try — the
+        // same rule `emitFoldedTry` documents (wabt's `GetNearestTryLabel(depth + 1)`): pop this
+        // try's label first, then resolve.
+        .delegate => {
+            if (i + 1 >= items.len) return error.BadImmediate;
+            if (ctx.labels.items.len != 0) _ = ctx.labels.pop();
+            const target = try resolveLabel(ctx, items[i + 1]);
+            try ctx.out.append(ctx.a, @intFromEnum(Op.delegate));
+            try uleb(ctx.a, ctx.out, target);
+            return i + 2;
+        },
         // §6.5.2: a flat `else`/`end` may REPEAT the enclosing block's label —
         // `if $body … else $body … end $body` — as a redundancy check on deeply
         // nested code. We consumed neither, so the id was left to be assembled as
@@ -4210,6 +4243,14 @@ fn lookupOp(name: []const u8) ?Op {
     // one clause were graded differently for the identical malformation.** The comment above says
     // clause tags must resolve here; this is the half that did not.
     if (std.mem.eql(u8, name, "catch")) return .catch_;
+    // 🔬 **`try` HAD THE SAME TRAP, AND IT HID A WHOLE SYNTAX (2026-09-21).** `Op.try_` carries the
+    // underscore for the same Zig-keyword reason, so the word `try` never resolved and EVERY flat
+    // legacy form — `try … catch $e … end`, `try … delegate 0` — was `UnknownInstr`. The spec
+    // corpus writes legacy EH only FOLDED, which works, so conformance was green; wasm-tools 1.259
+    // is the opposite (flat only — it cannot parse the folded `(do …)` form at all), so a module
+    // printed by the canonical tool could not be assembled here. Found measuring the two against
+    // each other (`cmem/probes/legacy-eh/forms.ts`), not by any gate this repo owns.
+    if (std.mem.eql(u8, name, "try")) return .try_;
     return std.meta.stringToEnum(Op, buf[0..name.len]);
 }
 
@@ -9922,6 +9963,57 @@ test "a branch hint wazmrt cannot honour is refused, never dropped" {
     }) |src| {
         try std.testing.expectError(error.BadAnnotation, assemble(a, src));
     }
+}
+
+test "legacy EH, FLAT: assembles, encodes exactly like the folded form, and RUNS" {
+    // 🔬 **Owner, 2026-09-21: build legacy exceptions in for the broadest coverage.** Binary
+    // decode, validation and execution already existed and the spec corpus's folded
+    // `(try (do …) (catch …))` passed — but the FLAT spelling, the only one wasm-tools 1.259 can
+    // parse, was `UnknownInstr` because the word `try` never resolved (`lookupOp`). So a module
+    // printed by the canonical tool could not be assembled here, and no gate this repo owns could
+    // see it: the corpus never writes the flat form.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    // 1️⃣ ORACLE-FREE: flat and folded are two spellings of ONE encoding, so their bytes must be
+    // identical. Each pair covers one construct, `delegate`'s outside-the-try label rule included.
+    const pairs = [_][2][]const u8{
+        .{ "(module (tag $e) (func try catch $e end))", "(module (tag $e) (func (try (do) (catch $e))))" },
+        .{ "(module (func try catch_all end))", "(module (func (try (do) (catch_all))))" },
+        .{ "(module (tag $e) (func try catch $e catch_all end))", "(module (tag $e) (func (try (do) (catch $e) (catch_all))))" },
+        .{ "(module (tag $e) (func try catch $e rethrow 0 end))", "(module (tag $e) (func (try (do) (catch $e (rethrow 0)))))" },
+        .{ "(module (func block try try delegate 1 end end))", "(module (func (block (try (do (try (do) (delegate 1)))))))" },
+        .{ "(module (tag $v (param i32)) (func (result i32) try (result i32) i32.const 1 catch $v end))", "(module (tag $v (param i32)) (func (result i32) (try (result i32) (do (i32.const 1)) (catch $v))))" },
+        // ⚠️ **NAMED labels, because the numeric pairs above cannot see `delegate`'s pop**: a
+        // numeric label passes straight through, so removing the pop changed no byte and the
+        // first version of this test stayed green (`probes/legacy-eh/invert.ts`). A named target
+        // resolves against the stack, and so does any named branch AFTER the delegate — which
+        // would be off by one if the try's label were left behind.
+        .{ "(module (func block $b try $o try $i delegate $o end end))", "(module (func (block $b (try $o (do (try $i (do) (delegate $o)))))))" },
+        .{ "(module (func block $b try delegate 0 br $b end))", "(module (func (block $b (try (do) (delegate 0)) (br $b))))" },
+    };
+    for (pairs) |p| {
+        try std.testing.expectEqualSlices(u8, try assemble(a, p[1]), try assemble(a, p[0]));
+    }
+
+    // 2️⃣ It RUNS: each export returns the number of the path it took (`probes/legacy-eh/flat/run.wat`).
+    const bin = try assemble(a,
+        \\(module (tag $e) (tag $v (param i32))
+        \\  (func (export "caught") (result i32) try (result i32) i32.const 42 throw $v catch $v end)
+        \\  (func (export "caught_all") (result i32) try (result i32) throw $e catch_all i32.const 7 end)
+        \\  (func (export "not_thrown") (result i32) try (result i32) i32.const 1 catch_all i32.const 0 end)
+        \\  (func (export "delegated") (result i32)
+        \\    try (result i32) try (result i32) throw $e delegate 0 catch_all i32.const 99 end)
+        \\  (func (export "rethrown") (result i32)
+        \\    try (result i32) try (result i32) throw $e catch $e rethrow 0 end catch_all i32.const 5 end))
+    );
+    var m = try Module.decode(a, bin);
+    try validate(a, &m);
+    var inst: interp.Instance = undefined;
+    try inst.instantiate(a, &m);
+    const want = [_]struct { []const u8, i32 }{ .{ "caught", 42 }, .{ "caught_all", 7 }, .{ "not_thrown", 1 }, .{ "delegated", 99 }, .{ "rethrown", 5 } };
+    for (want) |w| try std.testing.expectEqual(w[1], interp.asI32((try inst.invoke(w[0], &.{}))[0]));
 }
 
 test "H13: the module BODY matches wasm-tools — local runs, export order, type interning order" {

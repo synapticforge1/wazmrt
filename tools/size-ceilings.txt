@@ -1144,6 +1144,16 @@
 # 288 / 64,092 / 0 / 0 unchanged. Each of the three fixes inversion-proven
 # (`cmem/probes/h13-invert.ts`).
 
-wazmrt.exe  1022976
-wazmrt.lib  1072594
-wazmrt.dll  921088
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — FLAT LEGACY EXCEPTION HANDLING in the text assembler (owner: build legacy
+# exceptions in for the broadest coverage). **exe +512, lib +996, dll +512.**
+#
+# What bought the bytes: four flat arms in `emitFlatOne` (`try`, `catch`, `catch_all`,
+# `delegate`) and the `try` spelling in `lookupOp`. Decode, validation and execution of legacy EH
+# already existed; only the flat TEXT form — the one wasm-tools 1.259 prints — was missing.
+# Flat modules are byte-identical to wasm-tools' and to wazmrt's own folded spelling; both pieces
+# inversion-proven (`cmem/probes/legacy-eh/invert.ts`).
+
+wazmrt.exe  1023488
+wazmrt.lib  1073590
+wazmrt.dll  921600
