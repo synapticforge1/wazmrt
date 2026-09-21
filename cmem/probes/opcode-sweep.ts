@@ -124,7 +124,10 @@ for (let b = 0; b <= 0xff; b++) {
   if ([0xfb, 0xfc, 0xfd, 0xfe].includes(b)) continue;
   candidates.push([`0x${b.toString(16).padStart(2, "0")}`, [b]]);
 }
-const ranges: Array<[number, number]> = [[0xfb, 0x40], [0xfc, 0x20], [0xfd, 0x140], [0xfe, 0x50]];
+// ⚠️ WIDENED 2026-09-21: the first ranges stopped the atomic prefix at 0xfe 0x4f — exactly where
+// wasm-tools' `global.atomic.get` sits — so the count of opcodes "only wasm-tools knows" could not
+// see anything past the margin. Each range now runs well past its highest known member.
+const ranges: Array<[number, number]> = [[0xfb, 0x100], [0xfc, 0x80], [0xfd, 0x180], [0xfe, 0x100]];
 for (const [p, n] of ranges) {
   for (let s = 0; s < n; s++) candidates.push([`0x${p.toString(16)} ${s.toString(16)}`, [p, ...leb(s)]]);
 }
