@@ -47,6 +47,7 @@
 const std = @import("std");
 const Io = std.Io;
 const interp = @import("interp.zig");
+const PathRules = @import("path_rules.zig").PathRules;
 
 const Value = interp.Value;
 const HostFunc = interp.Instance.HostFunc;
@@ -277,17 +278,24 @@ fn timestampOf(t: Io.Timestamp) u64 {
 /// normalized with no `..` remaining — safe to hand to `Io.Dir`, whose lexical
 /// Windows normalization is then a no-op. An empty result means "the dir
 /// itself" and is returned as ".".
-fn resolve(gpa: std.mem.Allocator, path: []const u8) ?[]const u8 {
+///
+/// 🐧 **The Windows-only guards are Windows-only (2026-09-21).** `\` as a separator, a
+/// `<letter>:` prefix, a `:` inside a component (a drive, or an alternate data stream) and the
+/// `?`/`??` NT-namespace components are all path SYNTAX on Windows and must be refused or split
+/// there. On POSIX every one of those bytes is an ordinary filename byte — and applying the Windows
+/// rules there did not refuse, it RESOLVED WRONG: the one legal file `x\y` opened `x/y`, measured
+/// on the first native Linux run. `/`, `..` and NUL are refused identically on both.
+fn resolve(gpa: std.mem.Allocator, path: []const u8, rules: PathRules) ?[]const u8 {
     if (path.len == 0) return null;
     if (std.mem.indexOfScalar(u8, path, 0) != null) return null;
-    // Absolute: POSIX root, a Windows separator, or a drive letter.
-    if (path[0] == '/' or path[0] == '\\') return null;
-    if (path.len >= 2 and path[1] == ':') return null;
+    // Absolute: the root, a Windows separator, or a Windows drive letter.
+    if (rules.isSep(path[0])) return null;
+    if (rules.hasDrivePrefix(path)) return null;
 
     var parts: std.ArrayList([]const u8) = .empty;
     defer parts.deinit(gpa);
 
-    var it = std.mem.splitAny(u8, path, "/\\");
+    var it = std.mem.splitAny(u8, path, rules.separators());
     while (it.next()) |part| {
         if (part.len == 0 or std.mem.eql(u8, part, ".")) continue;
         if (std.mem.eql(u8, part, "..")) {
@@ -296,9 +304,11 @@ fn resolve(gpa: std.mem.Allocator, path: []const u8) ?[]const u8 {
             _ = parts.pop();
             continue;
         }
-        // A device name or NT-namespace component never belongs in a guest path.
-        if (std.mem.indexOfScalar(u8, part, ':') != null) return null;
-        if (std.mem.eql(u8, part, "?") or std.mem.eql(u8, part, "??")) return null;
+        if (rules == .windows) {
+            // A device name or NT-namespace component never belongs in a guest path.
+            if (std.mem.indexOfScalar(u8, part, ':') != null) return null;
+            if (std.mem.eql(u8, part, "?") or std.mem.eql(u8, part, "??")) return null;
+        }
         parts.append(gpa, part) catch return null;
     }
     if (parts.items.len == 0) return gpa.dupe(u8, ".") catch null;
@@ -576,10 +586,12 @@ const ResolvedPath = struct {
 
 const WalkOut = struct { dir: Io.Dir, name: []u8, final_is_symlink: bool };
 
-fn isAbsoluteTarget(t: []const u8) bool {
+/// 🐧 Under `rules`, because the answer is host-specific: on POSIX `a:b` is a relative name, and
+/// reading its `:` as a drive (the old unconditional check) rewrote a symlink to `a:b` into one to
+/// `b` — measured, 2026-09-21: it opened an UNRELATED file, successfully.
+fn isAbsoluteTarget(t: []const u8, rules: PathRules) bool {
     if (t.len == 0) return false;
-    if (t[0] == '/' or t[0] == '\\') return true;
-    return t.len >= 2 and t[1] == ':'; // drive-qualified
+    return rules.isSep(t[0]) or rules.hasDrivePrefix(t);
 }
 
 /// True if a *relative* symlink target lexically climbs above its own directory
@@ -590,9 +602,9 @@ fn isAbsoluteTarget(t: []const u8) bool {
 /// escaping target **at creation**: the guest can otherwise plant a landmine for
 /// the *next* privileged reader (a host `tar`, `cp -L`, or the next pipeline
 /// stage), which is an orchestrator invariant the runtime cannot enforce later.
-fn escapesRelative(t: []const u8) bool {
+fn escapesRelative(t: []const u8, rules: PathRules) bool {
     var depth: isize = 0;
-    var it = std.mem.splitAny(u8, t, "/\\");
+    var it = std.mem.splitAny(u8, t, rules.separators());
     while (it.next()) |seg| {
         if (seg.len == 0 or std.mem.eql(u8, seg, ".")) continue;
         if (std.mem.eql(u8, seg, "..")) {
@@ -601,6 +613,21 @@ fn escapesRelative(t: []const u8) bool {
         } else depth += 1;
     }
     return false;
+}
+
+/// 🔒 **A symlink target is refused at CREATION if it would be absolute or escaping on ANY host —
+/// not just this one** (2026-09-21). Resolution follows the host's rules (`resolve`, `walkFull`),
+/// because which file a name means *now* is a host fact. Creation is different: the reason this
+/// check exists at all is the *next privileged reader* (a host `tar`, `cp -L`, the next pipeline
+/// stage), and that reader may be on another OS. A link to `..\..\x` planted on Linux is a harmless
+/// name there, and an escape the moment the tree is archived and unpacked on Windows. So creation
+/// takes the UNION of both rule sets. ⚠️ **Not a superset relation you can shortcut:**
+/// `a\b/../..` escapes under POSIX rules (`a\b` is one level) and not under Windows ones (two
+/// levels), so both escape walks run. 🎓 *The cost is over-refusal of targets no portable tree
+/// should contain; the alternative is a landmine whose detonation depends on where it is unpacked.*
+fn plantsLandmine(t: []const u8) bool {
+    return isAbsoluteTarget(t, .windows) or isAbsoluteTarget(t, .posix) or
+        escapesRelative(t, .windows) or escapesRelative(t, .posix);
 }
 
 /// Resolve `guest_path` from `start` to `(dir, name)`, **following symlinks
@@ -649,7 +676,9 @@ fn walkFull(w: *Wasi, start: Io.Dir, guest_path: []const u8, follow_final: bool,
     // popping yields them left-to-right. Following a symlink pushes its target's
     // components (reversed) on top, so they resolve before the remainder.
     var pending: std.ArrayList([]const u8) = .empty;
-    pushReversed(a, &pending, guest_path) catch return fail(w, opened, results, errno.nomem);
+    // 🐧 The HOST's rules: this walk answers "which file does this name mean here, now".
+    const rules: PathRules = .native;
+    pushReversed(a, &pending, guest_path, rules) catch return fail(w, opened, results, errno.nomem);
 
     var budget: u32 = symlink_max;
 
@@ -678,17 +707,19 @@ fn walkFull(w: *Wasi, start: Io.Dir, guest_path: []const u8, follow_final: bool,
             var buf: [4096]u8 = undefined;
             const n = top.readLink(w.io, c, &buf) catch |err| return fail(w, opened, results, errnoFor(err));
             var target = a.dupe(u8, buf[0..n]) catch return fail(w, opened, results, errno.nomem);
-            if (isAbsoluteTarget(target)) {
+            if (isAbsoluteTarget(target, rules)) {
                 // Absolute → the preopen root, not the host root: reset the stack
                 // and re-base. Strip the whole absolute prefix — a drive
                 // (`C:`), then any leading separators — so what remains is
                 // relative to the root. (`readLink` on Windows can return a
                 // drive-qualified target even for a link made with `/foo`.)
+                // 🐧 A drive only on Windows: on POSIX `a:b` is not absolute and this
+                // strip used to turn it into `b` — a different, real file.
                 while (opened.pop()) |d| d.close(w.io);
-                if (target.len >= 2 and target[1] == ':') target = target[2..];
-                while (target.len > 0 and (target[0] == '/' or target[0] == '\\')) target = target[1..];
+                if (rules.hasDrivePrefix(target)) target = target[2..];
+                while (target.len > 0 and rules.isSep(target[0])) target = target[1..];
             }
-            pushReversed(a, &pending, target) catch return fail(w, opened, results, errno.nomem);
+            pushReversed(a, &pending, target, rules) catch return fail(w, opened, results, errno.nomem);
             continue;
         }
 
@@ -719,11 +750,14 @@ fn walkFull(w: *Wasi, start: Io.Dir, guest_path: []const u8, follow_final: bool,
     return .{ .dir = topDir(start, opened), .name = w.gpa.dupe(u8, ".") catch return fail(w, opened, results, errno.nomem), .final_is_symlink = false };
 }
 
-/// Split `path` on `/` and `\` and push the components onto `pending` in reverse
-/// (so a LIFO pop yields them left-to-right). A leading absolute prefix is
-/// dropped — the caller has already reset to the root for absolute targets.
-fn pushReversed(a: std.mem.Allocator, pending: *std.ArrayList([]const u8), path: []const u8) !void {
-    var it = std.mem.splitAny(u8, path, "/\\");
+/// Split `path` on the host's separators and push the components onto `pending`
+/// in reverse (so a LIFO pop yields them left-to-right). A leading absolute
+/// prefix is dropped — the caller has already reset to the root for absolute
+/// targets. 🐧 **This was the SECOND split** (2026-09-21): `resolve` normalizes
+/// and rejoins with `/`, and then this split on `\` again — so fixing `resolve`
+/// alone would still have opened `x/y` for the one file `x\y`. Both take `rules`.
+fn pushReversed(a: std.mem.Allocator, pending: *std.ArrayList([]const u8), path: []const u8, rules: PathRules) !void {
+    var it = std.mem.splitAny(u8, path, rules.separators());
     var comps: std.ArrayList([]const u8) = .empty;
     defer comps.deinit(a);
     while (it.next()) |c| try comps.append(a, c);
@@ -761,7 +795,7 @@ fn resolveArg(w: *Wasi, fd: u32, ptr: u32, len: u32, need: u64, follow_final: bo
     // Cheap lexical gate on the *guest* path: reject absolute / escaping-`..` /
     // NT-device / NUL up front. (Symlink *targets* are handled by walkFull's
     // stack, where absolute means the preopen root — a different rule.)
-    const norm = resolve(w.gpa, raw) orelse {
+    const norm = resolve(w.gpa, raw, .native) orelse {
         _ = ret(results, errno.notcapable);
         return null;
     };
@@ -1487,8 +1521,8 @@ fn wPathLink(ctx: *anyopaque, args: []const Value, results: []Value) bool {
 fn wPathSymlink(ctx: *anyopaque, args: []const Value, results: []Value) bool {
     const w: *Wasi = @ptrCast(@alignCast(ctx));
     const target = w.slice(argU32(args, 0), argU32(args, 1)) orelse return ret(results, errno.fault);
-    // Don't plant an escape: absolute, or lexically climbing above its own dir.
-    if (isAbsoluteTarget(target) or escapesRelative(target)) return ret(results, errno.notcapable);
+    // Don't plant an escape: absolute, or lexically climbing above its own dir — on ANY host.
+    if (plantsLandmine(target)) return ret(results, errno.notcapable);
     if (std.mem.indexOfScalar(u8, target, 0) != null) return ret(results, errno.inval);
     // The right for CREATING a link is `path_symlink`, not `path_open` — asking for the read right
     // meant a read-only preopen still permitted planting links.
@@ -1988,45 +2022,75 @@ test "fstflags translate to Io timestamp options (and reject value+NOW together)
 }
 
 test "resolve contains guest paths inside the preopen" {
-    const gpa = std.testing.allocator;
-
-    // Accepted, and normalized: `.` dropped, separators collapsed, an interior
-    // `..` folded away — the result never reaches Io.Dir with a `..` left.
-    const ok = [_]struct { in: []const u8, want: []const u8 }{
-        .{ .in = "a.txt", .want = "a.txt" },
-        .{ .in = "./a.txt", .want = "a.txt" },
-        .{ .in = "d/./e//f.txt", .want = "d/e/f.txt" },
-        .{ .in = "d/../e.txt", .want = "e.txt" },
-        .{ .in = "d/e/../../f.txt", .want = "f.txt" },
-        .{ .in = "d\\e.txt", .want = "d/e.txt" }, // guests may use either separator
-        .{ .in = ".", .want = "." },
+    const Case = struct { in: []const u8, want: []const u8 };
+    const S = struct {
+        fn accepts(rules: PathRules, cases: []const Case) !void {
+            for (cases) |c| {
+                const got = resolve(std.testing.allocator, c.in, rules) orelse {
+                    std.debug.print("{s}: rejected '{s}'\n", .{ @tagName(rules), c.in });
+                    return error.UnexpectedlyRejected;
+                };
+                defer std.testing.allocator.free(got);
+                try std.testing.expectEqualStrings(c.want, got);
+            }
+        }
+        fn rejects(rules: PathRules, paths: []const []const u8) !void {
+            for (paths) |p| {
+                if (resolve(std.testing.allocator, p, rules)) |got| {
+                    defer std.testing.allocator.free(got);
+                    std.debug.print("{s}: escape not rejected: '{s}' -> '{s}'\n", .{ @tagName(rules), p, got });
+                    return error.SandboxEscaped;
+                }
+            }
+        }
     };
-    for (ok) |c| {
-        const got = resolve(gpa, c.in) orelse return error.UnexpectedlyRejected;
-        defer gpa.free(got);
-        try std.testing.expectEqualStrings(c.want, got);
+
+    for ([_]PathRules{ .windows, .posix }) |r| {
+        // Accepted, and normalized: `.` dropped, separators collapsed, an interior
+        // `..` folded away — the result never reaches Io.Dir with a `..` left.
+        try S.accepts(r, &.{
+            .{ .in = "a.txt", .want = "a.txt" },
+            .{ .in = "./a.txt", .want = "a.txt" },
+            .{ .in = "d/./e//f.txt", .want = "d/e/f.txt" },
+            .{ .in = "d/../e.txt", .want = "e.txt" },
+            .{ .in = "d/e/../../f.txt", .want = "f.txt" },
+            .{ .in = ".", .want = "." },
+        });
+        // Rejected on EVERY host — each would name a file outside the preopen.
+        try S.rejects(r, &.{
+            "..", // pop above the root
+            "../etc/passwd",
+            "a/../../b", // net escape, even though it dips inside first
+            "/etc/passwd", // absolute
+            "a\x00b", // embedded NUL would truncate at the syscall
+            "", // empty
+        });
     }
 
-    // Rejected — each of these would name a file outside the preopen.
-    const escapes = [_][]const u8{
-        "..", // pop above the root
-        "../etc/passwd",
-        "a/../../b", // net escape, even though it dips inside first
-        "/etc/passwd", // absolute POSIX
-        "\\Windows\\x", // absolute Windows
+    // 🪟 Windows: `\` separates, and drives, ADS and the NT namespace are refused.
+    try S.accepts(.windows, &.{.{ .in = "d\\e.txt", .want = "d/e.txt" }});
+    try S.rejects(.windows, &.{
+        "\\Windows\\x", // absolute
         "C:\\Windows\\x", // drive-qualified
         "C:x", // drive-relative
         "\\\\?\\C:\\x", // NT/UNC prefix
-        "a\x00b", // embedded NUL would truncate at the syscall
-        "", // empty
-    };
-    for (escapes) |p| {
-        if (resolve(gpa, p)) |got| {
-            defer gpa.free(got);
-            std.debug.print("escape not rejected: '{s}' -> '{s}'\n", .{ p, got });
-            return error.SandboxEscaped;
-        }
-    }
+        "a:b", // an alternate data stream
+        "a\\..\\..\\b", // the escape spelled with the Windows separator
+    });
+
+    // 🐧 POSIX: those bytes are ORDINARY. ⚠️ **These rows are the measured defects** (2026-09-21,
+    // first native Linux run): under the old unconditional rules `x\y` resolved to `x/y` — a
+    // DIFFERENT, real file — and `a:b` was refused although it is a legal name. Each is ONE
+    // component here, which the kernel will also treat as one name, so none can escape:
+    // `a\..\..\b` is a single filename, not two `..`.
+    try S.accepts(.posix, &.{
+        .{ .in = "x\\y", .want = "x\\y" },
+        .{ .in = "a:b", .want = "a:b" },
+        .{ .in = "c:", .want = "c:" },
+        .{ .in = "C:x", .want = "C:x" },
+        .{ .in = "d/?/e", .want = "d/?/e" },
+        .{ .in = "a\\..\\..\\b", .want = "a\\..\\..\\b" },
+    });
 }
 
 /// Is this run a **security gate** (`zig build test-security`) rather than an ordinary `zig build
@@ -2047,8 +2111,13 @@ test "resolve contains guest paths inside the preopen" {
 fn securityStrict() bool {
     // Zig 0.16 moved env access to `std.process.Environ`; `containsUnempty` treats an empty value as
     // absent, so `WAZMRT_SECURITY_STRICT=` does not accidentally arm the gate.
-    const environ: std.process.Environ = .{ .block = .global };
-    return environ.containsUnempty(std.testing.allocator, "WAZMRT_SECURITY_STRICT") catch false;
+    // 🐧 **`std.testing.environ`, NOT `.{ .block = .global }`** (2026-09-21, first native Linux run).
+    // `.global` exists only on `GlobalBlock`, which is Windows' block type; on POSIX the block is a
+    // `PosixBlock` slice handed to `main`, so the old spelling was a COMPILE ERROR and the whole
+    // unit suite could not build on Linux or macOS. The test runner fills `std.testing.environ` on
+    // every platform. 🎓 *`zig build -Dtarget=x86_64-linux-gnu` exits 0 and never compiles a test —
+    // a clean cross-compile said nothing about whether the suite builds there.*
+    return std.testing.environ.containsUnempty(std.testing.allocator, "WAZMRT_SECURITY_STRICT") catch false;
 }
 
 /// Returned instead of `SkipZigTest` under the security gate: the sandbox could not be *verified*,
@@ -2455,20 +2524,34 @@ test "symlink targets that lexically escape are refused at creation" {
     // wazmrt itself is not fooled (walkFull contains the escape at follow time),
     // but security-model.md requires refusing at *creation* so the guest cannot
     // plant a landmine for the next privileged reader (host `tar`, `cp -L`, …).
-    const esc = escapesRelative;
-    try std.testing.expect(esc("../outside"));
-    try std.testing.expect(esc("a/../../outside"));
-    try std.testing.expect(esc("..\\outside")); // Windows separator
-    try std.testing.expect(esc("./../x"));
+    for ([_]PathRules{ .windows, .posix }) |r| {
+        try std.testing.expect(escapesRelative("../outside", r));
+        try std.testing.expect(escapesRelative("a/../../outside", r));
+        try std.testing.expect(escapesRelative("./../x", r));
+        // In-sandbox paths that merely *contain* `..` must still be allowed.
+        try std.testing.expect(!escapesRelative("sub", r));
+        try std.testing.expect(!escapesRelative("a/../b", r));
+        try std.testing.expect(!escapesRelative("./a/b", r));
+        try std.testing.expect(!escapesRelative("a/b/../..", r));
+        try std.testing.expect(isAbsoluteTarget("/etc/passwd", r));
+        try std.testing.expect(!isAbsoluteTarget("sub/file", r));
+    }
+    // The host-specific half: what a target MEANS depends on where it is followed.
+    try std.testing.expect(escapesRelative("..\\outside", .windows));
+    try std.testing.expect(!escapesRelative("..\\outside", .posix)); // one name on POSIX
+    try std.testing.expect(isAbsoluteTarget("C:\\secret", .windows));
+    try std.testing.expect(!isAbsoluteTarget("a:b", .posix)); // was read as drive `a:`, opened `b`
 
-    // In-sandbox paths that merely *contain* `..` must still be allowed.
-    try std.testing.expect(!esc("sub"));
-    try std.testing.expect(!esc("a/../b"));
-    try std.testing.expect(!esc("./a/b"));
-    try std.testing.expect(!esc("a/b/../.."));
-
-    // Absolute targets are handled by the separate lexical check.
-    try std.testing.expect(isAbsoluteTarget("/etc/passwd"));
-    try std.testing.expect(isAbsoluteTarget("C:\\secret"));
-    try std.testing.expect(!isAbsoluteTarget("sub/file"));
+    // 🔒 CREATION refuses what escapes on ANY host — the next reader may be on another OS.
+    try std.testing.expect(plantsLandmine("..\\outside")); // harmless on Linux, an escape on Windows
+    try std.testing.expect(plantsLandmine("C:\\secret"));
+    try std.testing.expect(plantsLandmine("/etc/passwd"));
+    // ⚠️ The two walks disagree in BOTH directions, so neither can stand in for the other:
+    // POSIX sees `a\b` as one level and escapes; Windows sees two levels and does not.
+    try std.testing.expect(escapesRelative("a\\b/../..", .posix));
+    try std.testing.expect(!escapesRelative("a\\b/../..", .windows));
+    try std.testing.expect(plantsLandmine("a\\b/../.."));
+    // ...and ordinary in-sandbox targets are still allowed everywhere.
+    try std.testing.expect(!plantsLandmine("sub/file"));
+    try std.testing.expect(!plantsLandmine("a/../b"));
 }

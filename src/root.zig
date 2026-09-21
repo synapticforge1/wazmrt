@@ -59,6 +59,9 @@ pub const sexpr = if (enable_wat) @import("sexpr.zig") else struct {};
 pub const wat = if (enable_wat) @import("wat.zig") else struct {};
 pub const wast = if (enable_wat) @import("wast.zig") else struct {};
 pub const wasi = if (enable_wasi) @import("wasi.zig") else struct {};
+/// Which bytes are path syntax on which host — shared by the CLI and the WASI resolver, and
+/// UNGATED, because `main.zig`'s `--dir` grammar needs it in every feature combination.
+pub const path_rules = @import("path_rules.zig");
 pub const pin = @import("pin.zig");
 pub const sign = @import("sign.zig");
 

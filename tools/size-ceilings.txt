@@ -1102,6 +1102,34 @@
 # Unit tests 804 passing / 808 total (4 skipped). Spec-corpus emitter differential unchanged at
 # 2,121 agree / 20 differ; real-world corpus 1,039 / 1,039 digest parity.
 
-wazmrt.exe  1019904
-wazmrt.lib  1071166
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — THE `--dir` HOST-PATH GRAMMAR (`interop.md` §5 #10, closed by the owner).
+# **exe +2,048, lib +22, dll +0.**
+#
+# What bought the bytes: a host path is now checked as SYNTAX before the filesystem is touched
+# (`validateHostPath`), the drive-letter clause is gated to Windows (`splitPreopen` takes the
+# platform as a parameter), and three error messages plus a longer `--dir` help block are new
+# string data. The exe carries all of it; the CLI is not in the DLL, which is why `dll` is flat
+# and `lib` moves only by the 22 bytes of shared code.
+#
+# 🎓 The gate is why this number is here at all: the growth was invisible in `zig build` (Debug)
+# and only ReleaseSmall grades it — Track zB-e's trigger doing the job it was given.
+#
+# Unit tests 806 passing / 810 total (4 skipped) — +2 tests, both matrices of the new grammar.
+
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — THE WASI RESOLVER STOPS APPLYING WINDOWS PATH RULES ON POSIX.
+# **exe +0, lib +204, dll +0.**
+#
+# What bought the bytes: `plantsLandmine`, the symlink-CREATION check, now walks a target under
+# BOTH rule sets (it must — a link planted on Linux is read wherever the tree is unpacked, and the
+# two walks disagree in both directions). Everything else is comptime `.native` on a Windows build:
+# the POSIX branches of `resolve`, `walkFull` and `pushReversed` are dead code here and cost nothing,
+# which is why the exe did not move a page.
+#
+# The defect it fixes was measured on the first native Linux run: `x\y` opened `x/y` and a symlink
+# to `a:b` opened `b` — silent wrong files. Unit tests 808/812 Windows, 812/812 Linux.
+
+wazmrt.exe  1021952
+wazmrt.lib  1071392
 wazmrt.dll  920064

@@ -690,21 +690,25 @@ fn printHelp(out: *Io.Writer, prog: []const u8) !void {
         \\            EVERY other wazmrt flag goes AFTER the module path. Written after
         \\            the path it is an ERROR, because it could not apply there.
         \\            EXCEPT under `wasi`, whose flags may precede the module too —
-        \\            `wasi --dir .:/ prog.wasm` and `wasi prog.wasm --dir .:/` both work.
+        \\            `wasi --dir .::/ prog.wasm` and `wasi prog.wasm --dir .::/` both work.
         \\
         \\RUN MODES
         \\  {s} add.wasm add 2 3
         \\      Instantiate and call `add` with args 2 and 3 (parsed per the function's
         \\      parameter types: i32/i64/f32/f64). No imports are wired, so a bare
         \\      function call has zero I/O capability.
-        \\  {s} prog.wasm --dir .:/ -- foo bar
+        \\  {s} prog.wasm --dir .::/ -- foo bar
         \\      If the module exports `_start`, run it as a WASI command. wazmrt flags
         \\      precede the guest argv; `--` ends them and passes the rest to the guest.
         \\
         \\WASI FLAGS (before `--`)
         \\  --dir <host>[:<guest>]      grant a read-write preopen (the guest's only files)
-        \\                              `::` also separates and is never ambiguous: `--dir C:\data::/d`
-        \\                              a lone `:` splits too, except after a drive letter (`C:\tmp`)
+        \\                              <host> is `./p`, `../p`, `.`, `..` or `/p` — plus `C:/p`,
+        \\                              `C:\p` and `\\server\share` on Windows only
+        \\                              a BARE relative path is an ERROR: write `./p`, not `p`
+        \\                              `::` separates and is never ambiguous: `--dir ./data::/d`
+        \\                              a lone `:` splits too (on Windows, not after a drive letter)
+        \\                              PREFER `::` in Git Bash: it rewrites `:` inside arguments
         \\  --ro-dir <host>[:<guest>]   grant a read-only preopen (no write/create/delete)
         \\  --allow-symlink             let the guest CREATE symlinks (OFF by default)
         \\  --env KEY=VALUE             set one environment variable for the guest
@@ -1436,9 +1440,11 @@ fn misplacedFeaturesFlag(rest: []const []const u8) ?[]const u8 {
 /// only applies where there IS a guest: in summarize and `.wast` there is no argv to hand it to, so
 /// every argument is a host position (§2.4a item 4) and callers pass `single_dash = true`.
 ///
-/// ⚠️ **Guest positions are never examined**, which is the half that keeps `prog.wasm install --yes`
-/// working: the walk stops at an explicit `--` and at the first non-flag argument, so a guest's own
-/// `--yes` can never be mistaken for the host's. §2.4 records what that trap cost.
+/// ⚠️ **This walk never looks at guest positions**: it stops at an explicit `--` and at the first
+/// non-flag argument, so a guest's own `--bogus` is never an "unknown flag". 🔒 The SEPARATE check
+/// for an EXACT wazmrt flag name written after that first word is `misplacedHostFlag`, and it is an
+/// error: `prog.wasm install --yes` fails and `prog.wasm install -- --yes` is the spelling (owner,
+/// 2026-09-21, `interop.md` §2.4a as amended in v28 — only what follows `--` is never examined).
 fn unknownHostFlag(rest: []const []const u8, single_dash: bool) ?[]const u8 {
     var i: usize = 0;
     outer: while (i < rest.len) {
@@ -1485,26 +1491,86 @@ fn reportUnknownFlag(out: *Io.Writer, bad: []const u8, has_guest: bool) !void {
 /// during a cross-project pass; `interop.md` §2.2 had claimed since v1 that `--dir .:/` was a working
 /// wazmrt invocation, and that claim had been **written from reading and never run**.
 ///
-/// 🔒 **Owner decision, 2026-09-19 (`interop.md` §5 #10):** keep accepting a single `:`, but narrow
-/// the drive-letter case to what a drive letter actually is — **exactly one ASCII letter, at the
-/// start**. `.` is not a letter, so `.:/` splits; `C:\tmp` still does not.
+/// 🔒 **Owner decision, 2026-09-21 (`interop.md` §5 #10 — CLOSED): the host half of `--dir` has a
+/// GRAMMAR, and a relative path must say so with `./` or `../`.** That one requirement is what
+/// retires the drive-letter heuristic `v14` forbids: once `data` is not a legal spelling, a leading
+/// `<letter>:` can only *be* a drive, which is **grammar, not resemblance**. ⚠️ **The escape was
+/// already there and already worked** — measured the same day, `./q:/m` splits and `q:/m` does not,
+/// so what closed a row open since 2026-09-19 was a restriction on the host half, not a new rule
+/// about colons. *The heuristic was never load-bearing; the thing it was protecting against was a
+/// spelling we did not have to accept.*
 ///
-/// The order matters and is the agreed resolution in §2.2 — **both runtimes accept both spellings**:
+/// The rules type is shared with the WASI resolver (`path_rules.zig`) — one definition of which
+/// bytes are path syntax on which host, because the resolver had the same defect in four places.
+const Platform = wazmrt.path_rules.PathRules;
+
+const host_platform: Platform = .native;
+
+fn isSep(c: u8, plat: Platform) bool {
+    return plat.isSep(c);
+}
+
+/// Where the host half of a `--dir` spec ends.
 ///
-///   1. **`::` wins wherever it appears.** It is unambiguous and it is wasmrt's preferred spelling,
-///      so a caller who wants no guessing at all has a way to say so.
-///   2. Otherwise the **last** single `:` splits — so `C:\data:/data` mounts `C:\data` at `/data`.
-///   3. Unless that colon is a **drive letter** (`C:\tmp`), in which case there is no guest path and
-///      the spec is mounted at itself.
+///   1. **`::` wins wherever it appears.** Unambiguous, wasmrt's preferred spelling, and — measured
+///      2026-09-21 — **the only form Git Bash's MSYS path conversion leaves alone**, which is why
+///      `--help` now prints it.
+///   2. Otherwise the **last** single `:` splits, so `C:\data:/data` mounts `C:\data` at `/data`.
+///   3. 🪟 **Windows only:** unless that colon is a drive letter (`C:\tmp`), in which case there is
+///      no guest path and the spec mounts at itself.
 ///
-/// ⚠️ **One genuinely ambiguous case survives and is documented rather than guessed away:** `x:/`
-/// means drive `X:` under rule 3, never the relative directory `x` mounted at `/`. Write `./x:/` or
-/// `x::/` for the latter. *A rule that resolves every case is a rule that is wrong about one of them.*
-fn splitPreopen(spec: []const u8) struct { []const u8, []const u8 } {
+/// ⚠️ **Rule 3 is platform-gated because it was NOT, and that shipped to Linux and macOS** — both
+/// targets cross-compile clean, so the drive rule was firing on platforms that have no drives. On
+/// POSIX rule 2 has no exception, which is also what lets a directory legally named `a:b` be named
+/// at all: `a:b::/mount`.
+fn splitPreopen(spec: []const u8, plat: Platform) struct { []const u8, []const u8 } {
     if (std.mem.lastIndexOf(u8, spec, "::")) |i| return .{ spec[0..i], spec[i + 2 ..] };
     const i = std.mem.lastIndexOfScalar(u8, spec, ':') orelse return .{ spec, spec };
-    if (i == 1 and std.ascii.isAlphabetic(spec[0])) return .{ spec, spec }; // a drive letter
+    if (plat == .windows and i == 1 and std.ascii.isAlphabetic(spec[0])) return .{ spec, spec };
     return .{ spec[0..i], spec[i + 1 ..] };
+}
+
+/// Why a host path is not a legal spelling. Every one is a **syntax** error, reported before the
+/// filesystem is touched — `v14`'s rule is that a malformed argument throws, and a typo that comes
+/// back as `FileNotFound` sends the user to the filesystem to debug a spelling.
+const HostPathError = enum { empty, bare_relative, drive_relative };
+
+/// The agreed grammar (owner, 2026-09-21). Accepted:
+///
+/// | form                          | windows | posix                                    |
+/// | ----------------------------- | ------- | ---------------------------------------- |
+/// | `.` `..` `./…` `../…`         | ✅      | ✅                                        |
+/// | `/abs/…`  (and `//…`)         | ✅      | ✅ — `//srv/share` is just absolute there |
+/// | `<letter>:/…` `<letter>:\…`   | ✅      | ❌ — there are no drives                  |
+/// | `\\server\share`, `.\…` `\…`  | ✅      | ❌ — `\` is an ordinary filename byte      |
+///
+/// Rejected on **both**: a **bare relative** path (`data`, `src/lib`) and a **drive-relative** one
+/// (`C:Users`, and `C:` alone — which means *the cwd on drive C*, the same class).
+///
+/// 🎓 **This is deliberately a STRICTER subset than TypeScript/Node, not parity with it.** Node
+/// does not validate paths, it *resolves* them — `path.resolve("data")` succeeds — so copying its
+/// semantics literally would re-admit the bare relative spelling that made `<letter>:` ambiguous in
+/// the first place. The subset is the point.
+fn validateHostPath(host: []const u8, plat: Platform) ?HostPathError {
+    if (host.len == 0) return .empty;
+
+    // `.` and `..` name a directory by themselves; `./…` and `../…` descend from them.
+    if (std.mem.eql(u8, host, ".") or std.mem.eql(u8, host, "..")) return null;
+    if (host[0] == '.') {
+        const after: usize = if (host.len >= 2 and host[1] == '.') 2 else 1;
+        if (host.len > after and isSep(host[after], plat)) return null;
+    }
+
+    // Absolute — and a Windows UNC share is just a two-separator absolute path.
+    if (isSep(host[0], plat)) return null;
+
+    if (plat == .windows and host.len >= 2 and std.ascii.isAlphabetic(host[0]) and host[1] == ':') {
+        // A drive is a letter, a colon, and then a SEPARATOR. Without one, `C:Users` means
+        // "relative to the cwd on drive C" — a second current directory, and not a path we accept.
+        if (host.len == 2) return .drive_relative;
+        return if (isSep(host[2], plat)) null else .drive_relative;
+    }
+    return .bare_relative;
 }
 
 /// Parse a `--max-memory` size: a decimal count of bytes with an optional
@@ -1936,13 +2002,42 @@ fn runWasi(
         const ro = std.mem.eql(u8, flag, "--ro-dir");
         if ((std.mem.eql(u8, flag, "--dir") or ro) and rest.len >= 2) {
             const spec = rest[1];
-            const host, const guest = splitPreopen(spec);
+            const host, const guest = splitPreopen(spec, host_platform);
+            // 🔒 The host path is checked as SYNTAX, before the filesystem is touched (owner,
+            // 2026-09-21). A malformed spelling must not come back as `FileNotFound`.
+            if (validateHostPath(host, host_platform)) |bad| {
+                switch (bad) {
+                    .empty => try out.print("error: {s}: the host path is empty\n", .{flag}),
+                    .bare_relative => try out.print(
+                        "error: {s} '{s}': a relative host path must start with './' or '../' — write './{s}'\n",
+                        .{ flag, host, host },
+                    ),
+                    .drive_relative => try out.print(
+                        "error: {s} '{s}': drive-relative — a drive needs a separator after the colon, as in '{c}:/{s}'\n",
+                        .{ flag, host, host[0], host[2..] },
+                    ),
+                }
+                return 1;
+            }
             // 🔒 Read-write does NOT include planting symlinks unless `--allow-symlink` asked for it.
             const rmask = if (ro)
                 wazmrt.wasi.readOnlyRights
             else if (allow_symlink) wazmrt.wasi.allRights else wazmrt.wasi.readWriteRights;
             _ = wasi.addPreopen(host, guest, rmask) catch |e| {
                 try out.print("error: {s} '{s}': {s}\n", .{ flag, host, @errorName(e) });
+                // 🩹 A HINT on an already-failing path — not an interpretation of valid input, so
+                // `v14`'s "no looks like" is untouched: the command has already errored and only
+                // the message changes. Git Bash rewrites `--dir ./data:/m` to `.\data;M:\` before
+                // wazmrt sees a byte of it (measured 2026-09-21 against three shells; PowerShell
+                // and cmd pass argv through verbatim), and the corrupted path in the error above
+                // reads as a wazmrt bug when it is the shell.
+                if (windows and std.mem.indexOfScalar(u8, spec, ';') != null) {
+                    try out.print(
+                        "  note: '{s}' contains ';'. Git Bash converts POSIX-looking path lists in arguments.\n" ++
+                            "        Use '::' as the separator (never converted), or set MSYS_NO_PATHCONV=1.\n",
+                        .{spec},
+                    );
+                }
                 return 1;
             };
             rest = rest[2..];
@@ -2311,7 +2406,7 @@ test "--dir splits host from guest, and a DRIVE LETTER is not a separator" {
     // the start — nothing else.
     const S = struct {
         fn eq(spec: []const u8, host: []const u8, guest: []const u8) !void {
-            const h, const g = splitPreopen(spec);
+            const h, const g = splitPreopen(spec, .windows);
             try std.testing.expectEqualStrings(host, h);
             try std.testing.expectEqualStrings(guest, g);
         }
@@ -2329,6 +2424,85 @@ test "--dir splits host from guest, and a DRIVE LETTER is not a separator" {
     try S.eq("C:\\data:/data", "C:\\data", "/data");
     // No colon at all: mounted at itself.
     try S.eq(".", ".", ".");
+}
+
+test "the drive-letter rule is WINDOWS-ONLY, and POSIX runs here" {
+    // 🚨 **The rule had no platform branch, and both POSIX targets cross-compile clean** — so a
+    // drive rule was shipping to Linux and macOS, which have no drives. The platform is a
+    // PARAMETER rather than a read of `builtin` for exactly this reason: the POSIX matrix below
+    // runs on a Windows host, so the behaviour is under test on the machine that cannot run it.
+    // ⚠️ That is not the same as having RUN wazmrt on POSIX — the filesystem and symlink paths
+    // (`wasi.zig`'s `isAbsoluteTarget`, `escapesRelative`) are still unmeasured there.
+    const S = struct {
+        fn eq(plat: Platform, spec: []const u8, host: []const u8, guest: []const u8) !void {
+            const h, const g = splitPreopen(spec, plat);
+            try std.testing.expectEqualStrings(host, h);
+            try std.testing.expectEqualStrings(guest, g);
+        }
+    };
+    // 🪟 A leading `<letter>:` is a drive and does not split.
+    try S.eq(.windows, "q:/m", "q:/m", "q:/m");
+    // 🐧 The same spec on POSIX splits like any other, and the host half `q` is then rejected by
+    // the grammar as a bare relative path — which is the whole point: no drive semantics leak.
+    try S.eq(.posix, "q:/m", "q", "/m");
+    try S.eq(.posix, "C:/data", "C", "/data");
+    // 🐧 A directory legally NAMED `a:b` — impossible to express on POSIX without `::`, which is
+    // why rule 1 stays ahead of rule 2 on every platform.
+    try S.eq(.posix, "a:b::/m", "a:b", "/m");
+    try S.eq(.windows, "a:b::/m", "a:b", "/m");
+    // `./q` splits on BOTH — the escape that let the heuristic be retired rather than replaced.
+    try S.eq(.windows, "./q:/m", "./q", "/m");
+    try S.eq(.posix, "./q:/m", "./q", "/m");
+}
+
+test "--dir host paths: the grammar, and a bare relative path is an ERROR" {
+    // 🔒 Owner, 2026-09-21 (`interop.md` §5 #10). Requiring `./` for a relative path is what makes
+    // `<letter>:` unambiguous BY GRAMMAR, so `v14`'s "no looks like" is satisfied without either
+    // of the two costs the row had been weighing (breaking `.:/`, or keeping a documented
+    // heuristic). 🎓 *The row was open for two days over which spelling to guess; it closed by
+    // deleting the spelling that forced the guess.*
+    const S = struct {
+        fn ok(plat: Platform, host: []const u8) !void {
+            try std.testing.expectEqual(@as(?HostPathError, null), validateHostPath(host, plat));
+        }
+        fn bad(plat: Platform, host: []const u8, want: HostPathError) !void {
+            try std.testing.expectEqual(@as(?HostPathError, want), validateHostPath(host, plat));
+        }
+    };
+    // ✅ Accepted on both platforms.
+    for ([_]Platform{ .windows, .posix }) |p| {
+        try S.ok(p, ".");
+        try S.ok(p, "..");
+        try S.ok(p, "./");
+        try S.ok(p, "../");
+        try S.ok(p, "./data");
+        try S.ok(p, "../sibling/data");
+        try S.ok(p, "/etc/hosts");
+        try S.ok(p, "//srv/share"); // Windows UNC; on POSIX just an absolute path
+        // ❌ Rejected on both — the spelling this whole decision removes, and the one the error
+        // message has to fix for the user rather than send them to the filesystem.
+        try S.bad(p, "data", .bare_relative);
+        try S.bad(p, "src/lib", .bare_relative);
+        try S.bad(p, ".hidden", .bare_relative); // a dot is not a `./`
+        try S.bad(p, "..x", .bare_relative);
+        try S.bad(p, "", .empty);
+    }
+    // 🪟 Windows only: drives and backslashes.
+    try S.ok(.windows, "C:/Users");
+    try S.ok(.windows, "C:\\Users");
+    try S.ok(.windows, "C:/");
+    try S.ok(.windows, ".\\data");
+    try S.ok(.windows, "..\\data");
+    try S.ok(.windows, "\\\\server\\share");
+    // `C:Users` is "relative to the cwd on drive C" — a second current directory. `C:` alone is
+    // the same thing with an empty tail, so both are the drive-relative error, not a drive.
+    try S.bad(.windows, "C:Users", .drive_relative);
+    try S.bad(.windows, "C:", .drive_relative);
+    // 🐧 On POSIX `\` is an ordinary filename byte, so none of those are paths — they are bare
+    // relative names, and a caller who really has a file called `\\server\share` writes `./` first.
+    try S.bad(.posix, "C:/Users", .bare_relative); // never reached in practice: the split eats it
+    try S.bad(.posix, ".\\data", .bare_relative);
+    try S.bad(.posix, "\\\\server\\share", .bare_relative);
 }
 
 test "--features accepts wasm-tools' vocabulary as well as wazmrt's own" {
