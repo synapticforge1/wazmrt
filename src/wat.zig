@@ -505,8 +505,9 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
     // fine — an asymmetry with no reason behind it.
     var data_names: List(?[]const u8) = .empty;
     // Module-level `(export …)` forms, resolved after every field is parsed so a
-    // forward reference works (see the `export` arm).
-    var pending_exports: List([]const Sexpr) = .empty;
+    // forward reference works (see the `export` arm). Each one RESERVES its slot in
+    // `exports` at its source position; resolution fills the slot in (I13).
+    var pending_exports: List(struct { slot: usize, items: []const Sexpr }) = .empty;
     var tables: List(TableDef) = .empty;
     var table_names: List(?[]const u8) = .empty;
     var elems: List(ElemDef) = .empty;
@@ -729,7 +730,16 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
             // in-pass reported `UnknownIdentifier` for a perfectly good module.
             // Inline `(export …)` fields stay immediate — they can only refer to
             // the item they sit inside.
-            try pending_exports.append(a, items);
+            //
+            // 🔬 **Workspace letter H13 / divergence I12-I14's I13 (2026-09-21): the
+            // deferral used to move the export itself to the END.** So a module-level
+            // export written BEFORE a func carrying an inline one was emitted AFTER it:
+            // `(export "memory" …)` then `(func (export "sieve") …)` came out as sieve,
+            // memory, where wasm-tools, wabt and binaryang keep source order — and the
+            // order is observable through `WebAssembly.Module.exports()`. Only the
+            // RESOLUTION needs deferring, so the slot is reserved here, in order.
+            try pending_exports.append(a, .{ .slot = exports.items.len, .items = items });
+            try exports.append(a, undefined);
         } else if (std.mem.eql(u8, kw, "global")) {
             try parseGlobal(a, items, &globals, &global_imports, &global_names, &exports, type_names.items);
         } else if (std.mem.eql(u8, kw, "tag")) {
@@ -1076,7 +1086,8 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
     // Doing this in-pass rejected forward references — and binaryen emits all
     // the exports BEFORE the functions they name, so most real optimizer output
     // hit it.
-    for (pending_exports.items) |items| {
+    for (pending_exports.items) |pe| {
+        const items = pe.items;
         const name = (try strAt(items, 1));
         const target = (try wantList(try nth(items, 2)));
         const tkw = (try wantAtom(try nth(target, 0)));
@@ -1089,7 +1100,7 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
             4 => try resolveByName(tag_names.items, try nth(target, 1)),
             else => unreachable,
         };
-        try exports.append(a, .{ .name = name, .kind = kind, .index = idx });
+        exports.items[pe.slot] = .{ .name = name, .kind = kind, .index = idx };
     }
 
     // Function type indices (`(type $t)` reference, else intern the inline sig),
@@ -1098,8 +1109,31 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
     // (Imported-function type indices were interned in the field loop, in source
     // order alongside the tags — see `func_import_type`'s declaration.)
 
+    // 🔬 **ONE PASS, FUNCTION BY FUNCTION** — workspace letter H13 / divergence I14 (2026-09-21).
+    // A function's signature is interned and then ITS body is encoded (interning the block types
+    // and `call_indirect` sigs it uses) before the next function's signature. This used to be two
+    // passes — every signature, then every body — so an implicit signature first needed by a LATER
+    // function landed ahead of an implicit block type in an EARLIER one. Measured on a minimal
+    // module (`cmem/probes/i14-interleave.wat`): wasm-tools gives `0 (param i32)`, `1 (result i32
+    // i64)`, `2 (param f32)`; the two passes gave 1 and 2 swapped. Same class as Z4 cause 3
+    // (imports vs tags): an implicit type's INDEX is its ORDER OF FIRST USE, so every pass
+    // boundary is a place the order can silently change.
     var func_type: List(u32) = .empty;
-    for (funcs.items) |*f| {
+    var bodies: List([]const u8) = .empty;
+    // Label names, one list per DEFINED function (index-aligned with `funcs`),
+    // kept for the `name` section below.
+    var body_label_names: List([]const ?[]const u8) = .empty;
+    // Does any body name a data segment? Decides the data-count section below.
+    var code_uses_data_index = false;
+    // 🆕 The `metadata.code.branch_hint` section's entries, already encoded: one per function
+    // that carries at least one hint, `(func_idx, vec(offset, size, bytes))`. Built inside this
+    // loop because a hint's offset only exists while its body is being encoded.
+    var hint_entries: List(u8) = .empty;
+    var hint_func_count: usize = 0;
+    // ⚠️ Hints index the WHOLE function space, so every defined function's entry is shifted by
+    // the imported ones. `func_names` spans imports + definitions; `funcs` only definitions.
+    const defined_func_base = func_names.items.len - funcs.items.len;
+    for (funcs.items, 0..) |*f, di| {
         const ti = if (f.type_ref) |tr| blk: {
             const idx = try resolveType(type_names.items, tr);
             // The inline `(param …)`/`(result …)`, when written alongside a
@@ -1122,24 +1156,9 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
                 f.local_names = names;
             }
         }
-    }
 
-    var bodies: List([]const u8) = .empty;
-    // Label names, one list per DEFINED function (index-aligned with `funcs`),
-    // kept for the `name` section below.
-    var body_label_names: List([]const ?[]const u8) = .empty;
-    // Does any body name a data segment? Decides the data-count section below.
-    var code_uses_data_index = false;
-    // 🆕 The `metadata.code.branch_hint` section's entries, already encoded: one per function
-    // that carries at least one hint, `(func_idx, vec(offset, size, bytes))`. Built inside this
-    // loop because a hint's offset only exists while its body is being encoded.
-    var hint_entries: List(u8) = .empty;
-    var hint_func_count: usize = 0;
-    // ⚠️ Hints index the WHOLE function space, so every defined function's entry is shifted by
-    // the imported ones. `func_names` spans imports + definitions; `funcs` only definitions.
-    const defined_func_base = func_names.items.len - funcs.items.len;
-    for (funcs.items, 0..) |f, di| {
-        const enc = try encodeBody(a, f, func_names.items, &sigs, &pending_typeuse, type_names.items, global_names.items, table_names.items, elem_names.items, tag_names.items, data_names.items, mem_names.items, gc_field_names.items);
+        // …and now THIS function's body, before the next function's signature (see above).
+        const enc = try encodeBody(a, f.*, func_names.items, &sigs, &pending_typeuse, type_names.items, global_names.items, table_names.items, elem_names.items, tag_names.items, data_names.items, mem_names.items, gc_field_names.items);
         try bodies.append(a, enc.bytes);
         try body_label_names.append(a, enc.label_names);
         if (enc.uses_data_index) code_uses_data_index = true;
@@ -2747,11 +2766,39 @@ const EncodedBody = struct { bytes: []const u8, label_names: []const ?[]const u8
 
 fn encodeBody(a: std.mem.Allocator, f: Func, func_names: []const ?[]const u8, sigs: *List(Sig), pending: *List(PendingTypeUse), type_names: []const ?[]const u8, global_names: []const ?[]const u8, table_names: []const ?[]const u8, elem_names: []const ?[]const u8, tag_names: []const ?[]const u8, data_names: []const ?[]const u8, mem_names: []const ?[]const u8, field_names: []const []const ?[]const u8) Error!EncodedBody {
     var body: List(u8) = .empty;
-    // Locals vector: one (count=1, type) group per declared local.
-    try uleb(a, &body, f.locals.items.len);
+    // Locals vector: consecutive locals of the SAME type share one `(count, type)` group.
+    // 🔬 **Workspace letter H13 / divergence I12 (2026-09-21):** this used to write one
+    // `(1, type)` group per local — legal, but not what wasm-tools, wabt or binaryang write, so
+    // module bodies differed from wasm-tools on 460 of 528 corpus files for this reason alone
+    // (+3.65 % body bytes). ⚠️ It hid because the two runtimes were byte-identical to EACH OTHER,
+    // and the Z4 gate compared them to each other. Equality is on the ENCODED type bytes, which is
+    // what "same type" means once names are resolved to indices.
+    var local_types: List(u8) = .empty;
+    var local_ends: List(usize) = .empty;
     for (f.locals.items) |t| {
-        try uleb(a, &body, 1);
-        try emitValType(a, &body, t);
+        try emitValType(a, &local_types, t);
+        try local_ends.append(a, local_types.items.len);
+    }
+    const typeAt = struct {
+        fn get(buf: []const u8, e: []const usize, i: usize) []const u8 {
+            return buf[(if (i == 0) 0 else e[i - 1])..e[i]];
+        }
+    }.get;
+    const lt = local_types.items;
+    const le = local_ends.items;
+    var runs: usize = 0;
+    for (0..le.len) |i| {
+        if (i == 0 or !std.mem.eql(u8, typeAt(lt, le, i), typeAt(lt, le, i - 1))) runs += 1;
+    }
+    try uleb(a, &body, runs);
+    var i: usize = 0;
+    while (i < le.len) {
+        const t = typeAt(lt, le, i);
+        var j = i + 1;
+        while (j < le.len and std.mem.eql(u8, typeAt(lt, le, j), t)) j += 1;
+        try uleb(a, &body, j - i);
+        try body.appendSlice(a, t);
+        i = j;
     }
     var ctx: Ctx = .{ .a = a, .out = &body, .local_names = f.local_names.items, .func_names = func_names, .sigs = sigs, .pending_typeuse = pending, .type_names = type_names, .global_names = global_names, .table_names = table_names, .elem_names = elem_names, .tag_names = tag_names, .data_names = data_names, .mem_names = mem_names, .field_names = field_names };
     try emitSeq(&ctx, f.body);
@@ -9875,4 +9922,38 @@ test "a branch hint wazmrt cannot honour is refused, never dropped" {
     }) |src| {
         try std.testing.expectError(error.BadAnnotation, assemble(a, src));
     }
+}
+
+test "H13: the module BODY matches wasm-tools — local runs, export order, type interning order" {
+    // 🔬 **Workspace letter H13 (2026-09-21), divergences I12-I14.** All three were LEGAL
+    // encodings, so no conformance run, unit test or fuzz pass could fail on them — and wazmrt
+    // was byte-identical to wasmrt on 528/528 files, which is how they hid: the Z4 gate compared
+    // the two runtimes to EACH OTHER. Against wasm-tools the bodies (custom sections stripped)
+    // agreed on 64/528; with these three fixes, 528/528. Every expected byte string below was
+    // READ from `wasm-tools parse` output (`cmem/probes/h13-fixtures/`), not derived by hand.
+    // ⚠️ All three are ORDER/GROUPING facts, and a fact both assemblers drop the same way is
+    // invisible to a differential between them: these assertions are against the canonical tool.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    // I12 — consecutive same-type locals share a group; an i32 after an i64 starts a new one
+    // rather than rejoining the first run. Code payload: 1 body of 8 bytes, 3 groups.
+    const runs = try assemble(a, "(module (func (local i32 i32 i64 i32)))");
+    try std.testing.expectEqualSlices(u8, &.{ 0x01, 0x08, 0x03, 0x02, 0x7f, 0x01, 0x7e, 0x01, 0x7f, 0x0b }, sectionPayload(runs, 10).?);
+
+    // I13 — a module-level export written BEFORE a func's inline export stays first. The
+    // deferral that lets `(export …)` name something declared later must defer RESOLUTION only.
+    const order = try assemble(a, "(module (memory 1) (export \"m\" (memory 0)) (func (export \"f\")))");
+    try std.testing.expectEqualSlices(u8, &.{ 0x02, 0x01, 'm', 0x02, 0x00, 0x01, 'f', 0x00, 0x00 }, sectionPayload(order, 7).?);
+
+    // I14 — function BY function: a sig, then that body's block types, then the next sig. Two
+    // passes (all sigs, then all bodies) put `(param f32)` at 1 and the block type at 2.
+    const interleave = try assemble(a, "(module (func (param i32) (block (result i32 i64) (i32.const 1) (i64.const 2)) drop drop) (func (param f32)))");
+    try std.testing.expectEqualSlices(u8, &.{
+        0x03, // three types
+        0x60, 0x01, 0x7f, 0x00, // 0 (func (param i32))
+        0x60, 0x00, 0x02, 0x7f, 0x7e, // 1 (func (result i32 i64)) — the block type, met first
+        0x60, 0x01, 0x7d, 0x00, // 2 (func (param f32))
+    }, sectionPayload(interleave, 1).?);
 }

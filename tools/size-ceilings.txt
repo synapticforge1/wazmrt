@@ -1130,6 +1130,20 @@
 # The defect it fixes was measured on the first native Linux run: `x\y` opened `x/y` and a symlink
 # to `a:b` opened `b` — silent wrong files. Unit tests 808/812 Windows, 812/812 Linux.
 
-wazmrt.exe  1021952
-wazmrt.lib  1071392
-wazmrt.dll  920064
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — WORKSPACE LETTER H13: the assembler's module BODY now matches wasm-tools.
+# **exe +1,024, lib +1,202, dll +1,024.**
+#
+# What bought the bytes: grouping consecutive same-type locals into runs (I12) — the encoder now
+# encodes each local's type into a side buffer and compares runs, where it used to write
+# `(1, type)` per local. The export-slot reservation (I13) and the one-pass interning (I14) are
+# reorderings and cost ~nothing. The DLL moves this time because `wat.zig` is in it.
+#
+# What it bought: module bodies (custom sections stripped) equal wasm-tools' on 528/528 corpus
+# files, up from 64, and 3.65 % fewer body bytes on that corpus. Unit 810/814; conformance
+# 288 / 64,092 / 0 / 0 unchanged. Each of the three fixes inversion-proven
+# (`cmem/probes/h13-invert.ts`).
+
+wazmrt.exe  1022976
+wazmrt.lib  1072594
+wazmrt.dll  921088
