@@ -42,7 +42,18 @@ cause is deferred `(export …)` forms appended after inline ones (not "grouped 
 two-pass interning, signatures before block types (not the tag). wasmrt should fix the causes, and
 check against **wasm-tools**, not against wazmrt (`probes/body-parity.ts`).
 
-🗓️ **NEXT, per the owner: the fixes the remaining letters ask for — H3 (this file's size), H8, H10.**
+📬 **Letter H8 — three of four measurements taken (2026-09-21, `probes/four-assemblers.ts`,
+`probes/feature-names.ts`; wasm-tools 1.259.0 as the reference, siblings' built tools run, their
+trees not written):**
+
+| row | result |
+| --- | --- |
+| **I7** name section on `.wat` assembly | ✅ **wazmrt's FULL output (name section included) equals `wasm-tools parse` on 528/528** corpus files. The runtimes-vs-binaryang half is DESIGN per letter H14 (owner: keep) |
+| **I8** `(@custom "name" …)` through all | with identifiers, wasm-tools emits **both** name sections (hand-written 12 B + generated 10 B); **wazmrt and wasmrt match it byte for byte; binaryang emits only the hand-written one** (its C5 rule). Without identifiers all four agree. The outlier is binaryang |
+| **I6** feature names | the two runtimes are **identical**: each knows 20 of wasm-tools' 48 names and lacks the same 28. That corrected an overclaim in `roadmap.md` B-c5; which core names to add is 🗓️ OWNER (a name must gate what it names) |
+| **I5** opcode-table membership | ⬜ **not yet measured.** Needs a per-opcode sweep with each tool's "unknown opcode" verdict told apart from immediate/type errors. Also the input H10 waits on |
+
+🗓️ **NEXT: I5, then H3 (this file's size and drift rows Z1–Z6). H10 waits on binaryang's H9.**
 
 ---
 

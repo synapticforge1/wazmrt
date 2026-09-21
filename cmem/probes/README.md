@@ -25,6 +25,9 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `i14-interleave.wat` | the two-function module that separates "function by function" from "all signatures first" interning | with `type-order.ts` |
 | `h13-fixtures/` | the three minimal modules whose wasm-tools bytes the H13 unit test asserts | `body-parity.ts` on the dir: 3/3 same |
 | `h13-invert.ts` | undoes each H13 fix in turn; each must fail the unit test AND bring back its own corpus files. Restores `src/wat.zig` byte-for-byte | `deno run -A h13-invert.ts <repo root> <corpus dir> <out dir>` |
+| `four-assemblers.ts` | letter H8: one or more `.wat` through wasm-tools, wazmrt, wasmrt and binaryang; exit, custom-section list, equality with wasm-tools | `deno run -A four-assemblers.ts <wazmrt> <wasmrt.exe> <binaryang dir> <out dir> <file.wat>...` |
+| `h8-fixtures/` | the two `(@custom "name" …)` inputs for I8, with and without identifiers | with `four-assemblers.ts` |
+| `feature-names.ts` | letter H8 / I6: which of wasm-tools' `--features` names (read from the tool) each runtime knows | `deno run -A feature-names.ts <module.wat> <runtime exe>...` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
