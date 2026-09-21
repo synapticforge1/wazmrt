@@ -10,7 +10,9 @@ adopting — with full attribution — only what earns its place. See
 [`third_party/LICENSES.md`](third_party/LICENSES.md) for the evaluation and
 compliance process, and for the ledger of any reused code.
 
-> **Status:** early but running. wazmrt decodes, validates, and **executes**
+> **Status:** `1.0.2`, complete on its own terms — every proposal wazmrt targets is
+> implemented, and the official spec testsuite runs with zero failures and zero skips.
+> wazmrt decodes, validates, and **executes**
 > WebAssembly — integer/float arithmetic, control flow, `call`/`call_indirect`
 > (multi-table), linear memory, globals, reference types, the reference-type
 > table ops, **bulk table ops** (`table.init`/`table.copy`/`elem.drop`), element
@@ -34,8 +36,8 @@ compliance process, and for the ledger of any reused code.
 > (`.wat` → wasm) and a **WAST script runner** (`wazmrt file.wast`) that runs the
 > official WebAssembly spec testsuite (positive assertions plus
 > `assert_invalid`/`assert_malformed`/`assert_trap`/`assert_unlinkable`, and the
-> `(module definition …)`/`(module instance …)` script forms) — **284 files,
-> 63,934 assertions passing, ZERO failing, ZERO skipped and ZERO unrun files** as of 2026-08-18, covering every
+> `(module definition …)`/`(module instance …)` script forms) — **288 files,
+> 64,092 assertions passing, ZERO failing, ZERO skipped and ZERO unrun files** as of 2026-09-21, covering every
 > proposal wazmrt targets up to and including WasmGC's **custom-descriptors**
 > (`(exact $t)`, descriptors, and the descriptor casts). Failures are reported with the **source line** of the assertion
 > that produced them. It runs a module's **start function** at instantiation, embeds

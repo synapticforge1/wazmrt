@@ -191,12 +191,13 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   (a normally-completing body/handler skips to `end` via `end_of[catch_pc]`). `rethrow N` re-raises the
   try-N caught exception from **outside** that try (pop to try-N, then unwind). Both encodings share the
   one `throwException` search and `error.UncaughtException` propagation.
-- **The run path is unvalidated, so the interpreter self-defends — HARDEN, don't validate-before-run
-  (owner, 2026-07-19).** The CLI run path (`runFunction`/`runWasi`) executes a module **without type-
-  validating it first** (only the inspect path validates). Since wazmrt ships ReleaseFast/ReleaseSmall,
-  an unchecked OOB is real UB, so the interpreter must **trap, never index out of bounds**, on any
-  malformed/malicious module. Owner chose **harden the interpreter** over running the validator on the run
-  path (which would regress legacy-EH modules the validator doesn't cover, and cost startup). Mechanism:
+- **The interpreter self-defends — trap, never index out of bounds (2026-07-19; still binding as
+  DEFENCE IN DEPTH).** 🔁 *Superseded half, summarized 2026-09-21 (letter H3, drift row Z4): this entry
+  was written when the run path executed modules WITHOUT validating them, and it chose "harden, don't
+  validate-before-run". That choice was REVERSED on 2026-08-10 — every path that executes now validates
+  first (the 🔒 entry above). The original wording is `git show 21d633b6c:cmem/design-decisions.md`.*
+  What still stands: since wazmrt ships ReleaseSmall, an unchecked OOB is real UB, so the interpreter
+  must **trap, never index out of bounds**, even behind the validator. Mechanism:
   `checkStaticIndices` bounds-checks every *static* index immediate ONCE at instantiation; *dynamic* values
   are checked at their cold use sites. **The recurring trap is the stack-HEIGHT wild-base pattern:** any
   `vstack.items[items.len - N ..]` used as a slice/index base underflows to a wild pointer on a short
@@ -711,14 +712,14 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   **Reusing `wasmrt`'s design and lessons is owner-sanctioned and raises no third-party question** — same
   owner, same `MIT OR Apache-2.0`.
 
-- **Attribution travels WITH the artifact, not merely with the repo (2026-08-10).** `wasm.h` is vendored
-  verbatim and is **Apache-2.0 only** (wazmrt's own code is `MIT OR Apache-2.0`), so §4(a) obliges us to
-  put the license where the *distribution* goes. `build.zig` installs `third_party/wasm-c-api/LICENSE` →
-  `zig-out/include/LICENSE.wasm-c-api` and `NOTICE` → `zig-out/include/NOTICE`, hung off
-  `b.getInstallStep()` so they cannot be skipped by building only the library. ⚠️ **Do not "tidy" these
-  into a bare `include/LICENSE`** — the name states which of the two licenses it is, and collapsing it
-  invites conflating the vendored header's terms with wazmrt's. Rule for any future vendoring: **a
-  compliant repository is not a compliant distribution** — see `licensing.md`.
+- **Attribution travels WITH the artifact, not merely with the repo (2026-08-10).** Rule for any
+  future vendoring: **a compliant repository is not a compliant distribution** — a vendored file's
+  licence must be installed where the *distribution* goes, under a name that says whose licence it is,
+  hung off `b.getInstallStep()` so building only the library cannot skip it (see `licensing.md`).
+  🔁 *Summarized 2026-09-21 (letter H3): the instance that paid for this — the vendored Apache-2.0-only
+  `wasm.h`, installed as `zig-out/include/LICENSE.wasm-c-api` — was deleted with the wasm-c-api on
+  2026-08-11, and nothing third-party ships today. The original entry is
+  `git show 21d633b6c:cmem/design-decisions.md`.*
 
 - **Zero-copy decode (2026-07-02).** `Reader` borrows slices; `Module` stores only section
   `{id, offset, size}` extents — no eager payload copies. Consequence: a decoded `Module` must remain

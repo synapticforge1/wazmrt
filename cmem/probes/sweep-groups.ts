@@ -1,6 +1,6 @@
 // Group an `opcode-sweep.ts` result by agreement PATTERN (wasm-tools · wazmrt · wasmrt · binaryang),
 // so "which opcodes does only X know" reads at a glance. Replaces the ad-hoc `deno eval` one-liners
-// this was first done with (INDEX.md → TOOLING forbids those).
+// this was first done with (working-rules.md → TOOLING forbids those).
 //
 //   deno run -A opcode-sweep.ts … > result.txt ;  deno run -A sweep-groups.ts result.txt [--full]
 

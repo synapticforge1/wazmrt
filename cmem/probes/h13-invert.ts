@@ -3,7 +3,7 @@
 //
 //   deno run -A h13-invert.ts <repo root> <corpus dir> <out dir>
 //
-// Every sabotage must match EXACTLY ONCE (INDEX.md → TOOLING). The original `src/wat.zig` is
+// Every sabotage must match EXACTLY ONCE (working-rules.md → TOOLING). The original `src/wat.zig` is
 // restored in `finally` and re-checked byte for byte at the end, so an aborted run cannot leave a
 // sabotaged tree behind.
 

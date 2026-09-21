@@ -1,5 +1,40 @@
 # Roadmap
 
+## 🏁 Milestones — what landed, its commits, and where its substance lives
+
+Moved here from `INDEX.md` on 2026-09-21 (letter H3): the index used to carry ~50 KB of dated STATE
+narrative and a 128 KB Files table of changelogs. **The narrative is summarized, not kept** — each row
+names its commits and the file that now holds the substance; the full text as it stood is
+`git show 21d633b6c:cmem/INDEX.md`. What is still OPEN is in [`open-work.md`](open-work.md), not here.
+
+| date | what landed | commits | substance now in |
+| --- | --- | --- | --- |
+| 2026-09-21 | Opcode sweep (letter H8 / I5): the twenty unassigned `0xFD` gaps refused; wazmrt's table = wasmrt's (582); 44 wasm-tools-only opcodes, off the table (owner) | `1f4a83320`, `21d633b6c` | `known-issues.md`, `probes/README.md` |
+| 2026-09-21 | `--features` = wasm-tools' whole vocabulary and meanings; locals walked; `funcref` table under `mvp`; `try_table` leak | `f00ff6489`, `88b63d008` | `interop.md` v30, `known-issues.md` |
+| 2026-09-21 | Flat legacy exception handling (`try … catch … end`) | `ee5157419` | `probes/legacy-eh/` |
+| 2026-09-21 | Letter H8: I6, I7, I8 measured | `0c931de6e` | `probes/README.md` |
+| 2026-09-21 | 🔖 **Release `1.0.2`** — Track B plus the day's work; the full checklist ran | `f2f890695` | `releasing.md` |
+| 2026-09-21 | Letter H13: module bodies equal wasm-tools' (528/528) — local runs, export order, one-pass interning; `.wat` pins change | `9a22cab02` | `interop.md` v29 |
+| 2026-09-21 | Letter H1 addressed; contract v28; lockstep recorded; probes kept in cmem | `f734ef7c5` | `interop.md` §1e, `releasing.md` gate 11 |
+| 2026-09-21 | `--dir` host grammar (closes §5 #10); POSIX path rules in the WASI resolver (three wrong-file opens) | `24e5e0958` | `interop.md` v27, `security-model.md` |
+| 2026-09-21 | Own Track H ids renamed `zH1`–`zH8` | `50f5bf417` | `INDEX.md` (namespace note) |
+| 2026-09-20 | A wazmrt flag in a guest position is an ERROR (zH7) | `89f380a5b` | `interop.md` v26 |
+| 2026-09-20 | Custom annotations (`@custom`, `@name`, branch hints) | `bef9372be` | `text-toolchain.md` |
+| 2026-09-20 | `hostRefPayload` / `BadFuncType` kept as supported API (owner) | `21ea6cc50` | `roadmap.md` (general hunt) |
+| 2026-09-20 | The six filed Track B items worked through | `91aee68c` | `roadmap.md` (general hunt) |
+| 2026-09-20 | Track B general hunt: `extended_const` unreachable gate, internal valtype tags on the wire, `(table 1 exnref)` | `e5ac7fb3`, `7de54a45` | `roadmap.md`, `best-practices.md` |
+| 2026-09-20 | B-e: the size gate builds what it grades; ceiling had been behind reality at `41a96aa3` | `90d501d2` | `tools/size-ceilings.txt`, `releasing.md` |
+| 2026-09-20 | B-a: four emitter defects (spec-corpus differential) | `d47ecd18` | `roadmap.md`, `tools/emitter-diff.mjs` |
+| 2026-09-20 | B-d: `(type N)` inline-signature mismatch refused; cross-runtime parity total | `973dc0de` | `interop.md` v23 |
+| 2026-09-20 | B-c4: the four subcommand spellings | `8e04263b` | `interop.md` v24 |
+| 2026-09-19/20 | B-b (unknown flags, Z1–Z3), B-c1/c3/c5, B-c2 (Z4, `.wat` pins portable 954/954 — superseded by v29) | `0a48957a`, `22437455`, `a495424f` | `interop.md` v21–v22 |
+| 2026-08-19 | 🔖 Release `1.0.1` — Track H | — | Track H below |
+| 2026-08-17 | Builds run from `D:` again (one env var); merged to main. Three earlier diagnoses blamed hardware (`e507d1c`, `458bc96`, `46a0bdb`) and were wrong | `ed05905` | `working-rules.md` |
+| 2026-08-11 | The C ABI replaced (ABI 2, `capi.zig`) | — | `architecture.md`, `include/wazmrt.h` |
+| earlier | Legacy `try`/`catch` infinite loop fixed; C-ABI `c6ff764e` re-audited clean | `d51c004`, `c6ff764e` | `known-issues.md` |
+
+---
+
 ## 🎯 THE 1.0 REVIEW PROGRAM — four tracks (owner, 2026-08-19). **THIS IS THE NEXT WORK.**
 
 **Ported from `wasmrt`'s T9–T12, which the owner scoped there on 2026-08-06** — the same four phases, in

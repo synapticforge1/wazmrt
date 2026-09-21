@@ -164,7 +164,7 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
    formality: wasmrt's CLI silently needed a toolchain DLL for weeks while every dev-box test passed.
 9. **Bump the four places**, then grep for the old string.
 10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
-    ladder, and `INDEX.md`'s STATE AT PAUSE. A doc pass scheduled "after the release" is a doc pass that
+    ladder, and `open-work.md`'s Status line (the only one — letter H3, 2026-09-21). A doc pass scheduled "after the release" is a doc pass that
     does not happen.
 11. 🆕 🤝 **THE LOCKSTEP GATE — once wasmrt reaches `1.0.1`** (owner, 2026-09-21; `interop.md` §1e).
     From that point neither runtime releases alone, and **two things must be true before the bump**:

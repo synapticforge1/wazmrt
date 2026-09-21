@@ -247,10 +247,10 @@ breaking change.
 - **Libc-free by default** — smallest binary, no toolchain requirement for embedders, and the same
   allocator strategy works native and on freestanding wasm.
 
-## Status (2026-07-02)
+## Status
 
-The runtime **decodes, validates, and executes** wasm (int/float/memory), and a native **text
-toolchain** (WAT assembler + WAST runner) runs the **official spec testsuite** (thousands of assertions
-pass — see `testing.md`). C-ABI + freestanding-wasm build targets in place. Still 100% original runtime
-code (only `wasm.h` vendored). Not yet done: `call_indirect`/host imports/WASI, multi-value, the
-size/speed baseline vs Deno/V8. See `roadmap.md`.
+**Complete on its own terms since `1.0.0` (2026-08-19)** — every proposal wazmrt targets is
+implemented and the spec testsuite runs with zero failures and zero skips. The current status line is
+in [`open-work.md`](open-work.md) and nowhere else. *(Summarized 2026-09-21, letter H3 / drift row Z5:
+this section read "Status (2026-07-02) … not yet done: `call_indirect`/host imports/WASI, multi-value"
+for two months after all of them shipped — `git show 21d633b6c:cmem/vision.md`.)*

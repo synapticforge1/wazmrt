@@ -11,7 +11,7 @@
 // Re-applied, it would turn every "workspace letter H1" into a false `zH1`. As a dry run it is a
 // census: 3 hits on 2026-09-21, all intended (the namespace note quoting the old collision twice,
 // and one workspace-letter reference). Read each new hit; do not zero the count. It is a MASS token rename, so it counts
-// matches rather than asserting exactly-once per site (`INDEX.md` → TOOLING's corollary is about
+// matches rather than asserting exactly-once per site (`working-rules.md` → TOOLING's corollary is about
 // targeted edits).
 
 const root = Deno.args[0];

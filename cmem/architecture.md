@@ -94,10 +94,12 @@ The core (`root.zig`) is compiled into three artifacts by `build.zig`:
 1. **Native CLI** (`main.zig`) — `zig build` / `zig build run`. Uses the Zig-0.16 `std.process.Init`
    entry + new `Io` API (`Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(64<<20))`,
    `Io.File.Writer`). See `design-decisions.md` for the 0.16 API notes.
-2. **C-ABI static library** (`wasm_c_api.zig`) — implements the **standard wasm-c-api**. `zig build`
-   installs `wazmrt.lib`/`.a` + both headers (`wasm.h`, `wazmrt.h`) + the attribution files that must
-   ship with them (`LICENSE.wasm-c-api`, `NOTICE`). Opaque handles; `smp_allocator`
-   (no libc). This is what the `universalWasmLoader-*` ports link. Verified from C by `tests/c_smoke.c`.
+2. **C-ABI library** (`capi.zig`) — the native `wazmrt.h` surface, **ABI 2** (see "C ABI contract"
+   below; the standard wasm-c-api it replaced was retired 2026-08-11). `zig build` installs the static
+   `wazmrt.lib`/`.a` and `wazmrt.h`; `zig build dll` builds the shared library into `zig-out/dll/`.
+   Opaque handles; `smp_allocator` (no libc). This is what the `universalWasmLoader-*` ports link.
+   Verified from C by `tests/capi_smoke.c` (`zig build capi-smoke`) and link-completeness-checked by
+   `tests/wazmrt_abi_symbols.c`.
 3. **Freestanding wasm** (`wasm_entry.zig`) — `zig build wasm`, `ReleaseSmall`, `entry = .disabled`,
    `rdynamic = true`, `std.heap.wasm_allocator`. Proves the runtime compiles to wasm and gives web
    loaders a module to instantiate.
@@ -106,15 +108,16 @@ The core (`root.zig`) is compiled into three artifacts by `build.zig`:
 
 - `mod` = `addModule("wazmrt", root.zig)` — imported by the CLI and reused as the test root.
 - `exe` = CLI, imports `mod`; installed by default; `run` step.
-- `cabi` = `addLibrary(.static, wasm_c_api.zig)` + `installHeader(wasm.h)` + `installHeader(wazmrt.h)`;
-  installed by default. **Does NOT link libc** (deliberate — see `design-decisions.md`). Since
-  2026-08-10 the install step also copies **`LICENSE.wasm-c-api`** (the vendored header's Apache-2.0
-  text) and **`NOTICE`** into `zig-out/include/`, via `b.getInstallStep().dependOn(addInstallFile(…))`
-  so they ship even when only the library is built — `wasm.h` is Apache-2.0 only and §4(a) binds on
-  distribution, not on the repo. Ship `zig-out/include/` **whole**; see `licensing.md` + `overview.md`.
+- `cabi` = `addLibrary(.static, capi.zig)` + `installHeader(wazmrt.h)`; installed by default. **Does
+  NOT link libc** (deliberate — see `design-decisions.md`). `dll` = the same root as
+  `.linkage = .dynamic`, under the `dll` step, installed to `zig-out/dll/` so its import library cannot
+  overwrite the static `wazmrt.lib` (Track B-e). *(Until 2026-08-11 the library was the vendored
+  wasm-c-api and the install also copied its Apache-2.0 `LICENSE.wasm-c-api`; with the header gone
+  there is no third-party file to ship — `licensing.md`.)*
 - `wasm_exe` = `addExecutable(wasm_entry.zig)` for `wasm32-freestanding`, under the `wasm` step only.
-- `mod_tests` = `addTest(mod)` under the `test` step; `cabi_tests` = `addTest(wasm_c_api.zig)` (re-runs
-  the core tests + the C-ABI tests under `std.testing.allocator`), also under `test`.
+- `mod_tests` = `addTest(mod)` under the `test` step; `capi_tests` = `addTest(capi.zig)` (re-runs the
+  core tests + the C-ABI tests under `std.testing.allocator`), also under `test`, with `cli_tests`
+  (`main.zig`) and `version_tests`.
 - `wasi-gate` step = compiles real `wasm32-wasi` guests and runs them through `exe` asserting stdout:
   a Zig guest (`hello_compiled.zig`, built by the build graph) + a C guest (`c_hello.c` via `zig cc`),
   both always-on; a Rust guest (`rust_hello.rs` via `rustc`) behind `-Drust-gate=true`. The

@@ -1149,7 +1149,10 @@ re-measure, not pad. — R9, `roadmap.md`
 R9's eight test inversions reported no failing test because commenting out the check left a function
 parameter unused — a hard error in Zig — so the build never ran, and the "which tests failed" grep
 matched nothing either way. Assert the build succeeded before reading an inversion's silence. — R9,
-`testing.md`
+`testing.md` · 🔁 **Recurred 2026-09-21** (`probes/h13-invert.ts` reported a fix "unguarded" when its
+sabotage — `_ = t;` for a used `t` — never compiled), after the INDEX had already called this "third
+session running". **So it is now a MECHANISM, not a paragraph**: every inversion harness in `probes/`
+builds first and reports "no verdict" on a build failure, never "unguarded".
 
 **An inversion that catches NOTHING has three causes, and they need three different responses.**
 Tracks D2–D4 hit all three, and telling them apart takes an argument, not a rerun:
@@ -1702,14 +1705,6 @@ full files equal `wasm-tools parse`. 🔒 **When a canonical implementation exis
 to IT; a sibling-to-sibling differential only finds where the two disagree with each other.** Also:
 **a claim's wording must name what was compared.** "Portable" had been measured against one
 thing and written about another. — 2026-09-21, letter H13, `interop.md` v29
-
-### 🎓 An inversion whose sabotage does not compile proves nothing — build before you judge
-
-`probes/h13-invert.ts` first reported one fix as **unguarded**: the unit test "did not fail" when the
-fix was removed. In fact the sabotaged source never compiled (Zig rejects `_ = t;` for a used `t`),
-so no test ran at all. 🔒 **An inversion harness must build first and report "no verdict" on a
-build failure**, never "passed" or "unguarded". *The absence of a failure is only evidence if the
-thing that could fail actually ran.* — 2026-09-21, `probes/h13-invert.ts`
 
 ---
 

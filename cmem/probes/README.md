@@ -6,7 +6,7 @@ probe that produced a recorded number belongs next to the number, so the next se
 machine) can re-derive it. **Save probes here as you write them, not afterwards.** Build outputs and
 fixture directories are regenerated and are not kept.
 
-All scripts are Deno (`INDEX.md` → TOOLING) or Zig. **Run `--dir` probes through `Deno.Command` or a
+All scripts are Deno (`working-rules.md` → TOOLING) or Zig. **Run `--dir` probes through `Deno.Command` or a
 native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the program sees it.
 
 | file | what it measures | how to run |
@@ -35,6 +35,9 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `sweep-groups.ts` | groups an `opcode-sweep.ts` result by agreement pattern (who knows what) | `deno run -A sweep-groups.ts <result.txt> [--full]` |
 | `three-proposals.ts` | stack-switching, memory-control, shared-everything-threads: does wasm-tools validate each by default, and does wasmtime RUN it, with and without its `-W` switch? | `deno run -A three-proposals.ts <out dir>` |
 | `simd-holes.ts` | the twenty unassigned `0xFD` gaps given 1/2/3 v128 operands: do they VALIDATE, do they run? | `deno run -A simd-holes.ts <wazmrt> <out dir>` |
+| `h3-sections.ts` | a Markdown file's headings with the BYTES under each — how the INDEX cut was planned | `deno run -A h3-sections.ts <file.md>` |
+| `h3-build.ts` | letter H3: rebuilt INDEX.md and created working-rules.md by MOVING line ranges verbatim from a baseline commit, each range asserted to start at its expected heading | `deno run -A h3-build.ts <repo root> <baseline>` (done once; kept as the record of what moved) |
+| `h3-check.ts` | letter H3's proof: every hash the old INDEX cited still resolves AND is still cited; every link resolves; every by-name section reference resolves. `--invert` must report the sabotage | `deno run -A h3-check.ts <repo root> 21d633b6c [--invert]` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -97,5 +100,20 @@ complete module before it is reported.*
 
 ## ⬜ Open: the macOS pass
 
-`INDEX.md` → STATE → "Still open" has the exact checklist. Everything it needs is in this folder.
-⚠️ APFS is case-insensitive by default, so no fixture pair here may differ only by case (none does).
+🍎 **Owner, 2026-09-21: "when I have access to that machine."** Linux is measured; macOS is not. The
+four POSIX resolver defects (`known-issues.md`, fixed 2026-09-21) are fixed there **by construction
+only**, since macOS runs the same `.native = .posix` code. **The check, not the conclusion** — on a Mac
+with Zig 0.16.0 and Deno 2.9.7:
+
+1. `zig build test` — every test passing, **0 skipped**.
+2. `WAZMRT_SECURITY_STRICT=1 zig build test-security` — 3/3.
+3. The `--dir` grammar matrix (`posix-forms.ts`): `./a:b::/m` and `./back\slash::/m` mount; `q:/m`,
+   `C:` and `data:/m` are the bare-relative error.
+4. `guest_names.zig` + `guest-fixtures.ts`: a `wasm32-wasi` guest `path_open`s, with
+   `SYMLINK_FOLLOW`, files whose CONTENTS name them (`x\y`, `x/y`, `a:b`, `c:`, `b`, symlinks to `x\y`
+   and `a:b`, plus `../../../../etc/passwd` and its backslash spelling). Expect each to open itself,
+   the `../` escape `NOTCAPABLE`, and the backslash spelling `NOENT`.
+
+⚠️ **APFS is case-insensitive by default, unlike ext4**, so a fixture pair differing only in case would
+collide; none of the above does. Everything the pass needs is in this folder. *(This checklist lived
+in `INDEX.md`'s STATE block until the letter-H3 restructuring moved it here, where the pointers lead.)*
