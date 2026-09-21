@@ -31,6 +31,8 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `feature-matrix.ts` | what every wasm-tools `--features` name ADMITS: presets × one-module-per-feature, then the single name (or minimal pair) that suffices for each module. Pass a runtime exe to run the same matrix on it | `deno run -A feature-matrix.ts <out dir> [runtime exe]` |
 | `features-invert.ts` | undoes each of the 11 pieces of the 2026-09-21 feature work (six gates, the SIMD float list, both holes, the typed-reference rule, the `try_table` leak); `zig build test` must fail every time. Restores every touched file | `deno run -A features-invert.ts <repo root>` → "ALL GUARDED" |
 | `legacy-eh/` | flat legacy-EH forms (`forms.ts`), fixtures that assemble byte-identically to wasm-tools and RUN (`flat/`), and their inversion (`invert.ts`) | see each file's header |
+| `opcode-sweep.ts` | letter H8 / I5: 748 candidate opcodes through wasm-tools, wazmrt, wasmrt and binaryang; calibrates each tool's "unknown opcode" message, then prints only the disagreements | `deno run -A opcode-sweep.ts <out dir> <wazmrt> <wasmrt.exe> <binaryang dir> [--calibrate]` |
+| `simd-holes.ts` | the twenty unassigned `0xFD` gaps given 1/2/3 v128 operands: do they VALIDATE, do they run? | `deno run -A simd-holes.ts <wazmrt> <out dir>` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -79,6 +81,14 @@ row is measuring itself.*
 wasm-tools'** — every preset, single name, minimal pair, group-name, per-instruction and reference-type
 row. That is the acceptance test for `interop.md` v30; wasmrt matches when the same command on it
 diffs clean.
+
+**2026-09-21, letter H8 / I5 (`opcode-sweep.ts`):** wasm-tools knows 591 of 748 candidates;
+**wazmrt 582 = wasmrt 582**, both short only by nine unimplemented-proposal opcodes; binaryang 639
+(accepts 64 unassigned `0xFD`, lacks `0xfb 20`–`26`). wazmrt was 602 until its twenty `0xFD` gaps
+were refused. ⚠️ Two probe artifacts, both caught before they became findings: the output was
+truncated before wazmrt's verdict (scored "knows everything"), and `end` was read as a lane
+immediate (scored wasmrt as missing eleven lane ops it runs). *An alarming row is re-run with a
+complete module before it is reported.*
 
 ## ⬜ Open: the macOS pass
 

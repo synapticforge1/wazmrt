@@ -27,6 +27,14 @@ Found while making `--features` match wasm-tools (`interop.md` v30); each is fix
 **Surfaces when:** already fixed. Recorded because the first shipped in a release (`1.0.2`) — a
 user of `--features mvp` on 1.0.2 should upgrade.
 
+➕ **A fourth, the same day, from the letter-H8 opcode sweep: the twenty UNASSIGNED `0xFD`
+sub-opcodes decoded and VALIDATED** (shipped in 1.0.2 and earlier). A module containing one —
+malformed by the spec, rejected by wasm-tools as "unknown 0xfd subopcode" — passed
+`wazmrt_module_validate` and trapped only when run. 🎓 **The guard for this exact defect already
+existed** (`max_simd_sub`, with a comment describing it word for word) — **and covered only the range
+ABOVE the table, never the gaps inside it.** *A range check is not a membership check.* Fixed with
+`opcode.unassigned_simd_subs`, pinned both ways against the assembler's mnemonic table.
+
 ---
 
 ## ✅ FIXED SAME DAY — 🐧 The WASI resolver applied WINDOWS path rules on POSIX — silent WRONG-FILE opens (2026-09-21)

@@ -22,6 +22,8 @@ const inversions: Inv[] = [
   { name: "HOLE 1 back: a funcref table judged as a value type", file: "src/features.zig", from: "for (module.tables) |t| if (t.element != .funcref) {", to: "for (module.tables) |t| if (true) {" },
   { name: "HOLE 2 back: locals not walked", file: "src/features.zig", from: "        for (code.locals) |l| requireValType(fs, l.type, &found) catch return found;\n", to: "" },
   { name: "leak back: freeBody forgets try_table", file: "src/opcode.zig", from: "        .try_table => |tt| a.free(tt.catches),\n", to: "" },
+  // Letter H8 / I5 (same day): the decoder refusing the twenty unassigned 0xFD gaps.
+  { name: "SIMD gaps back: decoder ignores unassigned_simd_subs", file: "src/opcode.zig", from: "if (sub > max_simd_sub or std.mem.indexOfScalar(u32, &unassigned_simd_subs, sub) != null)", to: "if (sub > max_simd_sub or (false and std.mem.indexOfScalar(u32, &unassigned_simd_subs, sub) != null))" },
 ];
 
 async function run(cmd: string, args: string[]) {

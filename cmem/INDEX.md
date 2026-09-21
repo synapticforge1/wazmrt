@@ -53,9 +53,11 @@ trees not written):**
 | **I7** name section on `.wat` assembly | ✅ **wazmrt's FULL output (name section included) equals `wasm-tools parse` on 528/528** corpus files. The runtimes-vs-binaryang half is DESIGN per letter H14 (owner: keep) |
 | **I8** `(@custom "name" …)` through all | with identifiers, wasm-tools emits **both** name sections (hand-written 12 B + generated 10 B); **wazmrt and wasmrt match it byte for byte; binaryang emits only the hand-written one** (its C5 rule). Without identifiers all four agree. The outlier is binaryang |
 | **I6** feature names | measured: the two runtimes were **identical**, each knowing 20 of wasm-tools' 48 names. ✅ **Then fixed in wazmrt (owner: all names, wasm-tools' meanings)**: all 48 accepted, and `probes/feature-matrix.ts` run on wazmrt is identical to wasm-tools'. wasmrt now diverges until it matches v30 |
-| **I5** opcode-table membership | ⬜ **not yet measured.** Needs a per-opcode sweep with each tool's "unknown opcode" verdict told apart from immediate/type errors. Also the input H10 waits on |
+| **I5** opcode-table membership | ✅ **measured 2026-09-21** (`probes/opcode-sweep.ts`: 748 candidate opcodes — every single byte and each prefix's sub-opcode range with a margin — through all four tools, each tool's "unknown opcode" message calibrated first). wasm-tools 591. **wazmrt 582 and wasmrt 582, IDENTICAL**, differing from wasm-tools only by nine opcodes of proposals neither implements (stack-switching `0xe0`–`0xe6`, memory-control `0xfc 12`, shared-everything-threads `0xfe 4f`). 🚨 **wazmrt was 602 before the fix: it DECODED AND VALIDATED the twenty unassigned `0xFD` gaps** (`0x9a` … `0xee`) — fixed the same day (`opcode.unassigned_simd_subs`, pinned against the assembler's table, inversion-proven). **binaryang 639**: it accepts **64 unassigned `0xFD` sub-opcodes** (the same twenty + `0x114`–`0x13f`) and **lacks seven** (`0xfb 20`–`26`, custom-descriptors). ⚠️ The first run scored wasmrt as lacking eleven SIMD lane ops: the probe's `end` byte was read as the lane immediate, and wasmrt reports a bad lane as "unsupported instruction opcode" (a misleading message — the only wasmrt finding). Re-run with padding: artifact gone |
 
-🗓️ **NEXT: I5, then H3 (this file's size and drift rows Z1–Z6). H10 waits on binaryang's H9.**
+✅ **Letter H8 is COMPLETE — all four rows measured.** For the workspace to pull: **binaryang's table is the outlier on I5** (64 accept-invalid, 7 missing), and for **H10** — "file now any entry your table has that you suspect the source lacks" — wazmrt's table has `0xfb 20`–`26` (custom-descriptors) that binaryang, the designated SOURCE of the shared opcode definitions (H9), does not.
+
+🗓️ **NEXT: H3 (this file's size and drift rows Z1–Z6). H10 waits on binaryang's H9.**
 
 ---
 
@@ -237,7 +239,7 @@ so a checkout-dependent line ending would move a digest. Full reasoning: `best-p
 | gate | value | note |
 | --- | --- | --- |
 | conformance | **288 files · 64,092 passed · 0 failed · 0 skipped · 0 unrun** | baseline file is **EMPTY**, and now so is the skip column. ✅ The last 20 closed 2026-09-20 with custom-annotations — they were the three `custom/` files, and the tally matches the canonical runtime's own adjudication of that directory exactly. ⚠️ The counts differ from Track H's `284 · 63,934 · 0 skipped` because this is a **different testsuite checkout** (`wasmtk/…/testsuite-main`), not a regression — verified by running the same command on `HEAD` before and after every change on 2026-09-20 |
-| unit tests | **808/812** (4 skipped, `D:` cwd, 2026-09-21) · 🐧 **812/812 on Linux** | a `D:` cwd loses 4 to exFAT symlinks |
+| unit tests | **822/822 on Linux; 820/820 on Windows from NTFS** measured before the last +2 (2026-09-21) | the same suite from the exFAT `D:` drive shows 818/822: two symlink tests × two binaries skip. Not a platform difference |
 | `test-safe` | 802/806 (4 skipped) | ReleaseSafe — optimized, safety checks KEPT |
 | `test-security` | 3/3 | from an NTFS cwd |
 | **`test-shipped`** | **802/806** (4 skipped) | Track H — **ReleaseSmall, the config that SHIPS** (checks off) |

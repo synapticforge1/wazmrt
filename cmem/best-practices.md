@@ -1735,6 +1735,25 @@ means listing every position a gated thing can occupy, then checking each positi
 the spec for THAT position.** `extended_const` was the same lesson one position over. — 2026-09-21,
 `features.zig`
 
+### 🎓 A range check is not a membership check — and a guard's comment is not its coverage
+
+`decodeSimd` had a guard written for exactly one defect: *"an undefined 0xFD sub-opcode used to decode
+AND validate, trapping only at execution."* The guard was `sub > max_simd_sub`, so it covered the
+numbers above the table. **The twenty unassigned gaps INSIDE the table kept decoding and validating**
+until a sweep of every sub-opcode against wasm-tools found them. The comment described the defect
+perfectly and made the code look finished. 🔒 **When the valid set has holes, check membership, not
+bounds, and pin the member list against an independent source of the names.** —
+2026-09-21, `opcode.unassigned_simd_subs`
+
+### 🎓 Re-run an alarming finding with a COMPLETE input before reporting it
+
+The opcode sweep's first two runs produced two findings that were really the probe's own mistakes:
+wazmrt "knew every opcode" (its verdict was past a truncation), and wasmrt "lacked eleven SIMD lane
+ops" (the probe's `end` byte was read as a lane immediate). Each was caught by checking the one
+alarming row with a well-formed module, where wasmrt returned the right answer. 🔒 **A bulk probe's
+outlier row is a hypothesis about the probe until a complete, independent input confirms it about
+the tool.** — 2026-09-21, `probes/opcode-sweep.ts`
+
 ### 🎓 Attribute a size jump by removing things, not by guessing
 
 The size gate caught +9 KiB. The guess (`@tagName` shipping opcode names) led to a "fix", a comptime

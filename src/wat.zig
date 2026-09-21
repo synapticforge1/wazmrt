@@ -9993,6 +9993,42 @@ test "features.simd_float_subs is exactly the SIMD mnemonics naming f32/f64 (rel
     try std.testing.expectEqual(features.simd_float_subs.len, named);
 }
 
+test "every 0xFD sub-opcode up to the table's top is NAMED or a listed GAP — never both, never neither" {
+    // 🔒 COVERAGE PIN for `opcode.unassigned_simd_subs` (2026-09-21). The decoder refuses the
+    // listed gaps; this assembler's table holds the names. A sub-opcode in NEITHER would decode
+    // with no mnemonic behind it — the accept-invalid class the H8 sweep found twenty of — and one
+    // in BOTH would refuse a real instruction.
+    var sub: u32 = 0;
+    while (sub <= opcode.max_simd_sub_public) : (sub += 1) {
+        var named = false;
+        for (simd_table) |e| if (e.s == sub) {
+            named = true;
+        };
+        const gap = std.mem.indexOfScalar(u32, &opcode.unassigned_simd_subs, sub) != null;
+        if (named == gap) {
+            std.debug.print("0xfd sub 0x{x}: named={} listed-as-gap={}\n", .{ sub, named, gap });
+            return error.TestUnexpectedResult;
+        }
+    }
+    // …and the DECODER refuses every gap. The list above being right is not the same as the
+    // decoder consulting it.
+    for (opcode.unassigned_simd_subs) |gap| {
+        var body: [4]u8 = undefined;
+        var n: usize = 0;
+        body[n] = 0xfd;
+        n += 1;
+        var v = gap;
+        while (true) {
+            const b: u8 = @intCast(v & 0x7f);
+            v >>= 7;
+            body[n] = if (v != 0) b | 0x80 else b;
+            n += 1;
+            if (v == 0) break;
+        }
+        try std.testing.expectError(error.UnsupportedOpcode, opcode.decodeBody(std.testing.allocator, body[0..n]));
+    }
+}
+
 test "legacy EH, FLAT: assembles, encodes exactly like the folded form, and RUNS" {
     // 🔬 **Owner, 2026-09-21: build legacy exceptions in for the broadest coverage.** Binary
     // decode, validation and execution already existed and the spec corpus's folded

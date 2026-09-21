@@ -1170,6 +1170,11 @@
 # ~160 bytes of lib for the same rule. *Guessing the cause made it worse once (the EnumSet); the
 # stub measurement found it.*
 
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — THE TWENTY UNASSIGNED 0xFD GAPS ARE REFUSED (letter H8 / I5). **exe +0, lib +174,
+# dll +512.** What bought the bytes: `opcode.unassigned_simd_subs` (20 × u32) and the lookup in
+# `decodeSimd`. A malformed module containing one used to VALIDATE and trap only at run time.
+
 wazmrt.exe  1027584
-wazmrt.lib  1075768
-wazmrt.dll  923136
+wazmrt.lib  1075942
+wazmrt.dll  923648

@@ -942,6 +942,22 @@ fn simdLaneCount(sub: u32) u8 {
 /// instructions). Raise this when adding sub-opcodes past it.
 const max_simd_sub: u32 = 0x113;
 
+/// The UNASSIGNED `0xFD` sub-opcodes BELOW `max_simd_sub` — the reserved gaps in the i16x8 / i32x4
+/// / i64x2 blocks, where the numbering skips slots. 🚨 **These decoded AND validated until
+/// 2026-09-21**: the `> max_simd_sub` guard below was written for exactly this defect ("an
+/// undefined 0xFD sub-opcode used to decode AND validate, trapping only at execution") and closed
+/// only the range ABOVE the table, never the holes inside it. Measured by the letter-H8 opcode
+/// sweep (`cmem/probes/opcode-sweep.ts`): wasm-tools rejects all twenty as "unknown 0xfd
+/// subopcode"; wazmrt VALIDATED each one given two v128 operands (`probes/simd-holes.ts`).
+/// Pinned against the assembler's mnemonic table by a test in `wat.zig` — every sub-opcode up to
+/// `max_simd_sub` is either named there or listed here, never both. Sorted.
+pub const unassigned_simd_subs = [_]u32{
+    0x9a, 0xa2, 0xa5, 0xa6, 0xaf, 0xb0, 0xb2, 0xb3, 0xb4, 0xbb,
+    0xc2, 0xc5, 0xc6, 0xcf, 0xd0, 0xd2, 0xd3, 0xd4, 0xe2, 0xee,
+};
+
+pub const max_simd_sub_public = max_simd_sub;
+
 /// Free an instruction stream from `decodeBody`/`decodeBodyTracked`, including
 /// the SIDE allocations some immediates own — `br_table`'s label array and typed
 /// `select`'s type vector are separate allocations, so `a.free(ir)` alone leaks
@@ -1085,7 +1101,9 @@ fn decodeSimd(r: *Reader, sub: u32) DecodeError!Instr {
         // because the unknown sub consumes no immediate, following bytes were
         // re-interpreted as instructions. `0x113` is the highest implemented
         // (the relaxed-SIMD tail); reject anything past it.
-        else => if (sub > max_simd_sub) return error.UnsupportedOpcode,
+        // …and the reserved GAPS inside the range, which the line above never covered.
+        else => if (sub > max_simd_sub or std.mem.indexOfScalar(u32, &unassigned_simd_subs, sub) != null)
+            return error.UnsupportedOpcode,
     }
     return .{ .op = .simd, .imm = .{ .simd = s } };
 }
