@@ -186,6 +186,13 @@ const Feature = enum(c_int) {
     custom_descriptors = 16,
     custom_page_sizes = 17,
     wide_arithmetic = 18,
+    // 2026-09-21 — the wasm-tools names wazmrt now gates (see `features.zig` 19–24).
+    mutable_global = 19,
+    floats = 20,
+    bulk_memory_opt = 21,
+    call_indirect_overlong = 22,
+    gc_types = 23,
+    legacy_exceptions = 24,
     _,
 
     /// Bound DERIVED from `features.count`, never written out again: the literal that used to sit
@@ -303,6 +310,12 @@ export fn wazmrt_config_get_feature(c: ?*Config, f: Feature, out: ?*bool) bool {
 export fn wazmrt_config_all_features(c: ?*Config, enabled: bool) void {
     const cfg = c orelse return;
     for (0..root.features.count) |i| cfg.features.set(@enumFromInt(@as(u8, @intCast(i))), enabled);
+    // 🔒 **`false` still means "WebAssembly 1.0 only", as documented** — and 1.0 HAS floats.
+    // Since `floats` became a bit (2026-09-21), switching every bit off would also refuse every
+    // module that touches an f32, silently changing what this call has always meant to an
+    // embedder. So `false` is wasm-tools' `mvp`: everything off except floats. Nothing-at-all
+    // stays available through `wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_FLOATS, false)`.
+    if (!enabled) cfg.features.set(.floats, true);
 }
 
 export fn wazmrt_config_set_max_memory_bytes(c: ?*Config, n: u64) void {
@@ -3187,14 +3200,28 @@ test "config: features round-trip, and an incoherent set is refused" {
     try testing.expect(!wazmrt_config_set_feature(cfg, @enumFromInt(99), true));
     try testing.expect(!wazmrt_config_get_feature(cfg, @enumFromInt(99), &on));
 
-    // GC rests on function-references. Enabling one without the other is REPORTED, not quietly
-    // repaired — silently enabling the dependency would accept modules meant to be refused.
+    // 🔒 **No configuration is refused any more (2026-09-21, owner: match wasm-tools).** This
+    // used to assert that gc-without-function-references was REFUSED as "incoherent". Measured,
+    // wasm-tools accepts that configuration — gc satisfies the typed-reference check — and never
+    // refuses a configuration at all; the dependencies are enforced on each MODULE instead
+    // (`features.firstViolation`, pinned there and by `cmem/probes/feature-matrix.ts`).
     try testing.expect(wazmrt_config_set_feature(cfg, .function_references, false));
     var cerr: ?*Error = null;
-    try testing.expect(wazmrt_engine_new_with_config(cfg, &cerr) == null);
-    const err = cerr orelse return error.TestExpectedError;
-    defer wazmrt_error_delete(err);
-    try testing.expect(std.mem.indexOf(u8, std.mem.span(wazmrt_error_message(err).?), "incoherent") != null);
+    const eng = wazmrt_engine_new_with_config(cfg, &cerr) orelse return error.TestUnexpectedResult;
+    defer wazmrt_engine_delete(eng);
+    try testing.expect(cerr == null);
+
+    // The six bits added that day are real switches through the C ABI, round-tripped.
+    for ([_]Feature{ .mutable_global, .floats, .bulk_memory_opt, .call_indirect_overlong, .gc_types, .legacy_exceptions }) |f| {
+        try testing.expect(wazmrt_config_set_feature(cfg, f, false));
+        try testing.expect(wazmrt_config_get_feature(cfg, f, &on));
+        try testing.expect(!on);
+    }
+    // `wazmrt_config_all_features(cfg, false)` still means "WebAssembly 1.0 only" — which has
+    // floats. Switching every BIT off would have silently refused every f32 module.
+    wazmrt_config_all_features(cfg, false);
+    try testing.expect(wazmrt_config_get_feature(cfg, .floats, &on) and on);
+    try testing.expect(wazmrt_config_get_feature(cfg, .simd, &on) and !on);
 }
 
 /// `(module (func (export "boom") unreachable))` plus a name section naming func 0 "boom_fn".

@@ -13,6 +13,22 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## ✅ FIXED SAME DAY — three feature-gate defects found while adding wasm-tools' names (2026-09-21)
+
+Found while making `--features` match wasm-tools (`interop.md` v30); each is fixed, pinned by
+`features.test "gating: the six wasm-tools bits…"`, and inversion-proven (`probes/features-invert.ts`).
+
+| defect | since | consequence |
+| --- | --- | --- |
+| 🚨 a plain **`funcref` TABLE** was refused under `--features mvp` ("uses the 'reference_types' proposal") | shipped in **1.0.2** and earlier | every module with a function-pointer table — i.e. most C programs — was refused by the flag meant to admit WebAssembly 1.0. The element type went through the VALUE-type rule |
+| function **LOCALS** were never feature-checked | every release with `--features` | `(local v128)` ran under `mvp`; so did an `f64`/`externref` local. Same shape as `extended_const`: a place a gated type lives that no walk visited |
+| `opcode.freeBody` did not free `try_table`'s catch list | since `try_table` | a leak on every restricted `--features` pass over a module using `try_table` |
+
+**Surfaces when:** already fixed. Recorded because the first shipped in a release (`1.0.2`) — a
+user of `--features mvp` on 1.0.2 should upgrade.
+
+---
+
 ## ✅ FIXED SAME DAY — 🐧 The WASI resolver applied WINDOWS path rules on POSIX — silent WRONG-FILE opens (2026-09-21)
 
 > ✅ **FIXED 2026-09-21, owner-directed.** A new `src/path_rules.zig` holds the one `PathRules` type,

@@ -582,7 +582,12 @@ pub const BlockType = union(enum) {
 /// `u32`, enforced by the validator).
 pub const MemArg = struct { alignment: u32, offset: u64, memory: u32 = 0 };
 pub const BrTable = struct { labels: []const u32, default: u32 };
-pub const CallIndirect = struct { type_index: u32, table: u32 };
+/// `table_overlong`: the table index was encoded in MORE bytes than its value needs (`80 00` for
+/// 0). Legal LEB, and it decodes to the same number — but before reference-types that slot was a
+/// reserved single `0x00` byte, and wasm-tools gates the longer spelling as its own feature,
+/// `call-indirect-overlong` (implied by `reference-types`). Only the encoding says it, so the
+/// decoder is the only place that can record it (2026-09-21).
+pub const CallIndirect = struct { type_index: u32, table: u32, table_overlong: bool = false };
 
 /// A `try_table` catch clause (EH proposal). On a thrown exception whose tag
 /// matches (or `catch_all`), control branches to `label` with the exception's
@@ -944,9 +949,16 @@ const max_simd_sub: u32 = 0x113;
 /// on the C ABI's general-purpose allocator, so a long-lived embedder that
 /// trapped repeatedly in a function containing `br_table` grew without bound.
 pub fn freeBody(a: std.mem.Allocator, ir: []const Instr) void {
+    // Exactly the three immediates `decodeBodyTracked` allocates — `br_table`'s labels, a typed
+    // `select`'s types, and `try_table`'s catch list. 🚨 **The third was missing until 2026-09-21**
+    // and leaked on every restricted `--features` pass over a module using `try_table`; found by
+    // the leak-checking allocator in the first gate test to put a `try_table` through
+    // `features.firstViolation`. *A free list kept beside an alloc list is the pairing that
+    // drifts — check both when either gains an arm.*
     for (ir) |instr| switch (instr.imm) {
         .br_table => |bt| a.free(bt.labels),
         .select_types => |ts| a.free(ts),
+        .try_table => |tt| a.free(tt.catches),
         else => {},
     };
     a.free(ir);
@@ -1362,8 +1374,13 @@ pub fn decodeBodyTracked(
             .func => .{ .func = try r.readVarU32() },
             .call_indirect => blk: {
                 const ti = try r.readVarU32();
+                const at = r.pos;
                 const tb = try r.readVarU32();
-                break :blk .{ .call_indirect = .{ .type_index = ti, .table = tb } };
+                // Minimal LEB length for `tb`: one byte per 7 bits, at least one.
+                var minimal: usize = 1;
+                var v = tb >> 7;
+                while (v != 0) : (v >>= 7) minimal += 1;
+                break :blk .{ .call_indirect = .{ .type_index = ti, .table = tb, .table_overlong = r.pos - at > minimal } };
             },
             .local => .{ .local = try r.readVarU32() },
             .global => .{ .global = try r.readVarU32() },

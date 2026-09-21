@@ -233,7 +233,7 @@ typedef enum {
     WAZMRT_FEATURE_MULTI_MEMORY              = 9,
     WAZMRT_FEATURE_MEMORY64                  = 10,
     WAZMRT_FEATURE_FUNCTION_REFERENCES       = 11,  /* requires REFERENCE_TYPES     */
-    WAZMRT_FEATURE_GC                        = 12,  /* requires FUNCTION_REFERENCES */
+    WAZMRT_FEATURE_GC                        = 12,  /* also satisfies FUNCTION_REFERENCES, as in wasm-tools */
     WAZMRT_FEATURE_EXCEPTIONS                = 13,  /* requires REFERENCE_TYPES     */
     WAZMRT_FEATURE_TAIL_CALL                 = 14,
     /* NOT a wasm proposal name. Multiple tables shipped inside reference-types, so the spec has
@@ -257,7 +257,24 @@ typedef enum {
     /* wide-arithmetic: `i64.add128`, `i64.sub128`, `i64.mul_wide_s`, `i64.mul_wide_u` — 128-bit
      * add/sub and 64x64->128 multiply. Every one returns TWO i64 results, so it cannot be enabled
      * without MULTI_VALUE: a module using any of them is a multi-value module by construction. */
-    WAZMRT_FEATURE_WIDE_ARITHMETIC           = 18   /* requires MULTI_VALUE         */
+    WAZMRT_FEATURE_WIDE_ARITHMETIC           = 18,  /* requires MULTI_VALUE         */
+    /* 19-24, added in 1.0.x (2026-09-21): the rest of wasm-tools' feature vocabulary that
+     * wazmrt implements, each gated with wasm-tools' measured semantics. */
+    /* Importing or EXPORTING a mutable global. In wasm-tools' `wasm1`, not in its `mvp`. */
+    WAZMRT_FEATURE_MUTABLE_GLOBAL            = 19,
+    /* Every f32/f64 type and float instruction, SIMD float lanes included. ON in every
+     * `wazmrt_config_all_features(cfg, false)` config: WebAssembly 1.0 has floats. */
+    WAZMRT_FEATURE_FLOATS                    = 20,
+    /* `memory.copy` and `memory.fill`. A separate switch from BULK_MEMORY, which gates the rest
+     * (memory.init, data.drop, the table ops) — turn both off to refuse all of bulk memory. */
+    WAZMRT_FEATURE_BULK_MEMORY_OPT           = 21,
+    /* A `call_indirect` table index encoded in more bytes than its value needs. */
+    WAZMRT_FEATURE_CALL_INDIRECT_OVERLONG    = 22,
+    /* Every abstract reference type except func and exn (externref included), and the
+     * struct/array composite types. */
+    WAZMRT_FEATURE_GC_TYPES                  = 23,
+    /* try / catch / catch_all / rethrow / delegate. Needs EXCEPTIONS as well. */
+    WAZMRT_FEATURE_LEGACY_EXCEPTIONS         = 24
 } wazmrt_feature_t;
 
 wazmrt_config_t *wazmrt_config_new(void);
@@ -269,7 +286,7 @@ bool wazmrt_config_set_feature(wazmrt_config_t *, wazmrt_feature_t, bool enabled
 /* Reads back what is actually set, so you can confirm a restriction took effect. */
 bool wazmrt_config_get_feature(const wazmrt_config_t *, wazmrt_feature_t, bool *out);
 
-/* Turn every proposal on (the default) or off (WebAssembly 1.0 only). */
+/* Turn every proposal on (the default) or off (WebAssembly 1.0 only — which keeps FLOATS on). */
 void wazmrt_config_all_features(wazmrt_config_t *, bool enabled);
 
 /* Resource ceilings. Each is a CEILING, not a reservation: raising one costs nothing until a

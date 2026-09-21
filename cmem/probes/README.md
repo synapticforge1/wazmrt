@@ -29,6 +29,8 @@ native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` befo
 | `h8-fixtures/` | the two `(@custom "name" …)` inputs for I8, with and without identifiers | with `four-assemblers.ts` |
 | `feature-names.ts` | letter H8 / I6: which of wasm-tools' `--features` names (read from the tool) each runtime knows | `deno run -A feature-names.ts <module.wat> <runtime exe>...` |
 | `feature-matrix.ts` | what every wasm-tools `--features` name ADMITS: presets × one-module-per-feature, then the single name (or minimal pair) that suffices for each module. Pass a runtime exe to run the same matrix on it | `deno run -A feature-matrix.ts <out dir> [runtime exe]` |
+| `features-invert.ts` | undoes each of the 11 pieces of the 2026-09-21 feature work (six gates, the SIMD float list, both holes, the typed-reference rule, the `try_table` leak); `zig build test` must fail every time. Restores every touched file | `deno run -A features-invert.ts <repo root>` → "ALL GUARDED" |
+| `legacy-eh/` | flat legacy-EH forms (`forms.ts`), fixtures that assemble byte-identically to wasm-tools and RUN (`flat/`), and their inversion (`invert.ts`) | see each file's header |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -72,6 +74,11 @@ Dependencies: `bulk-memory` ⇒ `bulk-memory-opt`; `reference-types` ⇒ `call-i
 gc-types. ⚠️ The first run scored every module "refused" because `--features -all,x` as TWO arguments
 makes clap read `-all` as a flag; `--features=-all,x` is one argument. *A probe that fails the control
 row is measuring itself.*
+
+**2026-09-21, after the feature work: `feature-matrix.ts` run on wazmrt produces output IDENTICAL to
+wasm-tools'** — every preset, single name, minimal pair, group-name, per-instruction and reference-type
+row. That is the acceptance test for `interop.md` v30; wasmrt matches when the same command on it
+diffs clean.
 
 ## ⬜ Open: the macOS pass
 

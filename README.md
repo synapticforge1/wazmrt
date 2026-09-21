@@ -354,15 +354,27 @@ wazmrt prog.wasm -- --features mvp  # after `--` it is the guest's argv, untouch
 
 ```sh
 wazmrt --features mvp prog.wasm              # WebAssembly 1.0 and nothing else
-wazmrt --features simd,bulk_memory prog.wasm # MVP plus these two
+wazmrt --features wasm2,-simd prog.wasm      # WebAssembly 2.0 without SIMD
+wazmrt --features simd,bulk-memory prog.wasm # MVP plus these two
 wazmrt --features -threads,-memory64 prog.wasm  # everything except these
 ```
 
-Bare names imply the `mvp` seed, `-name` items imply `all`; mixing the two
-without an explicit `all`/`mvp` seed is refused rather than resolved, and an
-unknown name is an error rather than a silently-skipped item. A proposal layered
-on another (`gc` needs `function_references`, and so on) cannot be kept without
-it — that is reported, never silently repaired.
+**The names and their meanings are wasm-tools'.** Every feature name
+`wasm-tools` accepts works here, in either spelling (`bulk-memory` or
+`bulk_memory`), and means the same thing: a `--features` line accepts and
+refuses the same modules in both tools. The presets are `all` (the default),
+`-all` (nothing, not even floats), `mvp`, `wasm1` (mvp plus mutable-global
+imports/exports), `wasm2`, `wasm3` and `lime1`. `bulk-memory` also switches
+`bulk-memory-opt` (`memory.copy`/`fill`), and `reference-types` also switches
+`call-indirect-overlong`, as in wasm-tools. Legacy exception handling
+(`try`/`catch`/`delegate`/`rethrow`) is its own feature, `legacy-exceptions`, on
+by default here. Component-model names, and proposals wazmrt does not
+implement, are accepted and switch nothing, because this flag can only narrow.
+
+Bare names imply the `mvp` preset, `-name` items imply `all`; mixing the two
+without an explicit preset is refused rather than resolved, and an unknown name
+is an error rather than a silently-skipped item. No combination of features is
+refused as such; a module that needs something you left out is.
 
 This is a smaller trusted computing base, not just conformance: `--features mvp`
 means a guest cannot reach wazmrt's GC allocator, SIMD paths, atomics or
@@ -557,11 +569,13 @@ function names, and per-engine resource ceilings and proposal restrictions.
 WAZMRT_FEATURE_*, false)` makes a module using that proposal *invalid*: it is
 refused wholly by both `wazmrt_module_new` and `wazmrt_module_validate`, before
 anything executes, with an error naming the proposal. Types are checked as well
-as code, so a `v128` parameter needs SIMD even if no SIMD instruction runs. Use
-it to shrink the language you accept — and with it the amount of wazmrt an
-untrusted module can reach. A proposal layered on another must be disabled with
-it (turning off SIMD while relaxed-SIMD stays on is reported, not silently
-repaired).
+as code, including function locals, so a `v128` parameter or local needs SIMD
+even if no SIMD instruction runs. Use it to shrink the language you accept, and
+with it the amount of wazmrt an untrusted module can reach. The switches and
+their meanings match wasm-tools' feature flags (`WAZMRT_FEATURE_*` in
+`wazmrt.h`). No combination of switches is refused; a module that needs one you
+turned off is. `wazmrt_config_all_features(cfg, false)` means WebAssembly 1.0,
+which keeps `WAZMRT_FEATURE_FLOATS` on.
 
 **Concurrency comes from multiple engines.** An engine and everything reachable
 from it is single-threaded; if your host uses async/await, tasks or threads, give

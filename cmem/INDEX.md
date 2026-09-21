@@ -31,6 +31,8 @@ and revised without wading through one giant file. Keep files small and single-t
 | §5 #12 closed by **amending §2.4a** to match the code: exact wazmrt flag names after the first guest word are an error; only `--` hands off unconditionally | `interop.md` v28 |
 | lockstep engages when **wasmrt reaches `1.0.1`**; **wazmrt `1.0.2` ships BEFORE that** | `interop.md` §1e, `releasing.md` gate 11 |
 | scratch work lives in [`probes/`](probes/README.md), not on a machine | owner rule, TOOLING below |
+| 🆕 **after 1.0.2, unreleased:** flat legacy exceptions (`try … catch … end`, the only form wasm-tools prints) | `ee5157419` |
+| 🆕 **after 1.0.2, unreleased:** `--features` = **wasm-tools' whole vocabulary with its meanings** — six new gates, presets, group names, component-model names; the shared matrix is IDENTICAL on both tools. Found on the way: `mvp` refused a plain `funcref` table (**shipped in 1.0.2**), function locals were never feature-checked, and a `try_table` leak | the features commit, `interop.md` v30 |
 
 📬 **Letter H1 — every ask addressed:** CLI errors throw, no interpretation (✅ already true); the
 `--dir` heuristic retired (✅ `24e5e0958`); zH7 is an error (✅ `89f380a5b`); lockstep + coordination
@@ -50,7 +52,7 @@ trees not written):**
 | --- | --- |
 | **I7** name section on `.wat` assembly | ✅ **wazmrt's FULL output (name section included) equals `wasm-tools parse` on 528/528** corpus files. The runtimes-vs-binaryang half is DESIGN per letter H14 (owner: keep) |
 | **I8** `(@custom "name" …)` through all | with identifiers, wasm-tools emits **both** name sections (hand-written 12 B + generated 10 B); **wazmrt and wasmrt match it byte for byte; binaryang emits only the hand-written one** (its C5 rule). Without identifiers all four agree. The outlier is binaryang |
-| **I6** feature names | the two runtimes are **identical**: each knows 20 of wasm-tools' 48 names and lacks the same 28. That corrected an overclaim in `roadmap.md` B-c5; which core names to add is 🗓️ OWNER (a name must gate what it names) |
+| **I6** feature names | measured: the two runtimes were **identical**, each knowing 20 of wasm-tools' 48 names. ✅ **Then fixed in wazmrt (owner: all names, wasm-tools' meanings)**: all 48 accepted, and `probes/feature-matrix.ts` run on wazmrt is identical to wasm-tools'. wasmrt now diverges until it matches v30 |
 | **I5** opcode-table membership | ⬜ **not yet measured.** Needs a per-opcode sweep with each tool's "unknown opcode" verdict told apart from immediate/type errors. Also the input H10 waits on |
 
 🗓️ **NEXT: I5, then H3 (this file's size and drift rows Z1–Z6). H10 waits on binaryang's H9.**

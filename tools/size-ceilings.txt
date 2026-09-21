@@ -1154,6 +1154,22 @@
 # Flat modules are byte-identical to wasm-tools' and to wazmrt's own folded spelling; both pieces
 # inversion-proven (`cmem/probes/legacy-eh/invert.ts`).
 
-wazmrt.exe  1023488
-wazmrt.lib  1073590
-wazmrt.dll  921600
+# ---------------------------------------------------------------------------------------
+# 2026-09-21 — EVERY wasm-tools FEATURE NAME, WITH wasm-tools' SEMANTICS (owner: "the broadest
+# compatibility"). **exe +4,096, lib +2,178, dll +1,536.**
+#
+# What bought the bytes: six new gates (mutable-global, floats, bulk-memory-opt,
+# call-indirect-overlong, gc-types, legacy-exceptions), the two-or-more-needs requirement model,
+# the locals walk, and in the CLI the five presets, the group names, the 18 name-only names and a
+# longer `--features` help block.
+#
+# 🎓 **The first cut was +9,216 / +12,610 / +6,656, and the size gate is why this entry is not.**
+# Attributed by stubbing one function at a time: the `floats` check alone was ~8 KiB per artifact.
+# `@tagName(op)` at run time shipped every opcode name; a comptime `std.EnumSet(Op)` shipped even
+# more indexing machinery. A comptime-built 1024-bit bitmap indexed by the opcode VALUE costs
+# ~160 bytes of lib for the same rule. *Guessing the cause made it worse once (the EnumSet); the
+# stub measurement found it.*
+
+wazmrt.exe  1027584
+wazmrt.lib  1075768
+wazmrt.dll  923136

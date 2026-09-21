@@ -477,7 +477,77 @@ fn run(init: std.process.Init, arena: std.mem.Allocator, io: Io, out: *Io.Writer
 
 /// One item of a `--features` list: a proposal and whether it is being added or removed. `null`
 /// for an `all` / `mvp` / `none` SEED, which replaces the whole set rather than editing it.
-const FeatureItem = struct { f: ?wazmrt.features.Feature, on: bool };
+/// One `--features` item: a SEED (a whole starting set, first position only) or a list of BITS
+/// to switch on/off. A name maps to a LIST because wasm-tools' group names switch several bits —
+/// `bulk-memory` is bulk-memory + bulk-memory-opt — and a name for a proposal wazmrt does not
+/// implement maps to NO bits (see `name_only_features`).
+const FeatureItem = struct {
+    seed: ?wazmrt.features.Set = null,
+    bits: []const wazmrt.features.Feature = &.{},
+    on: bool = true,
+};
+
+const Feat = wazmrt.features.Feature;
+
+/// The presets, MEASURED from wasm-tools 1.259 (`cmem/probes/feature-matrix.ts`, "membership":
+/// a name is in a preset iff the preset admits that name's module and `preset,-name` does not).
+/// ⚠️ `mvp` and `wasm1` DIFFER — wasm-tools' `--help` says they select the same thing; measured,
+/// only `wasm1` admits a mutable-global export.
+fn presetSeed(name: []const u8) ?wazmrt.features.Set {
+    const mvp = [_]Feat{.floats};
+    const wasm1 = mvp ++ [_]Feat{.mutable_global};
+    const wasm2 = wasm1 ++ [_]Feat{
+        .sign_extension, .saturating_float_to_int, .multi_value,       .reference_types,
+        .multi_table,    .call_indirect_overlong,  .gc_types,          .bulk_memory,
+        .bulk_memory_opt, .simd,
+    };
+    const wasm3 = wasm2 ++ [_]Feat{
+        .relaxed_simd, .threads,        .tail_call,           .multi_memory, .exceptions,
+        .memory64,     .extended_const, .function_references, .gc,
+    };
+    const lime1 = [_]Feat{
+        .mutable_global,  .floats,         .sign_extension,         .saturating_float_to_int, .multi_value,
+        .bulk_memory_opt, .extended_const, .call_indirect_overlong,
+    };
+    const on: []const Feat= if (std.mem.eql(u8, name, "mvp") or std.mem.eql(u8, name, "none")) &mvp else if (std.mem.eql(u8, name, "wasm1")) &wasm1 else if (std.mem.eql(u8, name, "wasm2")) &wasm2 else if (std.mem.eql(u8, name, "wasm3")) &wasm3 else if (std.mem.eql(u8, name, "lime1")) &lime1 else if (std.mem.eql(u8, name, "-all")) &.{} else if (std.mem.eql(u8, name, "all")) return .{} else return null;
+    var s = noFeatures();
+    for (on) |f| s.set(f, true);
+    return s;
+}
+
+/// wasm-tools feature names for proposals wazmrt does NOT implement — accepted, switching nothing
+/// (owner, 2026-09-21: every wat/wasm name, component-model included, for the broadest
+/// compatibility). ⚠️ **Honest because `--features` can only NARROW**: allowing an unimplemented
+/// proposal adds nothing, and a module that uses one is refused whatever the list says; refusing
+/// it is already the state. Read from `wasm-tools validate --features <unknown>`, 1.259.0.
+const name_only_features = [_][]const u8{
+    "shared_everything_threads", "stack_switching", "memory_control",   "compact_imports",
+    "component_model",           "cm_values",       "cm_nested_names",  "cm_async",
+    "cm_async_stackful",         "cm_more_async_builtins", "cm_threading", "cm_error_context",
+    "cm_fixed_length_lists",     "cm_gc",           "cm_map",           "cm64",
+    "cm_implements",             "cm_canon_names",
+};
+
+/// The BITS one name switches, or null if the name is unknown.
+fn featureBits(name: []const u8) ?[]const Feat{
+    var buf: [64]u8 = undefined;
+    if (name.len > buf.len) return null;
+    for (name, 0..) |c, i| buf[i] = if (c == '-') '_' else c;
+    const n = buf[0..name.len];
+    // 🔬 Group names, both directions (measured: `all,-bulk-memory` refuses `memory.copy`, and
+    // `all,-reference-types` refuses an overlong `call_indirect`). `reference-types` also carries
+    // wazmrt's own `multi_table` split: wasm-tools has no separate name, and its reference-types
+    // admits several tables.
+    if (std.mem.eql(u8, n, "bulk_memory") or std.mem.eql(u8, n, "bulk_memory_operations"))
+        return &.{ .bulk_memory, .bulk_memory_opt };
+    if (std.mem.eql(u8, n, "reference_types"))
+        return &.{ .reference_types, .call_indirect_overlong, .multi_table };
+    for (name_only_features) |no| if (std.mem.eql(u8, n, no)) return &.{};
+    const f = featureFromSpelling(name) orelse return null;
+    return switch (f) {
+        inline else => |t| &[_]Feat{t},
+    };
+}
 
 /// Resolve one proposal name, in **either vocabulary**.
 ///
@@ -536,11 +606,10 @@ fn parseFeatureItem(item: []const u8, first: bool, out: *Io.Writer) !FeatureItem
         try out.print("error: --features: empty item\n", .{});
         return error.BadFeatures;
     }
-    // `none` is accepted alongside `mvp`: both name "the WebAssembly 1.0 core", and a user who
-    // types the other one means the same thing. Seeds are positional — only the first item can
-    // replace the set, because "everything, then nothing, then gc" is not a list anyone means.
-    if (first and (std.mem.eql(u8, item, "all") or std.mem.eql(u8, item, "mvp") or std.mem.eql(u8, item, "none")))
-        return .{ .f = null, .on = std.mem.eql(u8, item, "all") };
+    // Seeds are positional — only the first item can replace the set, because "everything, then
+    // nothing, then gc" is not a list anyone means. `none` stays an alias of `mvp` (both name the
+    // WebAssembly 1.0 core). `-all` is checked HERE, before the sign, because it is a seed.
+    if (first) if (presetSeed(item)) |s| return .{ .seed = s };
 
     const on = item[0] != '-';
     const name = if (item[0] == '-' or item[0] == '+') item[1..] else item;
@@ -548,20 +617,22 @@ fn parseFeatureItem(item: []const u8, first: bool, out: *Io.Writer) !FeatureItem
         try out.print("error: --features: '{s}' names no proposal\n", .{item});
         return error.BadFeatures;
     }
-    const f = featureFromSpelling(name) orelse {
+    const bits = featureBits(name) orelse {
         try out.print("error: --features: unknown proposal '{s}'\n", .{name});
-        try out.print("  known: all, mvp", .{});
+        try out.print("  presets (first item only): all, -all, mvp, wasm1, wasm2, wasm3, lime1\n  known:", .{});
         for (0..wazmrt.features.count) |i| {
             const known: wazmrt.features.Feature = @enumFromInt(@as(u8, @intCast(i)));
-            try out.print(", {s}", .{known.name()});
+            try out.print(" {s}", .{known.name()});
         }
+        try out.print("\n  also accepted, switching nothing (not implemented):", .{});
+        for (name_only_features) |no| try out.print(" {s}", .{no});
         try out.print("\n", .{});
         return error.BadFeatures;
     };
-    return .{ .f = f, .on = on };
+    return .{ .bits = bits, .on = on };
 }
 
-/// Every proposal off — the `mvp` seed, and the base an all-additive list is applied to.
+/// Every proposal off, `floats` included — the `-all` seed. `mvp` is this plus floats.
 fn noFeatures() wazmrt.features.Set {
     var s: wazmrt.features.Set = .{};
     for (0..wazmrt.features.count) |i| s.set(@enumFromInt(@as(u8, @intCast(i))), false);
@@ -603,8 +674,8 @@ fn parseFeatures(spec: []const u8, base: wazmrt.features.Set, out: *Io.Writer) !
     while (scan.next()) |raw| {
         const item = try parseFeatureItem(std.mem.trim(u8, raw, " \t"), n == 0, out);
         n += 1;
-        if (item.f == null) {
-            set = if (item.on) .{} else noFeatures();
+        if (item.seed) |s| {
+            set = s;
             seeded = true;
             continue;
         }
@@ -621,16 +692,17 @@ fn parseFeatures(spec: []const u8, base: wazmrt.features.Set, out: *Io.Writer) !
         );
         return error.BadFeatures;
     }
-    // An unseeded list takes the only seed its shape can mean: bare names are the WHOLE language
-    // asked for, so start from nothing; `-name` items describe subtractions from the default.
-    if (!seeded and saw_add) set = noFeatures();
+    // An unseeded list takes the only seed its shape can mean: bare names are the language asked
+    // for on top of the WebAssembly 1.0 core (`mvp` — which has floats); `-name` items describe
+    // subtractions from the default.
+    if (!seeded and saw_add) set = presetSeed("mvp").?;
 
     // --- pass 2: apply, now that the seed underneath them is settled -----------------------
     var apply = std.mem.splitScalar(u8, spec, ',');
     var i: usize = 0;
     while (apply.next()) |raw| : (i += 1) {
         const item = try parseFeatureItem(std.mem.trim(u8, raw, " \t"), i == 0, out);
-        if (item.f) |f| set.set(f, item.on);
+        if (item.seed == null) for (item.bits) |f| set.set(f, item.on);
     }
     return set;
 }
@@ -749,18 +821,22 @@ fn printHelp(out: *Io.Writer, prog: []const u8) !void {
         \\      Written after the path it is an ERROR and nothing runs — it could not have
         \\      applied there, and until 2026-09-19 it was ignored in silence. After `--`
         \\      it is the guest's argv and is passed through untouched.
-        \\      VALUE: a comma-separated list. Two seeds may lead it: `all` (everything, the default)
-        \\      and `mvp` (nothing but WebAssembly 1.0). Items are proposal names, optionally
-        \\      signed: `gc` adds, `-gc` removes.
+        \\      VALUE: a comma-separated list, with wasm-tools' names AND meanings. A preset
+        \\      may lead it: `all` (the default), `-all` (nothing, not even floats), `mvp`,
+        \\      `wasm1` (mvp + mutable-global), `wasm2`, `wasm3`, `lime1`. Items are feature
+        \\      names, either spelling (`bulk-memory` or `bulk_memory`), signed: `gc` adds,
+        \\      `-gc` removes. `bulk-memory` and `reference-types` switch their sub-features
+        \\      too (bulk-memory-opt, call-indirect-overlong), as in wasm-tools.
         \\        --features mvp                       WebAssembly 1.0 and nothing else
-        \\        --features simd,bulk_memory          MVP plus these two (bare names imply `mvp`)
+        \\        --features wasm2,-simd               WebAssembly 2.0 without SIMD
+        \\        --features simd,bulk-memory          MVP plus these two (bare names imply `mvp`)
         \\        --features -threads,-memory64        everything except these (`-` implies `all`)
-        \\      Adding and removing without a seed is refused — `mvp,gc` or `all,-gc` says which
-        \\      you meant. A proposal layered on another cannot be kept without it (gc needs
-        \\      function_references, and so on); that is reported, never silently repaired.
-        \\      A module needing an excluded proposal is INVALID and is refused before it runs,
-        \\      `.wast` scripts included. The flag can only ever narrow: a spec-testsuite
-        \\      snapshot already judged by an older era stays at that era.
+        \\      Adding and removing without a preset is refused — `mvp,gc` or `all,-gc` says
+        \\      which you meant. Every wasm-tools name is accepted; the component-model ones and
+        \\      proposals wazmrt does not implement switch nothing, since this can only narrow.
+        \\      A module needing an excluded feature is INVALID and is refused before it runs,
+        \\      `.wast` scripts included. A spec-testsuite snapshot already judged by an older
+        \\      era stays at that era.
         \\
         \\OPTIONS
         \\  -h, --help                  show this help and exit
@@ -2245,9 +2321,19 @@ test "--features: the seed is explicit, or inferred from ONE unambiguous shape" 
 
     // Explicit seeds say it outright, and then either sign is unambiguous.
     try std.testing.expect((try parseInto("all", .{})).all());
+    // `mvp` is wasm-tools' mvp: everything off EXCEPT floats (WebAssembly 1.0 has floats; since
+    // 2026-09-21 they are a bit). `-all` is the seed that turns floats off too.
     const mvp = try parseInto("mvp", .{});
-    for (0..wazmrt.features.count) |i| try std.testing.expect(!mvp.has(@as(F, @enumFromInt(@as(u8, @intCast(i))))));
+    for (0..wazmrt.features.count) |i| {
+        const f: F = @enumFromInt(@as(u8, @intCast(i)));
+        try std.testing.expectEqual(f == .floats, mvp.has(f));
+    }
     try std.testing.expect(std.meta.eql(try parseInto("none", .{}), mvp));
+    const nothing = try parseInto("-all", .{});
+    for (0..wazmrt.features.count) |i| try std.testing.expect(!nothing.has(@as(F, @enumFromInt(@as(u8, @intCast(i))))));
+    // ⚠️ `wasm1` is NOT `mvp` (measured; wasm-tools' own `--help` says they are the same).
+    const wasm1 = try parseInto("wasm1", .{});
+    try std.testing.expect(wasm1.has(.mutable_global) and !mvp.has(.mutable_global));
     const seeded = try parseInto("mvp,gc,function_references,reference_types", .{});
     try std.testing.expect(seeded.has(.gc) and !seeded.has(.simd));
     const trimmed = try parseInto("all,-simd,-relaxed_simd", .{});
@@ -2317,7 +2403,10 @@ test "F5: the runtime feature set is a subset of what was COMPILED IN, in every 
     // all four `-Dwat`/`-Dwasi` combinations, which is where a divergence would first appear.
     const all: wazmrt.features.Set = .{};
     try std.testing.expect(all.all());
-    try std.testing.expectEqual(@as(usize, 19), wazmrt.features.count);
+    // 19 → 25 on 2026-09-21: mutable_global, floats, bulk_memory_opt, call_indirect_overlong,
+    // gc_types, legacy_exceptions — none of them `-D`-gated, so the subset relation above still
+    // holds for every build.
+    try std.testing.expectEqual(@as(usize, 25), wazmrt.features.count);
 }
 
 test "--features: a long list does not overflow anything (regression)" {
@@ -2534,13 +2623,45 @@ test "--features accepts wasm-tools' vocabulary as well as wazmrt's own" {
     try S.is(.saturating_float_to_int, "nontrapping-float-to-int-conversions");
     try S.is(.exceptions, "exception-handling");
 
+    // 🔒 **EVERY name wasm-tools accepts, since 2026-09-21** (owner: "support all of the wat/wasm
+    // names as a default so that we have the broadest compatibility", component-model included).
+    // `mutable-global` was pinned HERE as a name that must stay unknown — the opposite decision,
+    // reversed on purpose. The list below is wasm-tools 1.259's own "Valid features" line, minus
+    // its presets (`mvp` `wasm1` `wasm2` `wasm3` `lime1` `all`, which are seeds — see
+    // `presetSeed`). A name that stops resolving fails here.
+    for ([_][]const u8{
+        "mutable-global",         "saturating-float-to-int", "sign-extension",        "reference-types",
+        "multi-value",            "bulk-memory",             "simd",                  "relaxed-simd",
+        "threads",                "shared-everything-threads", "tail-call",           "floats",
+        "multi-memory",           "exceptions",              "memory64",              "extended-const",
+        "component-model",        "function-references",     "memory-control",        "gc",
+        "custom-page-sizes",      "legacy-exceptions",       "gc-types",              "stack-switching",
+        "wide-arithmetic",        "cm-values",               "cm-nested-names",       "cm-async",
+        "cm-async-stackful",      "cm-more-async-builtins",  "cm-threading",          "cm-error-context",
+        "cm-fixed-length-lists",  "cm-gc",                   "call-indirect-overlong", "bulk-memory-opt",
+        "custom-descriptors",     "compact-imports",         "cm-map",                "cm64",
+        "cm-implements",          "cm-canon-names",
+    }) |name| {
+        if (featureBits(name) == null) {
+            std.debug.print("wasm-tools accepts '{s}', wazmrt does not\n", .{name});
+            return error.TestUnexpectedResult;
+        }
+    }
+    for ([_][]const u8{ "mvp", "wasm1", "wasm2", "wasm3", "lime1", "all", "-all" }) |p| {
+        try std.testing.expect(presetSeed(p) != null);
+    }
+    // Group names switch SEVERAL bits, both directions (measured in wasm-tools).
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{ .bulk_memory, .bulk_memory_opt }, featureBits("bulk-memory").?);
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{ .reference_types, .call_indirect_overlong, .multi_table }, featureBits("reference-types").?);
+    // A proposal wazmrt does not implement is a NAME that switches nothing (`--features` only
+    // narrows, so there is nothing to switch).
+    try std.testing.expectEqual(@as(usize, 0), featureBits("stack-switching").?.len);
+
     // ⚠️ Widening the vocabulary must NOT widen it to "anything": an unknown name stays an error,
-    // or a restriction silently drops what it was told to exclude. Both of these are rejected by
-    // wasmrt too, which is why they are the ones pinned here.
-    try std.testing.expect(featureFromSpelling("mutable-global") == null);
-    try std.testing.expect(featureFromSpelling("tail-calls") == null);
-    try std.testing.expect(featureFromSpelling("sim") == null);
-    try std.testing.expect(featureFromSpelling("") == null);
+    // or a restriction silently drops what it was told to exclude.
+    try std.testing.expect(featureBits("tail-calls") == null);
+    try std.testing.expect(featureBits("sim") == null);
+    try std.testing.expect(featureBits("") == null);
 }
 
 test "a wazmrt flag after --allow-symlink still APPLIES (the list drift that disarmed --verify)" {

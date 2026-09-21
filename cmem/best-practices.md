@@ -1710,3 +1710,35 @@ fix was removed. In fact the sabotaged source never compiled (Zig rejects `_ = t
 so no test ran at all. 🔒 **An inversion harness must build first and report "no verdict" on a
 build failure**, never "passed" or "unguarded". *The absence of a failure is only evidence if the
 thing that could fail actually ran.* — 2026-09-21, `probes/h13-invert.ts`
+
+---
+
+### 🎓 To match a reference implementation, make its behaviour the TEST — one matrix, run on both
+
+"Support wasm-tools' feature names" could have been a list of names. It became a measurement:
+`probes/feature-matrix.ts` validates one minimal module per feature under every preset, every single
+name, minimal pairs and per-instruction cases, then runs **the same matrix against wazmrt and diffs
+the output**. The first diff had 17 differing lines; it drove every design decision (`mvp` ≠ `wasm1`,
+`externref` needs gc-types, relaxed SIMD is not float-gated, configs are never refused) and ended
+**identical**. 🔒 **When the job is "behave like X", the acceptance test is X's output, captured by a
+probe that runs unchanged on both.** A spec reading would have got at least four of those wrong,
+and `--help` was wrong about one. — 2026-09-21, `interop.md` v30
+
+### 🎓 A gate is a list of the PLACES a thing can live — and a new bit is when to re-check it
+
+Adding `floats` meant asking where an `f32` can appear: signatures, globals, tables, const-exprs,
+instructions, and **function locals, which no walk had ever visited**. So `(local v128)` had been
+running under `--features mvp` for every release. And a `funcref` table was judged by the VALUE-type
+rule, so `mvp` refused every C program with a function pointer. **Both were holes in the existing
+gate, found only because a new bit forced the "where can this live?" question.** 🔒 **Adding a gate
+means listing every position a gated thing can occupy, then checking each position's rule against
+the spec for THAT position.** `extended_const` was the same lesson one position over. — 2026-09-21,
+`features.zig`
+
+### 🎓 Attribute a size jump by removing things, not by guessing
+
+The size gate caught +9 KiB. The guess (`@tagName` shipping opcode names) led to a "fix", a comptime
+`EnumSet`, that made it **larger**. Stubbing the one function out measured its cost directly
+(~8 KiB), and a 1024-bit bitmap then cost ~160 bytes. 🔒 **Before paying for or "fixing" a size
+jump, stub the suspect and rebuild; a guess about a compiler's output is still a guess.** —
+2026-09-21, `tools/size-ceilings.txt`

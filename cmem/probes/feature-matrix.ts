@@ -80,6 +80,79 @@ for (const [n, f] of files) {
   console.log(`${n.padEnd(32)}${row.map((c) => c.padStart(6)).join(" ")}`);
 }
 
+// MEMBERSHIP, exactly: name N is IN preset P iff P admits N's module and `P,-N` does not.
+// (The admit table above cannot say this: a preset can admit a module through a different name.)
+console.log(`\n== membership: names each preset CONTAINS (P admits N's module, P,-N refuses it)`);
+for (const p of presets.slice(1)) {
+  const members: string[] = [];
+  for (const [n, f] of files) {
+    if (!(n in probes) && n !== "call-indirect-overlong") continue;
+    if ((await ok(p, f)) && !(await ok(`${p},-${n}`, f))) members.push(n);
+  }
+  // gc-types has no module of its own that needs nothing else; externref (the reference-types
+  // module) needs reference-types AND gc-types, so probe gc-types through it.
+  const ext = files.find(([n]) => n === "reference-types")![1];
+  if ((await ok(p, ext)) && !(await ok(`${p},-gc-types`, ext))) members.push("gc-types(via externref)");
+  console.log(`${p.padEnd(6)} ${members.join(", ")}`);
+}
+
+// Which REFERENCE TYPES need gc-types? One module per type as a function result.
+console.log(`\n== gc-types: which reference types need it (all,-gc-types refuses)`);
+const refTypes = ["funcref", "externref", "anyref", "eqref", "i31ref", "structref", "arrayref", "exnref", "nullref", "nullexternref", "nullfuncref", "(ref func)", "(ref extern)", "(ref any)"];
+const needGcTypes: string[] = [], fine: string[] = [];
+for (const t of refTypes) {
+  const f = `${outDir}/ref-${refTypes.indexOf(t)}.wat`;
+  await Deno.writeTextFile(f, `(module (func (param ${t})))\n`);
+  if (!(await ok("all", f))) continue;
+  ((await ok("all,-gc-types", f)) ? fine : needGcTypes).push(t);
+}
+console.log(`needs gc-types: ${needGcTypes.join(", ")}\nfine without:   ${fine.join(", ")}`);
+
+// Overlaps: a name turned off while a name that IMPLIES it stays on.
+console.log(`\n== overlaps`);
+const copy = files.find(([n]) => n === "bulk-memory-opt")![1];
+console.log(`memory.copy under all,-bulk-memory-opt (bulk-memory still on): ${(await ok("all,-bulk-memory-opt", copy)) ? "admitted" : "REFUSED"}`);
+const overlong = files.find(([n]) => n === "call-indirect-overlong")![1];
+console.log(`overlong call_indirect under all,-call-indirect-overlong (reference-types on): ${(await ok("all,-call-indirect-overlong", overlong)) ? "admitted" : "REFUSED"}`);
+const simdF = `${outDir}/simd-float.wat`;
+await Deno.writeTextFile(simdF, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.add))\n`);
+const simdI = `${outDir}/simd-int.wat`;
+await Deno.writeTextFile(simdI, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 i32x4.add))\n`);
+console.log(`f32x4.add under all,-floats: ${(await ok("all,-floats", simdF)) ? "admitted" : "REFUSED"} · i32x4.add under all,-floats: ${(await ok("all,-floats", simdI)) ? "admitted" : "REFUSED"}`);
+const legacyTry = files.find(([n]) => n === "legacy-exceptions")![1];
+console.log(`legacy try under all,-exceptions (legacy-exceptions on): ${(await ok("all,-exceptions", legacyTry)) ? "admitted" : "REFUSED"}`);
+
+// Per-instruction float gating inside SIMD, and wide-arithmetic without a multi-value SIGNATURE.
+console.log(`\n== per-instruction checks (all,-<name>)`);
+for (const [what, src, spec] of [
+  ["f32x4.splat", `(module (func (result v128) f32.const 0 f32x4.splat))`, "all,-floats"],
+  ["f32x4.relaxed_madd", `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.relaxed_madd))`, "all,-floats"],
+  ["i32x4.relaxed_trunc_f32x4_s", `(module (func (result v128) v128.const i64x2 0 0 i32x4.relaxed_trunc_f32x4_s))`, "all,-floats"],
+  ["f64x2.relaxed_min", `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 f64x2.relaxed_min))`, "all,-floats"],
+  ["i64.add128, results dropped", `(module (func i64.const 0 i64.const 0 i64.const 0 i64.const 0 i64.add128 drop drop))`, "all,-multi-value"],
+  ["(table 1 funcref) — WebAssembly 1.0", `(module (table 1 funcref))`, "mvp"],
+  ["(table 1 externref)", `(module (table 1 externref))`, "all,-gc-types"],
+] as const) {
+  const f = `${outDir}/check-${what.replace(/[^a-z0-9]+/gi, "_")}.wat`;
+  await Deno.writeTextFile(f, src + "\n");
+  console.log(`${what.padEnd(40)} under ${spec.padEnd(18)}: ${(await ok(spec, f)) ? "admitted" : "REFUSED"}`);
+}
+
+// GROUP NAMES: does DISABLING the parent name also clear the bit it switches on? Decides whether a
+// name maps to one bit or to a set of bits, in both directions.
+console.log(`\n== group names, disabling the parent`);
+const fref = files.find(([n]) => n === "function-references")![1];
+for (const [spec, f, what] of [
+  ["all,-bulk-memory", copy, "memory.copy"],
+  ["all,-reference-types", overlong, "overlong call_indirect"],
+  ["all,-gc", fref, "(param (ref $t))"],
+  // gc stays ON here: admitted means the check is "function-references OR gc";
+  // refused means the `gc` NAME switches function-references on, and the check is that bit alone.
+  ["all,-function-references", fref, "(param (ref $t)), gc on"],
+] as const) {
+  console.log(`${what.padEnd(24)} under ${spec.padEnd(22)}: ${(await ok(spec, f)) ? "admitted" : "REFUSED"}`);
+}
+
 console.log(`\n== sufficiency: which SINGLE name admits the module (-all,<name>)`);
 const names = Object.keys(probes).concat(["call-indirect-overlong"]);
 for (const [n, f] of files) {

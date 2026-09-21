@@ -90,6 +90,36 @@ pub const Feature = enum(u8) {
     /// `incoherent`.
     wide_arithmetic = 18,
 
+    // 🔬 **19–24 added 2026-09-21 (owner: support every wat/wasm feature name wasm-tools
+    // accepts, and MATCH its semantics).** Each rule below was MEASURED against wasm-tools 1.259
+    // (`cmem/probes/feature-matrix.ts`), not read off a spec: one minimal module per feature,
+    // validated under every preset and every single name.
+
+    /// mutable-global: importing or EXPORTING a mutable global. In `wasm1`, NOT in `mvp` —
+    /// wasm-tools' own `--help` says the two select the same thing, and measured they do not.
+    mutable_global = 19,
+    /// floats: every `f32`/`f64` value type and every instruction whose name carries one,
+    /// SIMD float lanes included (`f32x4.add` is refused with this off; `i32x4.add` is not).
+    /// On in every preset from `mvp` up; only `-all` turns it off.
+    floats = 20,
+    /// bulk-memory-opt: `memory.copy` and `memory.fill` — the part of bulk memory `lime1` keeps.
+    /// ⚠️ **A separate BIT, not an implication**: measured, `memory.copy` is refused under
+    /// `all,-bulk-memory-opt` even with bulk-memory on. The NAME `bulk-memory` switches both
+    /// bits (see `main.zig`'s spelling map); the check asks this one.
+    bulk_memory_opt = 21,
+    /// call-indirect-overlong: a `call_indirect` table index encoded in more bytes than its
+    /// value needs (`opcode.CallIndirect.table_overlong`). The NAME `reference-types` switches
+    /// this bit with its own, in both directions.
+    call_indirect_overlong = 22,
+    /// gc-types: every abstract reference type EXCEPT `func` and `exn` — `externref` included,
+    /// which is why `reference-types` alone does not admit an `externref` — plus the struct and
+    /// array composite types. Measured one type at a time.
+    gc_types = 23,
+    /// legacy-exceptions: `try`/`catch`/`catch_all`/`rethrow`/`delegate`. Needs `exceptions` AS
+    /// WELL — measured, legacy `try` is refused under `all,-exceptions` with this on. Not in
+    /// `wasm3`, and not in any preset.
+    legacy_exceptions = 24,
+
     pub fn name(self: Feature) []const u8 {
         return @tagName(self);
     }
@@ -115,21 +145,21 @@ pub const Set = struct {
         return true;
     }
 
-    /// A proposal layered on another cannot be enabled alone. Reported rather than repaired:
-    /// silently enabling a dependency would accept modules the embedder meant to refuse.
+    /// Was: "a proposal layered on another cannot be enabled alone — reported, not repaired".
+    ///
+    /// 🔒 **Since 2026-09-21 NO set is incoherent, and the protection this gave now lives in the
+    /// MODULE checks** (owner: match wasm-tools). Measured, wasm-tools never refuses a feature
+    /// CONFIGURATION — `-all,relaxed-simd`, `all,-gc`, `-all,exceptions` are all accepted there —
+    /// and refuses only MODULES that need something missing. The rule existed so a dependency
+    /// was never silently enabled; that property holds as long as every module-level check
+    /// requires everything the construct depends on, which `firstViolation` now does: a relaxed
+    /// op's v128 operands need `simd`, a typed reference needs `reference_types`, several tables
+    /// need `reference_types`, a descriptor needs its struct type's `gc`. Nothing is repaired and
+    /// nothing is admitted that a missing layer should refuse — the refusal just moved from the
+    /// config to the module, where wasm-tools puts it. Kept as a function (always null) because
+    /// the C ABI and the CLI still ask; a pair returned here would be a regression to check.
     pub fn incoherent(self: Set) ?[2]Feature {
-        if (self.has(.relaxed_simd) and !self.has(.simd)) return .{ .relaxed_simd, .simd };
-        if (self.has(.gc) and !self.has(.function_references)) return .{ .gc, .function_references };
-        if (self.has(.function_references) and !self.has(.reference_types)) return .{ .function_references, .reference_types };
-        if (self.has(.exceptions) and !self.has(.reference_types)) return .{ .exceptions, .reference_types };
-        // Multiple tables shipped as part of reference-types, so allowing them while refusing
-        // that proposal describes no wasm version that ever existed.
-        if (self.has(.multi_table) and !self.has(.reference_types)) return .{ .multi_table, .reference_types };
-        // custom-descriptors extends GC; enabling it alone describes no wasm version.
-        if (self.has(.custom_descriptors) and !self.has(.gc)) return .{ .custom_descriptors, .gc };
-        // Every wide-arithmetic instruction returns two i64s, so it cannot be had without
-        // multi-value — a module using one is a multi-value module whether or not it says so.
-        if (self.has(.wide_arithmetic) and !self.has(.multi_value)) return .{ .wide_arithmetic, .multi_value };
+        _ = self;
         return null;
     }
 };
@@ -151,7 +181,10 @@ fn opFeature(op: opcode.Op) ?Feature {
         => .saturating_float_to_int,
 
         // Bulk memory. `table.init`/`table.copy` + the drops belong to this proposal too.
-        .memory_init, .data_drop, .memory_copy, .memory_fill, .table_init, .elem_drop, .table_copy => .bulk_memory,
+        .memory_init, .data_drop, .table_init, .elem_drop, .table_copy => .bulk_memory,
+        // …except the two `lime1` keeps, which wasm-tools gates on their own bit (see
+        // `Feature.bulk_memory_opt`: the NAME bulk-memory sets both, the check asks this one).
+        .memory_copy, .memory_fill => .bulk_memory_opt,
 
         // Reference types: the ref values themselves, typed select, and table get/set/grow/size/fill.
         .ref_null, .ref_is_null, .ref_func, .select_t, .table_get, .table_set, .table_grow, .table_size, .table_fill => .reference_types,
@@ -208,28 +241,161 @@ fn instrFeature(instr: opcode.Instr) ?Feature {
     return f;
 }
 
-/// The proposal a value type belongs to. Catches a module that never executes a gated
-/// instruction but still *declares* a gated type — a `v128` parameter, say.
-fn valTypeFeature(vt: types.ValType) ?Feature {
-    return switch (vt) {
-        .i32, .i64, .f32, .f64 => null,
-        .v128 => .simd,
-        .funcref, .externref => .reference_types,
-        else => blk: {
-            // Everything else in this non-exhaustive enum is a GC or typed-ref form: the abstract
-            // heads (any/eq/i31/struct/array/none/…), their non-null variants, and concrete
-            // `(ref $t)` indices. Treated as GC, which requires function-references, which
-            // requires reference-types — so a disabled GC refuses all of them.
-            break :blk .gc;
-        },
+/// The `0xFD` sub-opcodes that operate on `f32x4`/`f64x2` lanes or convert to/from them — the
+/// SIMD half of `floats`. **Pinned against the assembler's own mnemonic table** by a test in
+/// `wat.zig` ("every SIMD mnemonic naming f32/f64 is in features.simd_float_subs, and nothing
+/// else is"): this file cannot import the assembler (`-Dwat=false` builds leave it out), so the
+/// list is numbers here and the NAMES are checked there. Sorted, for `std.sort.binarySearch`.
+pub const simd_float_subs = [_]u32{
+    0x13, 0x14, // f32x4.splat, f64x2.splat
+    0x1f, 0x20, 0x21, 0x22, // f32x4/f64x2 extract_lane, replace_lane
+    0x41, 0x42, 0x43, 0x44, 0x45, 0x46, // f32x4 eq ne lt gt le ge
+    0x47, 0x48, 0x49, 0x4a, 0x4b, 0x4c, // f64x2 eq ne lt gt le ge
+    0x5e, 0x5f, // f32x4.demote_f64x2_zero, f64x2.promote_low_f32x4
+    0x67, 0x68, 0x69, 0x6a, // f32x4 ceil floor trunc nearest
+    0x74, 0x75, 0x7a, // f64x2 ceil floor trunc
+    0x94, // f64x2.nearest
+    0xe0, 0xe1, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xeb, // f32x4 abs neg sqrt add sub mul div min max pmin pmax
+    0xec, 0xed, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, // f64x2 the same
+    0xf8, 0xf9, 0xfa, 0xfb, // i32x4.trunc_sat_f32x4_s/u, f32x4.convert_i32x4_s/u
+    0xfc, 0xfd, 0xfe, 0xff, // i32x4.trunc_sat_f64x2_s/u_zero, f64x2.convert_low_i32x4_s/u
+    // ⚠️ **NO relaxed-SIMD sub-opcode (≥ 0x100) is here, and that is measured, not an
+    // oversight**: wasm-tools admits `f32x4.relaxed_madd`, `i32x4.relaxed_trunc_f32x4_s` and
+    // `f64x2.relaxed_min` under `all,-floats` while refusing `f32x4.add` and `f32x4.splat`. The
+    // pinning test in `wat.zig` excludes the relaxed range for the same reason.
+};
+
+fn simdSubIsFloat(sub: u32) bool {
+    return std.sort.binarySearch(u32, &simd_float_subs, sub, struct {
+        fn order(k: u32, x: u32) std.math.Order {
+            return std.math.order(k, x);
+        }
+    }.order) != null;
+}
+
+/// Does this (non-SIMD) opcode carry a float? **Decided by the opcode's NAME**, so a float opcode
+/// added later is classified without anyone remembering to: `f32.add`, `i32.trunc_f64_s`,
+/// `f64.promote_f32`, `i32.reinterpret_f32`, `f32.load` all contain `f32` or `f64`, and no other
+/// opcode does. (`@tagName` spells them with `_`; the substring test does not care.)
+fn opIsFloat(op: opcode.Op) bool {
+    // 📐 **Decided at COMPILE time, and stored as a plain bitmap indexed by the opcode's VALUE.**
+    // Measured with the size gate (2026-09-21), stubbing this function out each time:
+    //   `@tagName(op)` + a substring search at run time  ~ +5 KiB exe, +10 KiB lib
+    //   a comptime `std.EnumSet(Op)`                      ~ +8 KiB in every artifact
+    // Both shipped machinery the question does not need. The rule is unchanged — the opcode's
+    // NAME carries `f32`/`f64` — but it runs in the compiler, and the binary holds one bit per
+    // opcode value. The `@compileError` keeps a future out-of-range opcode value from quietly
+    // turning this into a large table.
+    const float_bits = comptime blk: {
+        @setEvalBranchQuota(100_000);
+        var max: usize = 0;
+        for (@typeInfo(opcode.Op).@"enum".fields) |f| max = @max(max, f.value);
+        if (max >= 1024) @compileError("opcode.Op values reach past 1024; features.opIsFloat's bitmap would stop being small");
+        var bits = std.StaticBitSet(1024).initEmpty();
+        for (@typeInfo(opcode.Op).@"enum".fields) |f| {
+            if (std.mem.indexOf(u8, f.name, "f32") != null or std.mem.indexOf(u8, f.name, "f64") != null)
+                bits.set(f.value);
+        }
+        break :blk bits;
     };
+    return float_bits.isSet(@intFromEnum(op));
+}
+
+/// Every proposal ONE instruction needs, in layering order (the proposal first, then what it
+/// is layered on or combined with), so the first missing one reported is the most specific.
+/// ⚠️ **Up to four, not one**, since 2026-09-21: wasm-tools gates a legacy `try` on `exceptions`
+/// AND `legacy-exceptions`, a float conversion on its proposal AND `floats`, and an overlong
+/// `call_indirect` on its own bit — none of which a single `?Feature` could say.
+const Needs = struct {
+    buf: [4]Feature = undefined,
+    n: usize = 0,
+    fn add(self: *Needs, f: Feature) void {
+        self.buf[self.n] = f;
+        self.n += 1;
+    }
+    fn slice(self: *const Needs) []const Feature {
+        return self.buf[0..self.n];
+    }
+};
+
+fn instrNeeds(instr: opcode.Instr) Needs {
+    var req: Needs = .{};
+    if (instrFeature(instr)) |f| req.add(f);
+    switch (instr.op) {
+        .try_, .catch_, .catch_all, .rethrow, .delegate => req.add(.legacy_exceptions),
+        .call_indirect, .return_call_indirect => if (instr.imm == .call_indirect and instr.imm.call_indirect.table_overlong)
+            req.add(.call_indirect_overlong),
+        else => {},
+    }
+    const float = if (instr.op == .simd and instr.imm == .simd) simdSubIsFloat(instr.imm.simd.sub) else opIsFloat(instr.op);
+    if (float) req.add(.floats);
+    return req;
+}
+
+/// Every proposal a value type needs. Catches a module that never executes a gated instruction
+/// but still *declares* a gated type — a `v128` parameter, an `f32` local, an `externref` global.
+///
+/// 🔬 **Measured one type at a time against wasm-tools (2026-09-21)**: `gc-types` is needed by
+/// every abstract reference type EXCEPT `func` and `exn` — `externref`, `nullfuncref` and
+/// `(ref extern)` included — and NOT by `funcref`, `exnref` or `(ref func)`.
+fn valTypeNeeds(vt: types.ValType) Needs {
+    var req: Needs = .{};
+    // A concrete `(ref $t)`: typed references. A struct/array `$t` needs gc + gc-types through its
+    // own TYPE DEFINITION (the composite-type pass), so the reference itself asks only this —
+    // which `require` also grants to `gc` (measured: gc admits `(ref $t)` with
+    // function-references off).
+    // 🔬 Typed references ALSO need reference-types: measured, `-all,function-references` alone
+    // refuses `(param (ref $t))`, and so does `-all,gc`; `reference-types` + either admits it.
+    if (vt.isConcrete()) {
+        req.add(.reference_types);
+        req.add(.function_references);
+        return req;
+    }
+    switch (vt) {
+        .i32, .i64 => {},
+        .f32, .f64 => req.add(.floats),
+        .v128 => req.add(.simd),
+        .funcref => req.add(.reference_types),
+        .externref => {
+            req.add(.reference_types);
+            req.add(.gc_types);
+        },
+        .funcref_nn => {
+            req.add(.reference_types);
+            req.add(.function_references);
+        },
+        .externref_nn => {
+            req.add(.reference_types);
+            req.add(.function_references);
+            req.add(.gc_types);
+        },
+        .exnref, .nullexnref => req.add(.exceptions),
+        .exnref_nn => {
+            req.add(.exceptions);
+            req.add(.reference_types);
+            req.add(.function_references);
+        },
+        // The `any` hierarchy, its bottoms, the other bottoms, and their non-null forms: GC types.
+        else => {
+            req.add(.gc);
+            req.add(.gc_types);
+        },
+    }
+    return req;
 }
 
 fn require(fs: Set, f: ?Feature, found: *?Feature) Error!void {
     const need = f orelse return;
     if (fs.has(need)) return;
+    // 🔬 The one either/or rule, measured: gc SATISFIES the typed-reference check. wasm-tools
+    // admits `(param (ref $t))` under `all,-function-references` while gc is on.
+    if (need == .function_references and fs.has(.gc)) return;
     found.* = need;
     return error.DisabledProposal;
+}
+
+fn requireEach(fs: Set, req: Needs, found: *?Feature) Error!void {
+    for (req.slice()) |f| try require(fs, f, found);
 }
 
 /// Every proposal one value type needs — its FAMILY first, then the custom-descriptors
@@ -238,10 +404,10 @@ fn require(fs: Set, f: ?Feature, found: *?Feature) Error!void {
 /// 🔑 **Two requirements, in layering order, and the order is the whole point.** A
 /// `(ref (exact $t))` needs GC *and* custom-descriptors; reporting whichever happens to be
 /// checked first would tell an embedder who disabled GC that they are missing
-/// custom-descriptors. `valTypeFeature` alone could not say this — exactness is a BIT on the
+/// custom-descriptors. `valTypeNeeds` alone could not say this — exactness is a BIT on the
 /// value type, not a member of its family, so it has no place in a switch over the families.
 fn requireValType(fs: Set, vt: types.ValType, found: *?Feature) Error!void {
-    try require(fs, valTypeFeature(vt), found);
+    try requireEach(fs, valTypeNeeds(vt), found);
     if (vt.isExact()) try require(fs, .custom_descriptors, found);
 }
 
@@ -310,9 +476,9 @@ fn requireConstExprFeatures(gpa: std.mem.Allocator, fs: Set, expr: []const u8, f
             },
             else => {},
         }
-        // …and everything a const-expr shares with a body (GC `ref.i31`, `ref.func`, …) is
-        // classified the ordinary way.
-        require(fs, instrFeature(instr), found) catch return;
+        // …and everything a const-expr shares with a body (GC `ref.i31`, `ref.func`, `f32.const`,
+        // …) is classified the ordinary way.
+        requireEach(fs, instrNeeds(instr), found) catch return;
         if (immIsExact(instr.imm)) require(fs, .custom_descriptors, found) catch return;
     }
 }
@@ -336,14 +502,27 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
         // `(struct (field (ref (exact $t))))` accepted with custom-descriptors off whenever GC
         // was on — the arm answered the question "is this a GC form?" when the question is
         // "what does this type need?".
+        // Struct and array TYPES need gc AND gc-types (measured: `(type (struct))` needs both).
         .@"struct" => |fields| {
             require(fs, .gc, &found) catch return found;
+            require(fs, .gc_types, &found) catch return found;
             for (fields) |f| requireStorage(fs, f.storage, &found) catch return found;
         },
         .array => |f| {
             require(fs, .gc, &found) catch return found;
+            require(fs, .gc_types, &found) catch return found;
             requireStorage(fs, f.storage, &found) catch return found;
         },
+    };
+
+    // --- mutable globals across the module boundary --------------------------------------
+    // 🔬 mutable-global (2026-09-21): an IMPORTED or EXPORTED mutable global. A mutable global
+    // that stays inside the module is 1.0 core; crossing the boundary is the proposal.
+    for (module.imports) |im| if (im.type == .global and im.type.global.mutable) {
+        require(fs, .mutable_global, &found) catch return found;
+    };
+    for (module.exports) |ex| if (ex.type == .global and ex.type.global.mutable) {
+        require(fs, .mutable_global, &found) catch return found;
     };
 
     // --- custom-descriptors type-level formers ---------------------------------------------
@@ -374,8 +553,22 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
     // ⚠️ `module.tables` is the whole INDEX SPACE — imported tables first, then defined — so this
     // one test covers all three spellings the spec asserts on (import+import, import+defined,
     // defined+defined). Counting only defined tables would pass two of the three.
-    if (module.tables.len > 1) require(fs, .multi_table, &found) catch return found;
-    for (module.tables) |t| requireValType(fs, t.element, &found) catch return found;
+    if (module.tables.len > 1) {
+        require(fs, .multi_table, &found) catch return found;
+        // Several tables arrived INSIDE reference-types, so they need it too — the dependency
+        // `Set.incoherent` used to enforce on the config now enforced on the module.
+        require(fs, .reference_types, &found) catch return found;
+    }
+    // 🚨 **A `funcref` TABLE is WebAssembly 1.0, and `--features mvp` refused it until 2026-09-21**
+    // — measured on the released 1.0.2: `(module (table 1 funcref))` failed with "uses the
+    // 'reference_types' proposal", where wasm-tools' `mvp` admits it. So every C program with a
+    // function pointer was refused. The element type went through the VALUE-type rule, and as a
+    // value type (a param, a local, a global) `funcref` IS reference-types; as a table's element
+    // it is the only element type 1.0 had. Every other element type is judged as a value type
+    // (`(table 1 externref)` needs gc-types, measured).
+    for (module.tables) |t| if (t.element != .funcref) {
+        requireValType(fs, t.element, &found) catch return found;
+    };
     for (module.globals) |g| requireValType(fs, g.content, &found) catch return found;
 
     // --- tags ----------------------------------------------------------------------------
@@ -419,10 +612,17 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
     // Decoded here rather than reusing the validator's pass: this runs ONLY when something is
     // restricted, so the default path pays nothing for it.
     for (module.code) |code| {
+        // 🚨 **LOCALS were never walked (found 2026-09-21).** A function declaring `(local v128)`
+        // and executing no SIMD instruction RAN under `--features mvp` — measured — where
+        // wasm-tools refuses it. The value-type pass covered signatures, globals and tables and
+        // stopped there: the same shape as `extended_const`, a place a gated type can live that
+        // no walk visited. Every type-level feature (simd, floats, gc, gc-types, reference types)
+        // had this hole.
+        for (code.locals) |l| requireValType(fs, l.type, &found) catch return found;
         const instrs = opcode.decodeBody(gpa, code.body) catch continue; // malformed: validate reports it
         defer opcode.freeBody(gpa, instrs);
         for (instrs) |instr| {
-            require(fs, instrFeature(instr), &found) catch return found;
+            requireEach(fs, instrNeeds(instr), &found) catch return found;
             // The opcode's own proposal is only half of it — see `immIsExact`.
             if (immIsExact(instr.imm)) require(fs, .custom_descriptors, &found) catch return found;
         }
@@ -660,20 +860,23 @@ test "gating: wide_arithmetic, and its multi_value layering" {
         try std.testing.expectEqual(@as(?Feature, null), try needs(src, all));
     }
 
-    // ⚠️ **The layering is reported by `incoherent`, not repaired.** Every one of these returns
-    // two i64s, so wide-arithmetic without multi-value describes nothing — but the engine says so
-    // rather than quietly switching multi-value back on, which would accept modules the embedder
-    // meant to refuse.
-    var bad: Set = .{};
-    bad.set(.multi_value, false);
-    try std.testing.expectEqual(@as(?[2]Feature, .{ .wide_arithmetic, .multi_value }), bad.incoherent());
-    // With BOTH off the set is coherent again, and the module is refused for the outer reason
-    // it hits first — multi-value, which its result arity needs before any instruction is read.
-    const both = setWithout(&.{ .wide_arithmetic, .multi_value });
-    try std.testing.expect(both.incoherent() == null);
+    // 🔒 **Since 2026-09-21 the layering is enforced on the MODULE, not the config** (wasm-tools
+    // never refuses a config; see `Set.incoherent`). wide-arithmetic ON with multi-value OFF is
+    // an accepted set — and nothing a missing layer should refuse gets through: a function that
+    // RETURNS the two i64s still needs multi-value for its signature.
+    var wide_only: Set = .{};
+    wide_only.set(.multi_value, false);
+    try std.testing.expect(wide_only.incoherent() == null);
     try std.testing.expectEqual(@as(?Feature, .multi_value), try needs(
         "(module (func (param i64 i64) (result i64 i64) (i64.mul_wide_u (local.get 0) (local.get 1))))",
-        both,
+        wide_only,
+    ));
+    // …but the INSTRUCTION does not need it by itself — measured, wasm-tools admits
+    // `i64.add128` with its results dropped under `all,-multi-value`. The old config rule claimed
+    // "a module using one is a multi-value module whether or not it says so"; that was wrong.
+    try std.testing.expectEqual(@as(?Feature, null), try needs(
+        "(module (func i64.const 0 i64.const 0 i64.const 0 i64.const 0 i64.add128 drop drop))",
+        wide_only,
     ));
 
     // No false positives: plain i64 arithmetic still loads with the flag off.
@@ -681,4 +884,87 @@ test "gating: wide_arithmetic, and its multi_value layering" {
         "(module (func (param i64 i64) (result i64) (i64.add (local.get 0) (local.get 1))))",
         off,
     ));
+}
+
+/// `needs` for a module only BYTES can express (an overlong LEB has no text spelling).
+fn needsBin(bin: []const u8, fs: Set) !?Feature {
+    var m = try Module.decode(std.testing.allocator, bin);
+    defer m.deinit();
+    return firstViolation(std.testing.allocator, &m, fs);
+}
+
+test "gating: the six wasm-tools bits (2026-09-21), each refused by name, and the two holes" {
+    // 🔬 Owner: support every wasm-tools feature name and MATCH its semantics. Each expectation
+    // below is a row of `cmem/probes/feature-matrix.ts` run against wasm-tools 1.259 — and the
+    // same matrix run against wazmrt now comes out IDENTICAL, which is the end-to-end check;
+    // these are the per-bit pins that fail fast and name the bit.
+    const all: Set = .{};
+    const T = struct {
+        fn refused(f: Feature, src: []const u8) !void {
+            try std.testing.expectEqual(@as(?Feature, f), try needs(src, setWithout(&.{f})));
+            try std.testing.expectEqual(@as(?Feature, null), try needs(src, .{}));
+        }
+        fn admitted(off: Feature, src: []const u8) !void {
+            try std.testing.expectEqual(@as(?Feature, null), try needs(src, setWithout(&.{off})));
+        }
+    };
+
+    // mutable-global: crossing the module boundary, either way — not a mutable global as such.
+    try T.refused(.mutable_global, "(module (global (export \"g\") (mut i32) (i32.const 0)))");
+    try T.refused(.mutable_global, "(module (import \"m\" \"g\" (global (mut i32))))");
+    try T.admitted(.mutable_global, "(module (global (mut i32) (i32.const 0)))");
+    try T.admitted(.mutable_global, "(module (global (export \"g\") i32 (i32.const 0)))");
+
+    // floats: types AND instructions, SIMD lanes included — but not the relaxed ones (measured).
+    try T.refused(.floats, "(module (func (result f32) f32.const 0))");
+    // ⚠️ A float INSTRUCTION with no float TYPE anywhere — the only case where the instruction
+    // rule decides. Every module above also declares an f32/f64, so the type rule refused them
+    // first and `opIsFloat` could return false for everything without one test noticing
+    // (`probes/features-invert.ts`, first run: UNGUARDED).
+    try T.refused(.floats, "(module (func f32.const 0 drop))");
+    try T.refused(.floats, "(module (func i32.const 0 f64.convert_i32_s drop))");
+    try T.refused(.floats, "(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.add))");
+    try T.refused(.floats, "(module (func (result v128) f32.const 0 f32x4.splat))");
+    try T.admitted(.floats, "(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 i32x4.add))");
+    try T.admitted(.floats, "(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.relaxed_madd))");
+
+    // bulk-memory-opt: memory.copy/fill only; memory.init stays bulk-memory's.
+    try T.refused(.bulk_memory_opt, "(module (memory 1) (func i32.const 0 i32.const 0 i32.const 0 memory.copy))");
+    try T.refused(.bulk_memory_opt, "(module (memory 1) (func i32.const 0 i32.const 0 i32.const 0 memory.fill))");
+    try T.admitted(.bulk_memory_opt, "(module (memory 1) (data \"x\") (func i32.const 0 i32.const 0 i32.const 0 memory.init 0))");
+
+    // call-indirect-overlong: the SAME instruction, table index `80 00` instead of `00`.
+    const overlong = [_]u8{ 0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x01, 0x0a, 0x0a, 0x01, 0x08, 0x00, 0x41, 0x00, 0x11, 0x00, 0x80, 0x00, 0x0b };
+    const minimal = [_]u8{ 0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0x04, 0x04, 0x01, 0x70, 0x00, 0x01, 0x0a, 0x09, 0x01, 0x07, 0x00, 0x41, 0x00, 0x11, 0x00, 0x00, 0x0b };
+    try std.testing.expectEqual(@as(?Feature, .call_indirect_overlong), try needsBin(&overlong, setWithout(&.{.call_indirect_overlong})));
+    try std.testing.expectEqual(@as(?Feature, null), try needsBin(&minimal, setWithout(&.{.call_indirect_overlong})));
+    try std.testing.expectEqual(@as(?Feature, null), try needsBin(&overlong, all));
+
+    // gc-types: every abstract reference type but func and exn — externref included.
+    try T.refused(.gc_types, "(module (func (param externref)))");
+    try T.refused(.gc_types, "(module (type (struct)))");
+    try T.refused(.gc_types, "(module (table 1 externref))");
+    try T.admitted(.gc_types, "(module (func (param funcref)))");
+
+    // legacy-exceptions: its own bit AND exceptions; the new `try_table` needs neither this bit.
+    try T.refused(.legacy_exceptions, "(module (tag) (func try catch 0 end))");
+    try std.testing.expectEqual(@as(?Feature, .exceptions), try needs("(module (func try catch_all end))", setWithout(&.{.exceptions})));
+    try T.admitted(.legacy_exceptions, "(module (tag) (func (block (try_table (catch 0 0)))))");
+
+    // Typed references need reference-types too (measured: function-references alone refuses).
+    try T.refused(.reference_types, "(module (func (param (ref func))))");
+    // ⚠️ A CONCRETE `(ref $t)` takes a different branch from the abstract `(ref func)` above; the
+    // first inversion run removed reference-types from it and nothing failed.
+    try T.refused(.reference_types, "(module (type $t (func)) (func (param (ref $t))))");
+
+    // 🚨 HOLE 1, shipped in 1.0.2: a `funcref` TABLE is WebAssembly 1.0, and `mvp` refused it.
+    var mvp = setWithout(&.{});
+    for (0..count) |i| mvp.set(@enumFromInt(@as(u8, @intCast(i))), false);
+    mvp.set(.floats, true);
+    try std.testing.expectEqual(@as(?Feature, null), try needs("(module (table 1 funcref) (func))", mvp));
+
+    // 🚨 HOLE 2: function LOCALS were never walked — `(local v128)` passed with simd off.
+    try T.refused(.simd, "(module (func (local v128)))");
+    try T.refused(.floats, "(module (func (local f64)))");
+    try T.refused(.gc_types, "(module (func (local externref)))");
 }
