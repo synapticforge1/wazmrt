@@ -10,7 +10,7 @@ adopting — with full attribution — only what earns its place. See
 [`third_party/LICENSES.md`](third_party/LICENSES.md) for the evaluation and
 compliance process, and for the ledger of any reused code.
 
-> **Status:** `1.0.2`, complete on its own terms — every proposal wazmrt targets is
+> **Status:** `1.0.3`, complete on its own terms — every proposal wazmrt targets is
 > implemented, and the official spec testsuite runs with zero failures and zero skips.
 > wazmrt decodes, validates, and **executes**
 > WebAssembly — integer/float arithmetic, control flow, `call`/`call_indirect`
@@ -377,6 +377,11 @@ Bare names imply the `mvp` preset, `-name` items imply `all`; mixing the two
 without an explicit preset is refused rather than resolved, and an unknown name
 is an error rather than a silently-skipped item. No combination of features is
 refused as such; a module that needs something you left out is.
+
+> ⚠️ **Upgrading from 1.0.2:** `--features` now means what wasm-tools means.
+> `mvp` refuses a module that imports or exports a mutable global — use `wasm1`
+> for that; `externref` needs `gc-types` as well as `reference-types`; and a
+> plain `funcref` table, which 1.0.2 wrongly refused under `mvp`, is accepted.
 
 This is a smaller trusted computing base, not just conformance: `--features mvp`
 means a guest cannot reach wazmrt's GC allocator, SIMD paths, atomics or

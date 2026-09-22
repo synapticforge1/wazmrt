@@ -6,7 +6,28 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `1.0.2` — Track B shipped 2026-09-21 (Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `1.0.3` — released 2026-09-21 (`1.0.2` the same day; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`1.0.3` — owner, 2026-09-21: *"yes release 1.0.3 now."*** It carries **fixes for four defects
+> that shipped in `1.0.2`** (a plain `funcref` table refused under `--features mvp`; function locals
+> never feature-checked; twenty unassigned `0xFD` sub-opcodes decoded and validated;
+> `wazmrt_memory_size_pages` ignoring custom page sizes), plus flat legacy exception handling and
+> wasm-tools' whole `--features` vocabulary with its meanings (`interop.md` v30).
+> ⚠️ **It also contains rule-4 changes** (accepting less): `--features mvp` now refuses a
+> mutable-global export (wasm-tools' `mvp`; `wasm1` admits it), `externref` now needs `gc-types`, and
+> the twenty SIMD gaps are refused. *Reading, not a new decision:* the owner's `1.0.2` reason —
+> consumers are not involved yet — covers these the same way; it binds no further than it did then.
+> ⚠️ **The ladder moves** (also a reading of "release 1.0.3 now", to confirm): `1.0.3` was reserved for
+> Track O, so Track O and Track S now take the next numbers.
+>
+> ✅ **Checklist run 2026-09-21, every gate:** the full gate list was re-run at `8e18cab0a` the same
+> hour — `test` 823/823 (NTFS cwd), `test-safe` and `test-shipped` 817/821 from `D:` (the four exFAT
+> skips; the constant gap of 2 is `version_agreement`), `test-security` 3/3 (NTFS), conformance 288 /
+> 64,092 / 0 / 0 with the baseline file empty, `features` 4/4, `capi-smoke` ✅ — and after the bump:
+> the version test green, grep clean in all four places, size EXACT (`tools/size-ceilings.txt`), exe
+> and dll import only `ntdll` + `KERNEL32`, the exe in an empty dir with `PATH` cut to the system dirs
+> prints `wazmrt 1.0.3 (abi 2)` and runs a WASI module. 🐧 **Beyond the checklist: 823/823,
+> `test-security` 3/3 and `capi-smoke` on native Linux.**
 
 > 🔒 **`1.0.2` CONTAINS TWO CHANGES THIS FILE'S OWN RULE CALLS BREAKING, and it is a patch number on
 > purpose (owner, 2026-09-21): *"Since the consumers are not involved yet, keep our cadence and
@@ -80,9 +101,10 @@ odometer rule means it cannot be extended by widening a component.
 | **`1.0.0`** | ✅ set 2026-08-19 — the state in the table above |
 | **`1.0.1`** | ✅ **Track H** — hardening (shipped 2026-08-19) |
 | **`1.0.2`** | ✅ **Track B** — bug hunt + code hygiene (shipped 2026-09-21, with the `--dir` grammar, the POSIX resolver fix and letter H13) |
-| **`1.0.3`** | **Track O** — optimization review |
-| **`1.0.4`** | **Track S** — security review |
-| `1.0.5` … `1.0.9` | whatever follows; the release after `1.0.9` is `1.1.0` |
+| **`1.0.3`** | ✅ **fixes for four `1.0.2` defects + legacy EH + wasm-tools' feature vocabulary** (shipped 2026-09-21, owner: "release 1.0.3 now") — the number Track O had reserved |
+| **`1.0.4`** | **Track O** — optimization review *(moved down one by `1.0.3`; a reading, to confirm)* |
+| **`1.0.5`** | **Track S** — security review *(likewise)* |
+| `1.0.6` … `1.0.9` | whatever follows; the release after `1.0.9` is `1.1.0` |
 
 ### What counts as BREAKING — the only thing that jumps the ladder
 

@@ -6,21 +6,17 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-09-21
 
-**`1.0.2` is released** (the release commit `f2f890695`; not tagged, not pushed). Six commits since,
-unreleased (`git log f2f890695..`; the code is in `ee5157419`, `f00ff6489`, `1f4a83320`), carry
-**fixes for four defects that are IN 1.0.2** — `--features mvp` refused a plain
-`funcref` table; function locals were never feature-checked; twenty unassigned `0xFD` sub-opcodes
-decoded and validated; `wazmrt_memory_size_pages` ignored custom page sizes — plus flat legacy
-exceptions and wasm-tools' whole feature vocabulary.
-🔒 **Owner: the next version bump and release commit wait until letter H3 is done** — ✅ it is, as of
-the H3 commit; the release is next, pending its number (below). Contract: `interop.md` **v30**; wasmrt's copy is at 10. Every gate green at the last code commit
-— the counts are in [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place
-each.
+**`1.0.3` is released** (2026-09-21, the release commit; not tagged, not pushed) — fixes for four
+defects that shipped in `1.0.2`, flat legacy exceptions and wasm-tools' whole feature vocabulary
+([`releasing.md`](releasing.md)). Nothing is unreleased. Contract: `interop.md` **v30**; wasmrt's copy
+is at 10. Every gate green at the release — the counts are in [`testing.md`](testing.md) and the sizes
+in `tools/size-ceilings.txt`, one place each.
 
 ## 🗓️ Owner calls
 
-- **The next release's number.** The ladder reserves `1.0.3` for Track O, but the release carries fixes
-  for 1.0.2 defects ([`releasing.md`](releasing.md), [`known-issues.md`](known-issues.md)).
+- **Confirm the ladder shift.** `1.0.3` was Track O's number; `releasing.md` and `roadmap.md` now read
+  Track O `1.0.4` and Track S `1.0.5` — a reading of "release 1.0.3 now", not a decision.
+- **Tagging and pushing** `1.0.2` and `1.0.3` — nothing is tagged or pushed unless the owner says so.
 
 ## ⏳ Waiting on something outside this repo
 
@@ -45,7 +41,7 @@ each.
 
 - **wazmrt flags before the module path** (`wazmrt --dir .::/ m.wasm`), the last of the four §2.1
   spellings ([`roadmap.md`](roadmap.md)).
-- **Track O** (optimization review, `1.0.3`) and **Track S** (security review, `1.0.4`) — review and
+- **Track O** (optimization review, `1.0.4`) and **Track S** (security review, `1.0.5`) — review and
   recommend, not unilateral passes ([`roadmap.md`](roadmap.md)).
 - **A self-contained round-trip test** for the emitter — blocked: wazmrt has no disassembler.
 - **Four `.wat` files of the wasmtk corpus refused by one side** in the parity probes

@@ -9,6 +9,9 @@ names its commits and the file that now holds the substance; the full text as it
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
+| 2026-09-21 | 🔖 **Release `1.0.3`** — fixes for four `1.0.2` defects, flat legacy EH, wasm-tools' feature vocabulary; the full checklist ran | the release commit | `releasing.md` |
+| 2026-09-21 | `wazmrt_memory_size_pages` honours custom page sizes; `capi_smoke.c` un-staled; the letter-H3 follow-up closed | `8e18cab0a` | `known-issues.md` |
+| 2026-09-21 | Letter H3: INDEX 192 KB → 10.7 KB, `open-work.md`, `working-rules.md`, drift Z1–Z6 | `0c6f4dc46` | `INDEX.md`, `probes/h3-check.ts` |
 | 2026-09-21 | Opcode sweep (letter H8 / I5): the twenty unassigned `0xFD` gaps refused; wazmrt's table = wasmrt's (582); 44 wasm-tools-only opcodes, off the table (owner) | `1f4a83320`, `21d633b6c` | `known-issues.md`, `probes/README.md` |
 | 2026-09-21 | `--features` = wasm-tools' whole vocabulary and meanings; locals walked; `funcref` table under `mvp`; `try_table` leak | `f00ff6489`, `88b63d008` | `interop.md` v30, `known-issues.md` |
 | 2026-09-21 | Flat legacy exception handling (`try … catch … end`) | `ee5157419` | `probes/legacy-eh/` |
@@ -45,8 +48,11 @@ version ladder these earn.
 | --- | --- | --- | --- |
 | **H** | `1.0.1` | **Hardening** — make the *shipped* configuration defensible, and re-measure the baselines | do the work |
 | **B** | `1.0.2` | **Bug hunt + code hygiene** — go looking for the unknown ones, across tested **and untested** paths | do the work |
-| **O** | `1.0.3` | **Optimization review** — measured options presented for a decision | **review + recommend** |
-| **S** | `1.0.4` | **Security review** — find the penetration surfaces, recommend the plugs | **review + recommend** |
+| **O** | `1.0.4` | **Optimization review** — measured options presented for a decision | **review + recommend** |
+| **S** | `1.0.5` | **Security review** — find the penetration surfaces, recommend the plugs | **review + recommend** |
+
+*(O and S were `1.0.3` / `1.0.4` until 2026-09-21, when `1.0.3` shipped the fixes for four `1.0.2`
+defects — `releasing.md`. The shift is a reading of that release, to confirm.)*
 
 🔒 **The order is `measure → find → optimize → attack`, and it is deliberate.** Optimizing before the
 bug hunt tunes code that is about to change. Reviewing performance before H re-measures yields opinions
@@ -1202,7 +1208,7 @@ that refusal is correct.
 
 ---
 
-### ⚡ Track O — Optimization review (a DISCUSSION, not a blind pass). `1.0.3` `[ ]`
+### ⚡ Track O — Optimization review (a DISCUSSION, not a blind pass). `1.0.4` `[ ]`
 
 **Deliverable: options with measurements and trade-offs, then a decision.** Scope: faster and smaller,
 **judged at the artifact boundary** — the CLI exe, the static lib, the DLL, the freestanding `wasm32`
@@ -1302,7 +1308,7 @@ recorded invariant for a number** unless the owner takes that decision explicitl
 
 ---
 
-### 🔓 Track S — Security review: find the penetration surfaces, recommend the plugs. `1.0.4` `[ ]`
+### 🔓 Track S — Security review: find the penetration surfaces, recommend the plugs. `1.0.5` `[ ]`
 
 **A review-and-recommend phase, like O** — findings + recommended mitigations **with their costs**,
 presented for a decision. **Do not unilaterally harden:** the obvious mitigations trade against zero

@@ -14,7 +14,7 @@ earns its place.
 ```text
 wazmrt/
 ├── build.zig              # Build graph: CLI exe, C-ABI static lib, wasm target, tests
-├── build.zig.zon          # Package manifest (name .wazmrt, v1.0.2, min zig 0.16.0)
+├── build.zig.zon          # Package manifest (name .wazmrt, v1.0.3, min zig 0.16.0)
 ├── cmem/                  # Portable project memory (this folder)
 ├── include/
 │   └── wazmrt.h           # C ABI header — the contract for universalWasmLoader-*
