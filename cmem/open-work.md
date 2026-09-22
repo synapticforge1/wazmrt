@@ -8,9 +8,10 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 **`1.0.2` is released** (the release commit `f2f890695`; not tagged, not pushed). Six commits since,
 unreleased (`git log f2f890695..`; the code is in `ee5157419`, `f00ff6489`, `1f4a83320`), carry
-**fixes for three defects that are IN 1.0.2** — `--features mvp` refused a plain
+**fixes for four defects that are IN 1.0.2** — `--features mvp` refused a plain
 `funcref` table; function locals were never feature-checked; twenty unassigned `0xFD` sub-opcodes
-decoded and validated — plus flat legacy exceptions and wasm-tools' whole feature vocabulary.
+decoded and validated; `wazmrt_memory_size_pages` ignored custom page sizes — plus flat legacy
+exceptions and wasm-tools' whole feature vocabulary.
 🔒 **Owner: the next version bump and release commit wait until letter H3 is done** — ✅ it is, as of
 the H3 commit; the release is next, pending its number (below). Contract: `interop.md` **v30**; wasmrt's copy is at 10. Every gate green at the last code commit
 — the counts are in [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place
@@ -34,10 +35,6 @@ each.
 
 ## 📬 Workspace letters still open for this repo
 
-- **Found by the letter-H3 sweep, not in any drift row:** two `known-issues.md` entries (lines ~1513, ~1556)
-  describe limits of `wasm_c_api.zig` — deleted 2026-08-11 — as live ("the C ABI represents a memory64
-  memory as 32-bit"). Whether `capi.zig` has the same limits is a CODE question: check, then close or
-  retarget each entry.
 - **H6** — SemVer 2.0.0 with a compatibility gate on every bump script; the ★ rules block copied into
   `best-practices.md` under a dated stamp; memory layout per `memory-conventions.md`.
 - H1, H3, H8, H13 are addressed; each closes in `../../cmem/handoffs.md` when the workspace names the

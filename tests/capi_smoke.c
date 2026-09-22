@@ -146,8 +146,8 @@ int main(void) {
     };
     cfg = wazmrt_config_new();
     check(wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_SIMD, false), "set_feature(false) is honoured");
-    /* Relaxed SIMD rests on SIMD, so it has to go too — the engine reports an incoherent
-     * config rather than quietly repairing it. */
+    /* Relaxed SIMD rests on SIMD, so it goes too. (No config is refused any more; a module
+     * using relaxed SIMD would be refused for the v128 types it needs either way.) */
     wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_RELAXED_SIMD, false);
     bool simd_on = true;
     wazmrt_config_get_feature(cfg, WAZMRT_FEATURE_SIMD, &simd_on);
@@ -183,13 +183,31 @@ int main(void) {
         wazmrt_engine_delete(nosimd);
     }
 
-    /* An incoherent config is reported, not repaired. */
+    /* No feature CONFIGURATION is refused (2026-09-21, interop.md v30: wasm-tools never refuses
+     * one); the dependencies are enforced on each MODULE instead. This check used to assert that
+     * gc-without-function-references was refused as "incoherent" -- it went stale when that rule
+     * was retired, and nobody ran capi-smoke after the change. Now: the config is accepted, AND a
+     * module needing what was switched off is still refused. `(module (type (func (param
+     * funcref))))` needs reference-types as a VALUE type. */
+    static const uint8_t kFuncrefParam[] = {
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+        0x01, 0x05, 0x01, 0x60, 0x01, 0x70, 0x00,
+    };
     cfg = wazmrt_config_new();
     wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_FUNCTION_REFERENCES, false);
+    wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_REFERENCE_TYPES, false);
     cerr = NULL;
-    wazmrt_engine_t *bad = wazmrt_engine_new_with_config(cfg, &cerr);
-    check(bad == NULL && cerr != NULL, "gc without function-references is refused as incoherent");
+    wazmrt_engine_t *layered = wazmrt_engine_new_with_config(cfg, &cerr);
+    check(layered != NULL && cerr == NULL, "a formerly 'incoherent' feature set is accepted (as in wasm-tools)");
     if (cerr) wazmrt_error_delete(cerr);
+    if (layered) {
+        wazmrt_module_t *needs_rt = NULL;
+        wazmrt_error_t *merr = wazmrt_module_new(layered, kFuncrefParam, sizeof kFuncrefParam, &needs_rt);
+        check(merr != NULL && needs_rt == NULL, "...and a module needing reference-types is still refused");
+        if (merr) wazmrt_error_delete(merr);
+        if (needs_rt) wazmrt_module_delete(needs_rt);
+        wazmrt_engine_delete(layered);
+    }
     wazmrt_config_delete(cfg);
 
     /* Text -> binary, kept for caching. */

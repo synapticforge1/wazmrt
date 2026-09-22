@@ -1175,6 +1175,9 @@
 # dll +512.** What bought the bytes: `opcode.unassigned_simd_subs` (20 × u32) and the lookup in
 # `decodeSimd`. A malformed module containing one used to VALIDATE and trap only at run time.
 
+# 2026-09-21 — `wazmrt_memory_size_pages` divides by the memory's OWN page size. **lib +4.** One
+# field load in place of a constant; exe and dll unmoved (page granularity).
+
 wazmrt.exe  1027584
-wazmrt.lib  1075942
+wazmrt.lib  1075946
 wazmrt.dll  923648

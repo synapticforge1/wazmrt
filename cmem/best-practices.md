@@ -1749,6 +1749,16 @@ alarming row with a well-formed module, where wasmrt returned the right answer. 
 outlier row is a hypothesis about the probe until a complete, independent input confirms it about
 the tool.** — 2026-09-21, `probes/opcode-sweep.ts`
 
+### 🎓 Retiring a rule means finding EVERY test that asserts it — in every language
+
+`f00ff6489` retired the "incoherent configuration" refusal and updated the Zig test that asserted it.
+`tests/capi_smoke.c` asserted the same rule from C, and it failed from that commit on. It was only
+noticed hours later, because gates were run selectively ("the ones this change touches") and
+`capi-smoke` was not in the chosen set. 🔒 **When a behaviour is deliberately changed, grep for its
+old assertion across ALL test sources (Zig, C, `.wast`, scripts), and re-run the WHOLE gate list,
+not the gates you think are relevant**; a rule has more than one test when it is contract surface. —
+2026-09-21, `tests/capi_smoke.c`
+
 ### 🎓 Attribute a size jump by removing things, not by guessing
 
 The size gate caught +9 KiB. The guess (`@tagName` shipping opcode names) led to a "fix", a comptime

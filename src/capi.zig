@@ -2212,7 +2212,9 @@ export fn wazmrt_memory_data_size(s: ?*const Store, h: MemoryHandle) usize {
 export fn wazmrt_memory_size_pages(s: ?*const Store, h: MemoryHandle) u64 {
     const store = s orelse return 0;
     const mem = memoryOf(@constCast(store), h.id) orelse return 0;
-    return mem.bytes.len / interp.page_size;
+    // The memory's OWN page size, not the fixed 64 KiB `interp.page_size`: a custom-page-sizes
+    // memory can be byte-paged (2026-09-21 — it reported 0 pages for a 100-byte memory).
+    return mem.bytes.len / mem.page_size;
 }
 
 /// Bounds-checked, and the check is done in u64 BEFORE any pointer arithmetic: `offset + n` on a
@@ -2611,6 +2613,31 @@ fn peekCb(env: ?*anyopaque, caller: *Caller, args: [*]const Val, nargs: usize, r
 fn trappingCb(env: ?*anyopaque, caller: *Caller, args: [*]const Val, nargs: usize, results: [*]Val, nresults: usize) callconv(.c) ?*Trap {
     _ = .{ env, caller, args, nargs, results, nresults };
     return wazmrt_trap_new("host said no");
+}
+
+test "wazmrt_memory_size_pages counts in the memory's OWN page size (custom-page-sizes)" {
+    // 🔬 Found 2026-09-21 while closing an old known-issues entry (the retired wasm-c-api's 32-bit
+    // memory limits — which ABI 2 does not have). `interp.Memory` records its page size, and its
+    // own doc says the pages↔bytes CONVERSIONS must consult it; this export divided by the fixed
+    // 64 KiB `interp.page_size` instead, so a byte-paged memory of 100 bytes reported 0 pages.
+    // Bytes read from `wasm-tools parse` of `(module (memory (export "mem") 100 (pagesize 1)))`.
+    const byte_paged = [_]u8{ 0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x05, 0x04, 0x01, 0x08, 0x64, 0x00, 0x07, 0x07, 0x01, 0x03, 0x6d, 0x65, 0x6d, 0x02, 0x00 };
+    const e = wazmrt_engine_new().?;
+    defer wazmrt_engine_delete(e);
+    const s = wazmrt_store_new(e).?;
+    defer wazmrt_store_delete(s);
+    const l = wazmrt_linker_new(e).?;
+    defer wazmrt_linker_delete(l);
+    var m: *CModule = undefined;
+    try testing.expect(wazmrt_module_new(e, &byte_paged, byte_paged.len, &m) == null);
+    defer wazmrt_module_delete(m);
+    var inst: InstanceHandle = .{ .id = 0 };
+    var trap: ?*Trap = null;
+    try testing.expect(wazmrt_linker_instantiate(l, s, m, &inst, &trap) == null);
+    var mem: MemoryHandle = .{ .id = 0 };
+    try testing.expect(wazmrt_instance_get_memory(s, inst, "mem", &mem));
+    try testing.expectEqual(@as(usize, 100), wazmrt_memory_data_size(s, mem));
+    try testing.expectEqual(@as(u64, 100), wazmrt_memory_size_pages(s, mem));
 }
 
 fn i32Type(params: []const ValKind, results: []const ValKind) *FuncType {

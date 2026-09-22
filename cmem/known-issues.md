@@ -1553,9 +1553,15 @@ by the 2026-07-21 batches — annotated as since-fixed at each site.)
 - **`table.grow` budgets per-table, not summed** (`interp.zig`) — N defined tables can each grow to
   `max_table_elems`, so total up to N×budget. Deliberately mirrors `memory.grow`'s per-memory check against
   the whole `max_memory_bytes`; each allocation is still capped and each new table costs module bytes.
-- **C-ABI represents a memory64 memory as 32-bit** (`wasm_c_api.zig`) — wasm.h has u32 pages and no `is64`
-  field, so a bounded memory64 with max >4G pages reports its max saturated to `0xffffffff` (read as "no
-  max"). The cast is memory-safe (saturating); the representability cap is inherent to the standard ABI.
+- ✅ ~~**C-ABI represents a memory64 memory as 32-bit**~~ — **CLOSED 2026-09-21, checked against the
+  code** (letter-H3 follow-up). It described `wasm_c_api.zig`, deleted 2026-08-11. ABI 2 (`capi.zig`)
+  has **no** memory-type introspection at all (import/export report name + kind only), and its memory
+  calls are 64-bit: `wazmrt_memory_size_pages` returns `uint64_t`, read/write take `uint64_t` offsets
+  bounds-checked in u64 before any pointer math. The limitation cannot recur. 🚨 **But reading that
+  code found a LIVE ABI 2 defect**: `wazmrt_memory_size_pages` divided by the fixed 64 KiB
+  `interp.page_size` instead of the memory's own `page_size`, so a custom-page-sizes memory of 100
+  bytes (`(pagesize 1)`) reported **0 pages**. Fixed; pinned by `capi.test "wazmrt_memory_size_pages
+  counts in the memory's OWN page size"` (bytes from `wasm-tools parse`), inversion-proven.
 - **`wat.parseTagType` with only `(type $t)`** doesn't verify the referenced type is a func type — deferred
   to a downstream `BadType`, same as every other typeuse site.
 
