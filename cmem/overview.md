@@ -9,6 +9,13 @@ It is being built by studying the best/fastest parts of the leading wasm runtime
 `reference-projects.md`) and adopting — with full attribution (`third_party/LICENSES.md`) — only what
 earns its place.
 
+**Home:** `https://github.com/synapticforge1/wazmrt` — moved from the owner's personal account
+(`jrmarcum/wazmrt`) to the owner-controlled `synapticforge1` organization; recorded 2026-10-21 and
+confirmed by the GitHub API, which resolves the old name to the new one. GitHub redirects the old URL,
+but new references use the organization path. The local `origin` was repointed to
+`https://github.com/synapticforge1/wazmrt.git` and verified with `git ls-remote` (2026-10-21). The loaders, `wasmrt`, `binaryang` and `rsxtk` moved
+with it; as of 2026-10-21 `wasmtk` is still at `jrmarcum/wasmtk`.
+
 ## Repo layout
 
 ```text

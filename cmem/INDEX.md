@@ -117,7 +117,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | --- | --- |
 | [open-work.md](open-work.md) | 🎯 **Start here for state.** The ONE list of what is outstanding, and the only status line. |
 | [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Deno/Bun, no heredocs), LF line endings, building and testing from the exFAT `D:` drive. |
-| [overview.md](overview.md) | What wazmrt is; the source layout; **live artifact sizes** (the one place they are recorded). |
+| [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; **live artifact sizes** (the one place they are recorded). |
 | [vision.md](vision.md) | The goal: a fast, small, embeddable WebAssembly runtime, itself wasm-compilable. |
 | [architecture.md](architecture.md) | The decode → validate → instantiate → execute pipeline, module layout, the libc-free core, the C ABI and freestanding targets. |
 | [design-decisions.md](design-decisions.md) | Load-bearing invariants and decisions with their reasons — kept in full, never silently reverted. |

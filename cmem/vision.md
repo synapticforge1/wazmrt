@@ -223,7 +223,7 @@ imports/WASI, C ABI instantiate+call).
 
 wazmrt is meant to be embedded from any language via a matching loader repo:
 
-`https://github.com/jrmarcum/universalWasmLoader-<lang>` for
+`https://github.com/synapticforge1/universalWasmLoader-<lang>` (moved from `jrmarcum/`, 2026-10-21) for
 `<lang> ∈ { jvm, c, go, dotnet, dart, rs, py, v, zig, js }`.
 
 The **C ABI** (`include/wazmrt.h`) is the universal contract each loader binds to:
