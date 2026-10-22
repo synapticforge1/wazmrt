@@ -6,7 +6,7 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-09-21
 
-**`1.0.3` is released** (2026-09-21, the release commit; not tagged, not pushed) — fixes for four
+**`1.0.3` is released** (2026-09-21, the release commit; pushed to `synapticforge1/wazmrt` 2026-10-21, not tagged) — fixes for four
 defects that shipped in `1.0.2`, flat legacy exceptions and wasm-tools' whole feature vocabulary
 ([`releasing.md`](releasing.md)). Nothing is unreleased. Contract: `interop.md` **v30**; wasmrt's copy
 is at 10. Every gate green at the release — the counts are in [`testing.md`](testing.md) and the sizes
@@ -16,7 +16,8 @@ in `tools/size-ceilings.txt`, one place each.
 
 - **Confirm the ladder shift.** `1.0.3` was Track O's number; `releasing.md` and `roadmap.md` now read
   Track O `1.0.4` and Track S `1.0.5` — a reading of "release 1.0.3 now", not a decision.
-- **Tagging and pushing** `1.0.2` and `1.0.3` — nothing is tagged or pushed unless the owner says so.
+- **Tagging** `1.0.2` and `1.0.3` — both commits are on the remote (pushed by the owner's order
+  2026-10-21, `7919b64d6..fbc774508`); nothing is tagged unless the owner says so.
 
 ## ⏳ Waiting on something outside this repo
 
