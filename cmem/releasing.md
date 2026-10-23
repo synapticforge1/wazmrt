@@ -77,22 +77,65 @@ Bake Off is a compare task that can never be "done". Neither is a gap in wazmrt;
 
 ---
 
-## 📐 THE CADENCE — every component is a SINGLE DIGIT (owner, 2026-08-19)
+## 📐 THE NUMBER — Semantic Versioning 2.0.0, and the GATE sets the floor (owner, 2026-09-20; adopted 2026-10-23, letter H6)
 
-**One rule, applied to all three components: a component never exceeds `9`.** It rolls over into the one
-to its left, exactly like a decimal odometer.
+🔒 **Plain SemVer 2.0.0: no digit cap, no carry** (`../../cmem/layout-and-packaging.md` § "Versioning",
+binding on every repo). The owner's reason: it pulls the repos together, and it is what every registry
+requires.
 
-- **Normal release: `+0.0.1`.** One shipped, gated piece of work — in practice one track — per bump.
-- **`x.y.9` ends a minor line.** The release after `1.0.9` is **`1.1.0`**, never `1.0.10`.
-- **`x.9.9` ends a major line.** The release after `1.9.9` is **`2.0.0`**, never `1.10.0`.
-- **A breaking change takes the next MAJOR immediately**, from wherever the ladder stands: at `1.0.3` a
-  breaking change ships as **`2.0.0`**, not `1.0.4`. Minor and patch reset to `0` and the digits they
-  would have used are forfeited. **Breaking-ness overrules position on the ladder** — it is the one thing
-  that can skip digits.
+| release contains | bump | resets |
+| --- | --- | --- |
+| fixes only, nothing added, nothing broken | `+0.0.1` | — |
+| a new capability, backward compatible | `+0.1.0` | patch → 0 |
+| anything backward-incompatible (the four kinds below) | `+1.0.0` | minor, patch → 0 |
 
-**A consequence worth knowing before planning a release train: a major line holds exactly 100 releases**
-(10 minor lines × 10 patches). At one bump per track that is a lot of runway, but it is finite, and the
-odometer rule means it cannot be extended by widening a component.
+- **Components are unbounded**: `1.0.9` is followed by `1.0.10` or `1.1.0`, never `2.0.0` unless something
+  broke. **The major IS the break signal**; the README's **⚠️ Breaking Changes** table is the migration guide.
+- **"Backward compatible" is a gate result, never a judgment** — `zig build surface` (`tools/surface.zig`,
+  the next section). It refuses a bump below the floor the surface diff demands.
+
+🗄️ **RETIRED 2026-10-23: the single-digit odometer** (owner, 2026-08-19 → superseded 2026-09-20). It
+said every component stops at `9` and rolls into the one on its left (`1.0.9` → `1.1.0`, `1.9.9` → `2.0.0`),
+so a major line held exactly 100 releases. The workspace retired every repo's odometer the same day,
+because a carry into a new major tells every caret consumer "this broke" when nothing did. Its one
+surviving rule — *a breaking change takes the next major immediately* — is SemVer's own.
+
+## 🚦 THE COMPATIBILITY GATE — `zig build surface` (2026-10-23, letter H6)
+
+`tools/surface.zig` (a build-step tool, so Zig: owner, 2026-10-23) generates the PUBLIC SURFACE from
+the sources, never by hand:
+
+| kind | read from | one line per |
+| --- | --- | --- |
+| `c` | `include/wazmrt.h` | prototype, typedef, `#define` (incl. `WAZMRT_ABI_VERSION`); enum MEMBER with its ordinal, since C integers are frozen |
+| `zig` | `src/root.zig` | `pub` declaration (signature, not body) |
+| `cli` | `wazmrt --help`, run by the build | usage shape, flag definition, subcommand shape (descriptions excluded; `argv[0]` → `wazmrt`) |
+
+Two committed snapshots in `tools/surface/`, and three rules:
+
+1. **`current.txt` must equal the sources' surface, or `zig build test` is RED.** An intended change is
+   re-baselined **in its own commit with the reason**: `zig build surface -Dsurface=update`.
+2. **`released.txt` (`# released-as: X.Y.Z`) is the last release's surface; the diff against it is the
+   FLOOR**: anything removed or changed → major, additions only → minor, nothing → patch. Once
+   `root.version` moves past `released-as`, a bump below the floor (or one that does not reset the lower
+   components) is refused, with the lines that set the floor.
+3. **After the release commit, record it**: `zig build surface -Dsurface=release`, its own commit.
+
+✅ **Inverted 2026-10-23** in a throwaway clone (results in the commit that added it): a removed export,
+an added export, an appended enum member, two swapped enum members, `WAZMRT_ABI_VERSION` 2 → 3, a
+renamed CLI flag, a removed `pub` decl, a non-resetting bump and a backwards version each go red for
+their own reason; re-indenting the header and rewording a help description do not.
+
+⚠️ **What the gate CANNOT see, said plainly:**
+- **Kind 4, "accepting less"** (below) is behaviour, not surface. Until rule 3 can run, the person
+  bumping classifies it against the list below, and the Breaking Changes row is mandatory.
+- **A change INSIDE a re-exported Zig module** (`root.zig` re-exports whole files); only the
+  declarations in `root.zig` itself are diffed.
+- **Exit codes and parseable output** beyond `--help`'s syntax lines; the `interop.md` contract rows
+  carry those for the runtimes.
+- **Rule 3, "the previous tag's tests pass against the new `src/`"**, needs a TAG, and wazmrt has none
+  (tagging `1.0.2` / `1.0.3` is an open owner call, `open-work.md`). Consumers' suites likewise wait for
+  a consumer: none depends on wazmrt yet (the `1.0.2` decision).
 
 ### The ladder from here
 
@@ -102,11 +145,10 @@ odometer rule means it cannot be extended by widening a component.
 | **`1.0.1`** | ✅ **Track H** — hardening (shipped 2026-08-19) |
 | **`1.0.2`** | ✅ **Track B** — bug hunt + code hygiene (shipped 2026-09-21, with the `--dir` grammar, the POSIX resolver fix and letter H13) |
 | **`1.0.3`** | ✅ **fixes for four `1.0.2` defects + legacy EH + wasm-tools' feature vocabulary** (shipped 2026-09-21, owner: "release 1.0.3 now") — the number Track O had reserved |
-| **`1.0.4`** | **Track O** — optimization review *(moved down one by `1.0.3`; a reading, to confirm)* |
-| **`1.0.5`** | **Track S** — security review *(likewise)* |
-| `1.0.6` … `1.0.9` | whatever follows; the release after `1.0.9` is `1.1.0` |
+| next | **Track O** — optimization review *(was `1.0.4` on the old ladder, itself moved down one by `1.0.3` — a reading, to confirm)*. Under SemVer the number is whatever `zig build surface`'s floor says: `1.0.4` if Track O changes no surface, `1.1.0` if it adds some |
+| after | **Track S** — security review *(likewise)*. ⚠️ A tightening it finds is kind 4 (accepting less), so expect a MAJOR unless the owner scopes it otherwise |
 
-### What counts as BREAKING — the only thing that jumps the ladder
+### What counts as BREAKING — the only thing that takes the next major
 
 The major bump is reserved for changes an existing consumer cannot absorb without editing code. For
 wazmrt that surface is concrete and small; `universalWasmLoader-*`, wasmtk and rsxtk are the consumers.
@@ -184,7 +226,12 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
 8. **The shipped binary is STANDALONE** — copy `wazmrt.exe` to an empty directory, run it with a reduced
    `PATH`, and confirm it prints the new version; its imports must be only `ntdll`/`KERNEL32`. ⚠️ Not a
    formality: wasmrt's CLI silently needed a toolchain DLL for weeks while every dev-box test passed.
-9. **Bump the four places**, then grep for the old string.
+9. **Bump the four places**, then grep for the old string. 🆕 **Then `zig build surface`** (also part of
+   `zig build test`): it must accept the new number against `tools/surface/released.txt`'s floor. A
+   refusal is answered by a bigger bump, never by editing a snapshot. If the release breaks anything
+   (the four kinds above), add its **⚠️ Breaking Changes** row to `README.md` in the same commit.
+9a. 🆕 **After the release commit, in its own commit: `zig build surface -Dsurface=release`**, which
+   records the released surface as the next floor's baseline.
 10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
     ladder, and `open-work.md`'s Status line (the only one — letter H3, 2026-09-21). A doc pass scheduled "after the release" is a doc pass that
     does not happen.

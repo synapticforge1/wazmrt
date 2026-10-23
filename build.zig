@@ -361,6 +361,39 @@ pub fn build(b: *std.Build) void {
     version_tests.root_module.addAnonymousImport("project_header", .{ .root_source_file = b.path("include/wazmrt.h") });
     test_step.dependOn(&b.addRunArtifact(version_tests).step);
 
+    // ---- Public-surface gate (`zig build surface`) — workspace letter H6 ---
+    // 🔒 "Backward compatible" is a GATE RESULT, never a judgment made at bump time (owner,
+    // 2026-09-20). `tools/surface.zig` generates the surface (the C header, `root.zig`'s `pub`
+    // decls, the `--help` syntax lines), requires it to equal `tools/surface/current.txt`, and
+    // computes the floor against `tools/surface/released.txt`: once `root.version` moves past the
+    // released one, a bump below the floor is refused. A build-step tool, so Zig (owner,
+    // 2026-10-23). `-Dsurface=update` re-baselines `current.txt`; `-Dsurface=release` records the
+    // release, each in its own commit.
+    {
+        const surface_mode = b.option([]const u8, "surface", "`zig build surface` mode: check (default) | update | release") orelse "check";
+        const surface_tool = b.addExecutable(.{ .name = "surface", .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/surface.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }) });
+        // The CLI half is read off the binary itself: the help text IS what a user is told.
+        const help = b.addRunArtifact(exe);
+        help.addArg("--help");
+        const run_surface = b.addRunArtifact(surface_tool);
+        run_surface.addArg(surface_mode);
+        run_surface.addArg(b.pathFromRoot("tools/surface"));
+        run_surface.addFileArg(b.path("include/wazmrt.h"));
+        run_surface.addFileArg(b.path("src/root.zig"));
+        run_surface.addFileArg(help.captureStdOut(.{}));
+        // The snapshots are read by path, not as file args, so the verdict must never be cached.
+        run_surface.has_side_effects = true;
+        const surface_step = b.step("surface", "Public-surface gate: snapshot current, bump >= floor (-Dsurface=update|release to re-baseline)");
+        surface_step.dependOn(&run_surface.step);
+        // 🔒 The TRIGGER: on `zig build test`, so an unrecorded surface change is a red build, not a
+        // step somebody has to remember (the size gate's lesson, Track B-e).
+        if (std.mem.eql(u8, surface_mode, "check")) test_step.dependOn(&run_surface.step);
+    }
+
     // ---- Security gate (`zig build test-security`) -------------------------
     // The sandbox-escape tests SKIP when the harness cannot create a symlink. ⚠️ On the dev machine
     // that is NOT a privilege problem — Developer Mode is on. `std.testing.tmpDir` puts its scratch

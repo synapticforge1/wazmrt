@@ -32,8 +32,14 @@ in `tools/size-ceilings.txt`, one place each.
 
 ## 📬 Workspace letters still open for this repo
 
-- **H6** — SemVer 2.0.0 with a compatibility gate on every bump script; the ★ rules block copied into
-  `best-practices.md` under a dated stamp; memory layout per `memory-conventions.md`.
+- **H6** — ✅ addressed 2026-10-23. **SemVer 2.0.0** replaces the single-digit odometer
+  (`releasing.md`). **The compatibility gate** is `zig build surface` (`tools/surface.zig`, on
+  `zig build test` too). It snapshots the C header, `root.zig`'s `pub` decls and the `--help` syntax,
+  and refuses a bump below the floor; inverted, every mutant red for its own reason. **The ★ block**
+  (28 rules, verbatim) is `best-practices.md` §7. **Memory layout** was H3 and **tooling** was H15, both
+  closed. The README has a **⚠️ Breaking Changes** table (the `1.0.2`/`1.0.3` rows). ⬜ **What H6's rule 3 needs and
+  wazmrt lacks**: a TAG, for "the previous tag's tests against the new `src/`", which waits on the
+  owner's tagging call above; and consumers, none yet.
 - **2026-10-23 sweep** (owner: "review letters or rules that have changed"): **H18** — addressed
   (`.claude/settings.local.json` untracked and gitignored, `design-decisions.md`'s drive path → a
   placeholder, real paths in the gitignored `cmem/local/`). **H20** — not applicable: wazmrt has no

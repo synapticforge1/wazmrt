@@ -60,6 +60,20 @@ compliance process, and for the ledger of any reused code.
 > (v128)** instruction set — every fixed-width op plus the relaxed-SIMD
 > extensions. Requires Zig 0.16.
 
+## ⚠️ Breaking Changes
+
+wazmrt follows [Semantic Versioning 2.0.0](https://semver.org/): a breaking change takes the next
+major version. The two rows below shipped as PATCH releases on purpose, before any consumer depended
+on wazmrt; from now on the version number itself signals a break. Each row says how to migrate.
+
+| Version | What changed | How to migrate |
+| --- | --- | --- |
+| `1.0.3` | `--features mvp` refuses a module that exports a mutable global (wasm-tools' meaning of `mvp`) | use `--features wasm1`, which is `mvp` + `mutable-global` |
+| `1.0.3` | `externref` needs the `gc-types` feature when you pass an explicit `--features` list | add `gc-types` to the list (presets such as `wasm2` and `all` already include it) |
+| `1.0.3` | the twenty unassigned `0xFD` sub-opcodes are refused | nothing: such modules were malformed and other runtimes refuse them too |
+| `1.0.2` | `--dir` refuses a bare relative host path (`--dir data:/m`) | write it as `./data:/m` (or `./data::/m`) |
+| `1.0.2` | the `.wat` assembler's output changed (local runs, export order, type order now match wasm-tools), so a `.wat` pin made by `1.0.1` no longer matches | re-pin every `.wat` with `wazmrt pin`; `.wasm` pins are unaffected |
+
 ## Command line
 
 Two spellings of every run mode work, so a command line written for wazmrt or
