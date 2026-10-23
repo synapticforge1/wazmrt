@@ -22,8 +22,13 @@ milestone table.
 - **Track O / Track S numbering.** It was a reading of "release 1.0.3 now", never a decision. Under
   SemVer the gate sets each number from the surface (`releasing.md`), so all that is left to
   confirm is the ORDER.
-- **Tagging** `1.0.2` and `1.0.3`. Both commits are on the remote; nothing is tagged unless the
-  owner says so. A tag also arms the gate's rule 3: the previous tag's tests against the new `src/`.
+- ✅ **Tagged 2026-10-23** (owner: "yes lets tag those commits properly"): annotated `v1.0.2` →
+  `c7a7588` and `v1.0.3` → `67d82e7`, each verified to carry its version in `root.zig`,
+  `build.zig.zon` and the header, with the noreply tagger. Still untagged, an offer: `1.0.1`, first
+  set in `9acdcb4` (Track H), and `1.0.0`, whose commit is not yet located. ⚠️ **H6's rule 3 does
+  not apply as written**: wazmrt's tests live INSIDE `src/` (Zig inline `test` blocks), so "the
+  previous tag's tests against the new `src/`" cannot separate the two. The equivalent would be
+  `.wast` fixtures or a script carried forward from a tag. Unscoped; an owner call.
 - **GitHub Support request** to purge the cached pre-rewrite commits (letter H19; only the owner can
   file it).
 

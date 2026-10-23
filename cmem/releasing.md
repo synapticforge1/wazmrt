@@ -133,9 +133,12 @@ their own reason; re-indenting the header and rewording a help description do no
   declarations in `root.zig` itself are diffed.
 - **Exit codes and parseable output** beyond `--help`'s syntax lines; the `interop.md` contract rows
   carry those for the runtimes.
-- **Rule 3, "the previous tag's tests pass against the new `src/`"**, needs a TAG, and wazmrt has none
-  (tagging `1.0.2` / `1.0.3` is an open owner call, `open-work.md`). Consumers' suites likewise wait for
-  a consumer: none depends on wazmrt yet (the `1.0.2` decision).
+- **Rule 3, "the previous tag's tests pass against the new `src/`"**: the tags exist since
+  2026-10-23 (`v1.0.2`, `v1.0.3`), but the rule does not apply AS WRITTEN. wazmrt's tests are Zig
+  inline `test` blocks INSIDE `src/`, so a tag's tests cannot run against another commit's code. The
+  workable equivalent is behaviour carried forward from a tag (its `.wast` fixtures, or a probe
+  run on both binaries). That is unscoped and an owner call (`open-work.md`). Consumers' suites wait
+  for a consumer: none depends on wazmrt yet (the `1.0.2` decision).
 
 ### The ladder from here
 
