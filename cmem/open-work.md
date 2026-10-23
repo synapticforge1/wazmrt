@@ -38,6 +38,17 @@ in `tools/size-ceilings.txt`, one place each.
     `divergences.md` I6);
   - 🗓️ **D3**: the runner does not check trap TEXT at all (`known-issues.md`); adopting D3 closes it
     but makes conformance stricter. It awaits the go-ahead.
+  - ⏳ **FOLLOW-UP on the opcodes, once binaryang's opcode work is complete** (owner, 2026-10-23:
+    "some of the binaryang opcode work is ongoing"). That work is binaryang `cmem/open-work.md`
+    item 34: the opcode profile every widely used engine runs, the relaxed-SIMD lowering, D4, and
+    the final `opcode-guide.md` "for the other projects to follow" (owner there: "wasmrt / wazmrt
+    adopt it afterwards"); also its FL1, D2's `cli` spelling. **When it ships:**
+    1. regenerate `src/definitions.zig` from that release (`bun tools/gen-definitions.ts`, its own
+       commit) and re-run the H10 tests: any D1 change shows up as a named disagreement;
+    2. read `opcode-guide.md` and adopt the profile, in a scoped plan put to the owner first;
+    3. only then stage B, so the hand tables are migrated once, to the settled table;
+    4. revisit the D2 vocabulary question with FL1's outcome.
+    **Do not start stage B before this:** migrating to a table that is still moving means doing it twice.
 - **The macOS pass** of the POSIX path fix — when the owner has the machine. Checklist and every probe
   it needs: [`probes/README.md`](probes/README.md) → "Open: the macOS pass".
 
