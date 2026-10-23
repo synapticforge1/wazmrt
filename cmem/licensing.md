@@ -61,7 +61,13 @@ in the repo (`third_party/wasm-c-api/LICENSE` + `NOTICE` + the ledger entry) whi
 the directory an embedder actually copies — carried `wasm.h` **alone**, and whoever copies it never sees
 `third_party/`.
 
-`build.zig` now installs, beside the two headers:
+⚡ **HISTORICAL — retired 2026-08-11** (drift-register Z3). The case below no longer exists: the
+vendored `wasm.h` and the whole wasm-c-api surface were deleted that day, `build.zig` installs
+**only** `zig-out/include/wazmrt.h`, and wazmrt vendors nothing, so no third-party licence travels with
+the artifact (`overview.md` → "CORRECTED 2026-08-11"). The **rule** in this section is still live
+and applies to the next vendored file. What follows is the record of the one day it applied:
+
+For that day (2026-08-10 → 2026-08-11), `build.zig` installed, beside the two headers:
 
 ```
 zig-out/include/LICENSE.wasm-c-api   the Apache-2.0 text (11.1 KiB)
@@ -85,9 +91,10 @@ See `cmem/overview.md` for the resulting distribution manifest (ship `zig-out/in
 
 - `LICENSE-MIT`, `LICENSE-APACHE` — the two license texts (Apache is the canonical verbatim text).
 - `NOTICE` — attribution + a statement that incorporated Apache-2.0 code retains its NOTICE and gets
-  change-notes (§4 obligations). **Also installed to `zig-out/include/NOTICE`** by `build.zig`.
-- `zig-out/include/LICENSE.wasm-c-api` — build output, not a source file: the vendored header's
-  Apache-2.0 text, shipped so the distribution is compliant on its own (see the rule above).
+  change-notes (§4 obligations). A source file only: since 2026-08-11 `build.zig` installs nothing but
+  `zig-out/include/wazmrt.h` (it copied `NOTICE` into `zig-out/include/` for one day, see above).
+- ~~`zig-out/include/LICENSE.wasm-c-api`~~ — **retired 2026-08-11** with the vendored header it covered;
+  no longer built. Kept here so a search for the name lands on its history.
 - `third_party/LICENSES.md` — **the operational source of truth**: the obligations-at-a-glance table,
   the Adoption Checklist (run before any reuse), the Component Ledger (one entry per adopted
   component), and the verified SPDX inventory. `reference-projects.md` mirrors the inventory with
