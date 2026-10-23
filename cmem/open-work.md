@@ -25,8 +25,19 @@ in `tools/size-ceilings.txt`, one place each.
   pins agree 64/528 until it does, §3.1); match v30's `--features` vocabulary and semantics, checked
   by running [`probes/feature-matrix.ts`](probes/feature-matrix.ts) on it; its `--dir` help still shows
   the pre-v27 rules. Lockstep engages when wasmrt reaches `1.0.1` (`interop.md` §1e).
-- **Letter H10** — generated opcode/feature tables wait on binaryang's H9 schema. Filed for it: wazmrt's
-  table has `0xfb 20`–`26` (custom-descriptors), which binaryang lacks.
+- **Letter H10 — stage A done 2026-10-23.** `src/definitions.zig` is a GENERATED copy of
+  binaryang 1.15.0's D1/D2/D3 (`tools/gen-definitions.ts`, which verifies each source file's own
+  SHA-256; `zig build definitions` regenerates and diffs when binaryang is present). On
+  `zig build test`, always: the decoder knows exactly D1's 582 opcodes in both directions, every D1
+  mnemonic assembles to D1's encoding, and every default alignment is D1's. Each test is inverted.
+  (The earlier note that binaryang lacked `0xfb 20`–`26` is stale: D1 has them.) ⏳ **Open:**
+  - **stage B** — replace the hand tables with reads from the copy, one table at a time, full gate
+    each;
+  - 🗓️ **D2 and D1's `feature` column**: D2 is wabt-style, wazmrt is wasm-tools' vocabulary by the
+    owner's 2026-09-21 decision. The two cannot be "equal" without reopening it (workspace
+    `divergences.md` I6);
+  - 🗓️ **D3**: the runner does not check trap TEXT at all (`known-issues.md`); adopting D3 closes it
+    but makes conformance stricter. It awaits the go-ahead.
 - **The macOS pass** of the POSIX path fix — when the owner has the machine. Checklist and every probe
   it needs: [`probes/README.md`](probes/README.md) → "Open: the macOS pass".
 

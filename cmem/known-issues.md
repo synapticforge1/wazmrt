@@ -13,6 +13,26 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🆕 `assert_trap` is satisfied by ANY runtime trap — the expected TEXT is never compared (found 2026-10-23, letter H10)
+
+**What:** `wast.zig`'s `assert_trap` passes when the action raises any error `isRuntimeTrap` admits,
+and reads the assertion's message only to skip it. A module that traps with "integer overflow"
+where the spec expects "integer divide by zero" scores as a PASS. `isRuntimeTrap` was written to
+stop a BUG satisfying `assert_trap` (a decode error, an engine limit); it never asked whether the
+trap was the RIGHT one.
+
+**Why it matters:** the conformance count (64,092 passed) includes every `assert_trap`, and none of
+them is class-checked, so wazmrt's numbers are not comparable with a runner that checks the class.
+That runner is the shared vocabulary's whole purpose (workspace `divergences.md` C1, D3).
+
+**Surfacing condition / fix:** binaryang's D3 is now in `src/definitions.zig` (20 classes, with the
+reference interpreter's prefix rule). Map each trap error to its class key, classify the expected
+text by D3's longest-prefix rule, and require them to agree. ⚠️ **Not a one-to-one map:**
+`error.NullReference` is one error for D3's five null classes (`null structure/array/i31/function
+reference`), and `TableOutOfBounds` serves both "out of bounds table access" and "undefined
+element". Either the interpreter learns the finer error, or the map accepts a set. **Stricter by
+construction**, so it waits for the owner and a full conformance run against the baseline.
+
 ## ✅ FIXED SAME DAY — three feature-gate defects found while adding wasm-tools' names (2026-09-21)
 
 Found while making `--features` match wasm-tools (`interop.md` v30); each is fixed, pinned by

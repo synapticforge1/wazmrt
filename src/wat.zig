@@ -10113,3 +10113,60 @@ test "H13: the module BODY matches wasm-tools — local runs, export order, type
         0x60, 0x01, 0x7d, 0x00, // 2 (func (param f32))
     }, sectionPayload(interleave, 1).?);
 }
+
+/// The encoding wazmrt's assembler gives the mnemonic `name`, as (prefix, opcode), or null when no
+/// mnemonic table here knows it. The same lookups `emitInstr` uses, asked directly.
+fn assemblerEncoding(name: []const u8) ?struct { prefix: ?u8, opcode: u32 } {
+    // D1 writes a form INTO the name for three GC casts (`ref.test null` …); the assembler reads
+    // `null` as part of the heap-type immediate and picks the null opcode, the non-null one + 1.
+    if (std.mem.endsWith(u8, name, " null")) {
+        const e = assemblerEncoding(name[0 .. name.len - " null".len]) orelse return null;
+        return .{ .prefix = e.prefix, .opcode = e.opcode + 1 };
+    }
+    if (lookupSimd(name)) |s| return .{ .prefix = 0xfd, .opcode = s.sub };
+    if (lookupAtomic(name)) |s| return .{ .prefix = 0xfe, .opcode = s };
+    const op = lookupOp(name) orelse return null;
+    if (opcode.fcSubOpcode(op)) |s| return .{ .prefix = 0xfc, .opcode = s };
+    if (opcode.gcSubOpcode(op)) |s| return .{ .prefix = 0xfb, .opcode = s };
+    return .{ .prefix = null, .opcode = opcode.wireByte(op) orelse return null };
+}
+
+test "H10: the assembler spells and aligns every D1 instruction as binaryang's definitions do" {
+    // 🔒 Workspace letter H10 — the text half of the opcode table, held to the generated copy:
+    // every D1 mnemonic resolves to D1's encoding, and every memory instruction's DEFAULT alignment
+    // (what an omitted `align=` means) is D1's natural width. The binary half is opcode.zig's
+    // "decoder knows EXACTLY binaryang's D1 opcodes".
+    const defs = @import("definitions.zig");
+    var wrong: usize = 0;
+    for (defs.opcodes) |e| {
+        const got = assemblerEncoding(e.name);
+        const same = if (got) |g| g.prefix == e.prefix and g.opcode == e.opcode else false;
+        // D1 rule: two opcodes may share one name (`select`, 0x1b / 0x1c, the typed form chosen by
+        // its immediate). The mnemonic agrees when it reaches ONE of that name's encodings.
+        const shared = blk: {
+            if (same) break :blk false;
+            for (defs.opcodes) |o| if (std.mem.eql(u8, o.name, e.name) and got != null and got.?.prefix == o.prefix and got.?.opcode == o.opcode) break :blk true;
+            break :blk false;
+        };
+        if (!same and !shared) {
+            if (got) |g| {
+                std.debug.print("\n  {s}: D1 encodes {s}; the assembler emits prefix {?x} opcode 0x{x}", .{ e.name, e.encoding, g.prefix, g.opcode });
+            } else std.debug.print("\n  {s}: in D1 ({s}); the assembler does not know the mnemonic", .{ e.name, e.encoding });
+            wrong += 1;
+            continue;
+        }
+        const width = e.natural_align orelse continue;
+        const log2: u32 = if (e.prefix == 0xfd)
+            opcode.simdNaturalAlignLog2(e.opcode)
+        else if (e.prefix == 0xfe)
+            opcode.atomicNaturalAlignLog2(e.opcode)
+        else
+            opcode.naturalAlignLog2(lookupOp(e.name).?);
+        if (@as(u64, 1) << @intCast(log2) != width) {
+            std.debug.print("\n  {s}: D1's natural alignment is {d} bytes; the assembler defaults to {d}", .{ e.name, width, @as(u64, 1) << @intCast(log2) });
+            wrong += 1;
+        }
+    }
+    if (wrong != 0) std.debug.print("\n  D1 = binaryang {s}: {d} disagreement(s)\n", .{ defs.source.version, wrong });
+    try std.testing.expectEqual(@as(usize, 0), wrong);
+}

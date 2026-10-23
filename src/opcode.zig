@@ -1703,3 +1703,80 @@ test "wide-arithmetic: the encoding matches the SPEC's own bytes, both direction
     // They are `0x100`+ internal tags, so no raw wire byte can ever name one.
     try std.testing.expectEqual(@as(?u8, null), wireByte(.i64_add128));
 }
+
+/// The parsed bytes of a D1 `encoding` ("fd 80 02" → fd 80 02).
+fn d1Bytes(encoding: []const u8, out: []u8) []const u8 {
+    var n: usize = 0;
+    var it = std.mem.tokenizeScalar(u8, encoding, ' ');
+    while (it.next()) |h| : (n += 1) out[n] = std.fmt.parseInt(u8, h, 16) catch unreachable;
+    return out[0..n];
+}
+
+/// Does the decoder know the instruction these bytes start with? An UNKNOWN opcode is refused
+/// before any immediate is read; any other outcome — decoded, or a complaint about an immediate —
+/// means the opcode is in the table. The zero padding is a valid immediate for nearly every shape,
+/// the method `cmem/probes/opcode-sweep.ts` calibrated.
+fn decoderKnows(a: std.mem.Allocator, opcode_bytes: []const u8) bool {
+    var body: [64]u8 = @splat(0);
+    @memcpy(body[0..opcode_bytes.len], opcode_bytes);
+    body[opcode_bytes.len + 24] = 0x0b;
+    _ = decodeBody(a, body[0 .. opcode_bytes.len + 25]) catch |e| return switch (e) {
+        error.IllegalOpcode, error.UnsupportedOpcode => false,
+        else => true,
+    };
+    return true;
+}
+
+test "H10: the decoder knows EXACTLY binaryang's D1 opcodes, both directions" {
+    // 🔒 Workspace letter H10: binaryang's shared definitions are the source; `definitions.zig` is
+    // the generated copy. This holds the hand-kept decoder to it: every D1 instruction decodes, and
+    // every candidate encoding D1 does NOT list is refused as an unknown opcode — over the ranges
+    // `opcode-sweep.ts` sweeps, each prefix's sub-opcodes running well past its last assigned one.
+    const defs = @import("definitions.zig");
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+
+    var listed: std.AutoHashMapUnmanaged(u64, void) = .empty;
+    var refused: usize = 0;
+    for (defs.opcodes) |e| {
+        var buf: [8]u8 = undefined;
+        const bytes = d1Bytes(e.encoding, &buf);
+        try listed.put(a, (@as(u64, e.prefix orelse 0) << 32) | e.opcode, {});
+        if (!decoderKnows(a, bytes)) {
+            std.debug.print("\n  D1 lists {s} ({s}); the decoder refuses it as unknown", .{ e.name, e.encoding });
+            refused += 1;
+        }
+    }
+
+    var extra: usize = 0;
+    for (0..0x100) |b| {
+        if (b >= 0xfb and b <= 0xfe) continue;
+        if (listed.contains(b)) continue;
+        if (decoderKnows(a, &.{@intCast(b)})) {
+            std.debug.print("\n  the decoder knows 0x{x:0>2}; D1 does not list it", .{b});
+            extra += 1;
+        }
+    }
+    const ranges = [_]struct { prefix: u8, n: u32 }{ .{ .prefix = 0xfb, .n = 0x100 }, .{ .prefix = 0xfc, .n = 0x80 }, .{ .prefix = 0xfd, .n = 0x180 }, .{ .prefix = 0xfe, .n = 0x100 } };
+    for (ranges) |rg| for (0..rg.n) |s| {
+        if (listed.contains((@as(u64, rg.prefix) << 32) | s)) continue;
+        var buf: [8]u8 = undefined;
+        buf[0] = rg.prefix;
+        var w: usize = 1;
+        var v: u32 = @intCast(s);
+        while (true) {
+            const byte: u8 = @intCast(v & 0x7f);
+            v >>= 7;
+            buf[w] = if (v != 0) byte | 0x80 else byte;
+            w += 1;
+            if (v == 0) break;
+        }
+        if (decoderKnows(a, buf[0..w])) {
+            std.debug.print("\n  the decoder knows 0x{x} 0x{x}; D1 does not list it", .{ rg.prefix, s });
+            extra += 1;
+        }
+    };
+    if (refused + extra != 0) std.debug.print("\n  D1 = binaryang {s}: {d} listed but refused, {d} known but unlisted\n", .{ defs.source.version, refused, extra });
+    try std.testing.expectEqual(@as(usize, 0), refused + extra);
+}

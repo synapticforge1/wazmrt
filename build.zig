@@ -151,6 +151,24 @@ pub fn build(b: *std.Build) void {
     const ffi_step = b.step("ffi-demo", "Build the DLL + run the Bun FFI demo (needs bun)");
     ffi_step.dependOn(&ffi.step);
 
+    // ---- Shared-definitions gate (`zig build definitions`) — letter H10 ----
+    // `src/definitions.zig` is a GENERATED copy of binaryang's D1/D2/D3. This regenerates it from
+    // the source (default: the sibling checkout; `-Ddefinitions=<dir>` names another) and fails if
+    // the committed copy differs, after verifying each source file's own SHA-256. Not on `test`: it
+    // needs binaryang present, and a clone must build without it. What `test` DOES check, always,
+    // is wazmrt's hand-kept tables against the committed copy (the H10 tests in opcode.zig, wat.zig).
+    {
+        const defs = b.addSystemCommand(&.{"bun"});
+        defs.addFileArg(b.path("tools/gen-definitions.ts"));
+        defs.addArg("--check");
+        if (b.option([]const u8, "definitions", "binaryang's src/definitions dir for `zig build definitions` (default: ../binaryang/src/definitions)")) |dir| {
+            defs.addArgs(&.{ "--source", dir });
+        }
+        defs.has_side_effects = true; // compares against files on disk; never a cached verdict
+        const defs_step = b.step("definitions", "Regenerate src/definitions.zig from binaryang and diff (needs bun + binaryang)");
+        defs_step.dependOn(&defs.step);
+    }
+
     // ---- Freestanding wasm build (`zig build wasm`) ------------------------
     // Proves the runtime itself compiles to WebAssembly.
     const wasm_exe = b.addExecutable(.{

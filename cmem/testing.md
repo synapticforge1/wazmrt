@@ -155,6 +155,7 @@ The CLI now also type-checks each module (`validation: OK` / `FAILED — <error>
 | **`test-shipped` (ReleaseSmall — the config that ships)** | **808/812, 4 skipped** (2026-09-21, the `1.0.2` run; was 802/806, was 800/800, was 765) |
 | `test-security` | 3/3 from an NTFS cwd |
 | `features` · `capi-smoke` | green |
+| 🆕 H10 definitions (inside `test`) | **2026-10-23: `test` from `D:` is 823/827** (+4 since the `surface` row: two H10 tests × the module and capi binaries). The decoder knows exactly D1's 582 opcodes both ways; all 582 mnemonics and every default alignment agree with D1. `zig build definitions` (needs binaryang): copy = regenerated, all three source hashes verified |
 | 🆕 `surface` (also inside `test`) | **184 surface lines, snapshot current, floor since `1.0.3`: patch (+0 −0)** (2026-10-23). With it, `test` from `D:` is 15/15 steps and 819/823, the four exFAT skips. Inverted, every mutant red for its own reason: `releasing.md` → THE COMPATIBILITY GATE |
 | size (ReleaseSmall) | exe **1,009,664** · lib **1,059,240** · dll **910,336** — all three EXACT (2026-09-20). ⚠️ **Every `dll` number recorded before 2026-09-20 was read off a STALE file** — the gate did not build the shared library it graded, so `900,608` was wrong from the day it was written. See `roadmap.md` → B-e |
 
