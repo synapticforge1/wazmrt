@@ -994,7 +994,7 @@ command line. Every earlier ceiling entry had to argue a size/feature trade; thi
 ##### ✅ B-c2 (Z4) IS DONE — 2026-09-20 (`a495424f`). **The name section was ONE of THREE causes.**
 
 📊 **The measurement, same command before and after** (`wazmrt pin wasmtk` vs `wasmrt pin wasmtk`,
-both binaries run over the same 1,469-file tree; the sibling built from its committed `ab13ba975`
+both binaries run over the same 1,469-file tree; the sibling built from its committed `ff99f6f1` (was `ab13ba975`)
 into a scratch `CARGO_TARGET_DIR`, nothing written to its tree, §1a):
 
 | stage | `.wat` agree | differ |
@@ -1033,7 +1033,7 @@ a wasmrt-assembled module rather than from memory of the spec.
 
 🤝 **From the `coordinate` pass of 2026-09-19** (`interop.md` **v17–v20**). wasmrt landed T9e + T9i and
 its column of §2.1/§2.2 is now green; these are wazmrt's halves. ⚠️ **Every row below was verified by
-RUNNING both binaries**, wasmrt's built from its committed `51254b9cf` into a scratch target dir so
+RUNNING both binaries**, wasmrt's built from its committed `4e3de996` (was `51254b9cf`) into a scratch target dir so
 nothing was written to its tree (§1a).
 
 | # | item | wazmrt today (measured) | required | contract |

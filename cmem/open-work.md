@@ -8,8 +8,8 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 **`1.0.3` is released** (2026-09-21, the release commit; pushed to `synapticforge1/wazmrt` 2026-10-21, not tagged) — fixes for four
 defects that shipped in `1.0.2`, flat legacy exceptions and wasm-tools' whole feature vocabulary
-([`releasing.md`](releasing.md)). Nothing is unreleased. Contract: `interop.md` **v30**; wasmrt's copy
-is at 10. Every gate green at the release — the counts are in [`testing.md`](testing.md) and the sizes
+([`releasing.md`](releasing.md)). Nothing is unreleased. Contract: `interop.md` **v31** (2026-10-23,
+record-only: wasmrt's post-rewrite commit ids, letter H21); wasmrt's copy is at 10. Every gate green at the release — the counts are in [`testing.md`](testing.md) and the sizes
 in `tools/size-ceilings.txt`, one place each.
 
 ## 🗓️ Owner calls
@@ -21,7 +21,7 @@ in `tools/size-ceilings.txt`, one place each.
 
 ## ⏳ Waiting on something outside this repo
 
-- **wasmrt** — mirror `interop.md` v30 (it holds 10); make letter H13's three encoder fixes (`.wat`
+- **wasmrt** — mirror `interop.md` v31 (it holds 10); make letter H13's three encoder fixes (`.wat`
   pins agree 64/528 until it does, §3.1); match v30's `--features` vocabulary and semantics, checked
   by running [`probes/feature-matrix.ts`](probes/feature-matrix.ts) on it; its `--dir` help still shows
   the pre-v27 rules. Lockstep engages when wasmrt reaches `1.0.1` (`interop.md` §1e).
