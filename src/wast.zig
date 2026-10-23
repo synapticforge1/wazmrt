@@ -19,6 +19,8 @@ const std = @import("std");
 const sexpr = @import("sexpr.zig");
 const wat = @import("wat.zig");
 const types = @import("types.zig");
+/// The shared verdict vocabulary (D3), generated from binaryang — never edited here (letter H10).
+const definitions = @import("definitions.zig");
 const Module = @import("Module.zig");
 const interp = @import("interp.zig");
 const typematch = @import("typematch.zig");
@@ -1033,13 +1035,24 @@ const Runner = struct {
         // `assert_trap (module …)` — instantiation itself must trap (e.g. an
         // active data/element segment out of bounds). Build it in isolation and
         // require a genuine runtime trap; it does not become the current module.
+        // 🔒 **The trap must be the RIGHT one** (owner, 2026-10-23, letter H10: "start checking
+        // against binaryang's trap classes"). Until then ANY runtime trap passed any `assert_trap`,
+        // so a module trapping with "integer overflow" where the spec says "integer divide by zero"
+        // scored as a pass. The expected text is classified by D3, the workspace's shared verdict
+        // vocabulary (`definitions.zig`, generated from binaryang), and the trap must report that
+        // class. An expected text D3 has no class for is a FAILURE, never a pass: a hole in the
+        // vocabulary must be seen, not absorbed.
+        const expected: ?[]const u8 = if (form.len > 2) switch (form[2]) {
+            .string => |s| s,
+            else => null,
+        } else null;
+        const want = d3Class(expected orelse return self.fail("assert_trap: no expected text", .{}), .trap) orelse
+            return self.fail("assert_trap: \"{s}\" has no D3 class (binaryang's verdicts.json)", .{expected.?});
         if (form[1].asList()) |inner| {
             if (inner.len != 0 and std.mem.eql(u8, inner[0].asAtom() orelse "", "module")) {
                 if (self.buildModule(inner)) |_| {
                     self.fail("assert_trap: module instantiated without trapping", .{});
-                } else |e| {
-                    if (isRuntimeTrap(e)) self.summary.passed += 1 else self.fail("assert_trap: non-trap error {s}", .{@errorName(e)});
-                }
+                } else |e| self.judgeTrap(e, want);
                 return;
             }
         }
@@ -1049,8 +1062,18 @@ const Runner = struct {
             // Only a genuine wasm runtime trap counts — an engine limitation or
             // bug (UnsupportedInstruction, UndefinedFunc, a decode/assemble error)
             // must NOT be green-washed as the expected trap.
-            if (e == error.NoTarget) self.summary.skipped += 1 else if (isRuntimeTrap(e)) self.summary.passed += 1 else self.fail("assert_trap: non-trap error {s}", .{@errorName(e)});
+            if (e == error.NoTarget) self.summary.skipped += 1 else self.judgeTrap(e, want);
         }
+    }
+
+    /// A genuine runtime trap whose D3 class is `want` passes; anything else fails, saying which.
+    fn judgeTrap(self: *Runner, e: anyerror, want: []const u8) void {
+        if (!isRuntimeTrap(e)) return self.fail("assert_trap: non-trap error {s}", .{@errorName(e)});
+        for (trapClasses(e)) |k| if (std.mem.eql(u8, k, want)) {
+            self.summary.passed += 1;
+            return;
+        };
+        self.fail("assert_trap: trapped with {s}, but the expected class is {s}", .{ @errorName(e), want });
     }
 
     /// `assert_exception (invoke …)` — the action must terminate with an UNCAUGHT
@@ -1081,6 +1104,16 @@ const Runner = struct {
     /// depth limit to trip (a runtime trap), not any other error.
     fn assertExhaustion(self: *Runner, form: []const Sexpr) Error!void {
         if (form.len < 2) return self.fail("assert_exhaustion: missing action", .{});
+        // The expected text is held to D3 too (letter H10), so the one exhaustion class wazmrt
+        // reports is the one the assertion names.
+        const expected: ?[]const u8 = if (form.len > 2) switch (form[2]) {
+            .string => |s| s,
+            else => null,
+        } else null;
+        const want = d3Class(expected orelse return self.fail("assert_exhaustion: no expected text", .{}), .exhaustion) orelse
+            return self.fail("assert_exhaustion: \"{s}\" has no D3 class (binaryang's verdicts.json)", .{expected.?});
+        if (!std.mem.eql(u8, want, "call-stack-exhausted"))
+            return self.fail("assert_exhaustion: wazmrt reports only call-stack-exhausted, the assertion names {s}", .{want});
         if (self.runAction(form[1])) |_| {
             self.fail("assert_exhaustion: expected exhaustion, got a result", .{});
         } else |e| {
@@ -1205,6 +1238,44 @@ fn isLinkError(e: anyerror) bool {
     return switch (e) {
         error.UnresolvedImport, error.MissingImport, error.IncompatibleImportType => true,
         else => false,
+    };
+}
+
+/// The D3 class of an expected-failure text: the class whose message is the LONGEST prefix of it
+/// (the reference interpreter's rule, stated in D3: "uninitialized element 2" is
+/// `uninitialized-element`). Null when no class of that verdict matches.
+fn d3Class(text: []const u8, verdict: @FieldType(definitions.Verdict, "verdict")) ?[]const u8 {
+    var best: ?definitions.Verdict = null;
+    for (definitions.verdicts) |v| {
+        if (v.verdict != verdict or !std.mem.startsWith(u8, text, v.message)) continue;
+        if (best == null or v.message.len > best.?.message.len) best = v;
+    }
+    return if (best) |b| b.key else null;
+}
+
+/// The D3 classes each runtime trap may report (letter H10). ⚠️ **Not one-to-one, and said so:**
+/// `NullReference` is ONE error where D3 names five null classes, and `TableOutOfBounds` serves
+/// both the table-access trap and `call_indirect`'s "undefined element". Accepting the set is the
+/// honest reading of what the interpreter distinguishes today; finer errors would make each a
+/// single class (`known-issues.md`). A trap with no D3 class here cannot satisfy `assert_trap`.
+fn trapClasses(e: anyerror) []const []const u8 {
+    return switch (e) {
+        error.Unreachable => &.{"unreachable"},
+        error.DivByZero => &.{"integer-divide-by-zero"},
+        error.IntOverflow => &.{"integer-overflow"},
+        error.InvalidConversionToInt => &.{"invalid-conversion-to-integer"},
+        error.MemoryOutOfBounds => &.{"out-of-bounds-memory-access"},
+        error.UnalignedAtomic => &.{"unaligned-atomic"},
+        error.TableOutOfBounds => &.{ "out-of-bounds-table-access", "undefined-element" },
+        error.UninitializedElement => &.{"uninitialized-element"},
+        error.IndirectTypeMismatch => &.{"indirect-call-type-mismatch"},
+        error.NullReference => &.{ "null-reference", "null-structure-reference", "null-array-reference", "null-i31-reference", "null-function-reference" },
+        error.NullDescriptor => &.{"null-descriptor-reference"},
+        error.DescriptorCastFailure => &.{"descriptor-cast-failure"},
+        error.GcOutOfBounds => &.{"out-of-bounds-array-access"},
+        error.CastFailure => &.{"cast-failure"},
+        error.CallStackExhausted => &.{"call-stack-exhausted"},
+        else => &.{},
     };
 }
 
@@ -1840,7 +1911,11 @@ test "wast runner: abstract GC ref matchers ((ref.struct)/(ref.i31)) don't abort
     try std.testing.expectEqual(@as(usize, 0), s.failed);
 }
 
-test "exception handling: assert_return on a caught exn, assert_trap on an uncaught one" {
+test "exception handling: assert_return on a caught exn, assert_exception on an uncaught one" {
+    // ⚠️ This used `assert_trap … "uncaught exception"`, a text the spec testsuite never writes:
+    // an escaping exception is what `assert_exception` asserts. It passed only because ANY trap
+    // satisfied `assert_trap`. With D3 classes (letter H10), that text has no class and fails, so
+    // the test now says what it means.
     const src =
         \\(module
         \\  (tag $e (param i32))
@@ -1852,7 +1927,7 @@ test "exception handling: assert_return on a caught exn, assert_trap on an uncau
         \\    i32.const 1
         \\    throw $e))
         \\(assert_return (invoke "caught") (i32.const 88))
-        \\(assert_trap (invoke "uncaught") "uncaught exception")
+        \\(assert_exception (invoke "uncaught"))
     ;
     const s = try runScript(std.testing.allocator, src, null);
     try std.testing.expectEqual(@as(usize, 2), s.passed);
@@ -1998,15 +2073,44 @@ test "atomics: wait/notify semantics; wait requires shared memory" {
     try std.testing.expectEqual(@as(usize, 2), s.passed);
     try std.testing.expectEqual(@as(usize, 0), s.failed);
 
-    // wait on a NON-shared memory traps.
-    const nonshared =
+    // wait on a NON-shared memory traps — checked at the trap ITSELF. D3, the shared verdict
+    // vocabulary (letter H10), has no class for it, because the spec testsuite never asserts it;
+    // a class for it is a REQUEST to binaryang, never an edit to the generated copy.
+    const nonshared_wat =
         \\(module (memory 1)
         \\  (func (export "w") (result i32) (memory.atomic.wait32 (i32.const 0) (i32.const 0) (i64.const 0))))
-        \\(assert_trap (invoke "w") "expected shared memory")
     ;
-    const s2 = try runScript(std.testing.allocator, nonshared, null);
-    try std.testing.expectEqual(@as(usize, 1), s2.passed);
-    try std.testing.expectEqual(@as(usize, 0), s2.failed);
+    {
+        var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+        defer arena.deinit();
+        const a = arena.allocator();
+        var m = try Module.decode(a, try wat.assemble(a, nonshared_wat));
+        try validate(a, &m);
+        var inst: interp.Instance = undefined;
+        try inst.instantiate(std.testing.allocator, &m);
+        defer inst.deinit();
+        try std.testing.expectError(error.ExpectedSharedMemory, inst.invoke("w", &.{}));
+    }
+    // …and through the runner, an `assert_trap` naming a text D3 cannot classify is a FAILURE. It
+    // used to pass, because any trap satisfied any `assert_trap`.
+    var s2 = try runScript(std.testing.allocator, nonshared_wat ++ "\n(assert_trap (invoke \"w\") \"expected shared memory\")", null);
+    defer s2.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 0), s2.passed);
+    try std.testing.expectEqual(@as(usize, 1), s2.failed);
+}
+
+test "assert_trap: the trap's D3 class must be the expected text's (letter H10)" {
+    // A division by zero asserted as "integer overflow" is a different class, and fails; asserted
+    // as "integer divide by zero" it passes. Before D3 both passed.
+    const src =
+        \\(module (func (export "d") (result i32) (i32.div_s (i32.const 1) (i32.const 0))))
+        \\(assert_trap (invoke "d") "integer divide by zero")
+        \\(assert_trap (invoke "d") "integer overflow")
+    ;
+    var s = try runScript(std.testing.allocator, src, null);
+    defer s.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), s.passed);
+    try std.testing.expectEqual(@as(usize, 1), s.failed);
 }
 
 test "unbounded recursion traps CallStackExhausted instead of overflowing the host stack" {

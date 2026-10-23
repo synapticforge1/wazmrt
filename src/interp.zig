@@ -2833,7 +2833,11 @@ const Frame = struct {
                     // reference that arrived from another instance reads ITS
                     // object's descriptor, not whatever sits at that slot here.
                     const ref = self.pop();
-                    if (ref == null_ref) return error.NullDescriptor;
+                    // 🔬 A null OBJECT is "null reference", not "null descriptor reference": that
+                    // class is for a null DESCRIPTOR operand (`struct.new_desc`,
+                    // `br_on_cast_desc_eq`). `ref_get_desc.wast` asserts it three ways, and it
+                    // was invisible until `assert_trap` checked D3 classes (2026-10-23, letter H10).
+                    if (ref == null_ref) return error.NullReference;
                     const e = try self.inst.gcEntry(ref);
                     const desc = e.inst.gc_heap.items[e.index].descriptor;
                     // Unreachable for a validated module — the type carries a
@@ -5259,22 +5263,27 @@ fn rintEven(comptime F: type, x: F) F {
 }
 
 /// Trapping signed float→int truncation.
+///
+/// 🔬 **Two traps, not one** (found 2026-10-23 by D3's trap classes, letter H10): NaN is
+/// "invalid conversion to integer", and a value OUTSIDE the target range, infinities included, is
+/// "integer overflow" (the spec testsuite's `conversions.wast`, 35 assertions). Both used to return
+/// `InvalidConversionToInt`, and that was invisible while any trap satisfied any `assert_trap`.
 fn truncFloatS(comptime I: type, comptime F: type, x: F) Error!I {
     if (std.math.isNan(x)) return error.InvalidConversionToInt;
     const t = @trunc(x);
     const bits = @typeInfo(I).int.bits;
     const hi: F = std.math.ldexp(@as(F, 1.0), bits - 1); // 2^(bits-1)
-    if (t < -hi or t >= hi) return error.InvalidConversionToInt;
+    if (t < -hi or t >= hi) return error.IntOverflow;
     return @intFromFloat(t);
 }
 
-/// Trapping unsigned float→int truncation.
+/// Trapping unsigned float→int truncation. Same two traps as `truncFloatS`.
 fn truncFloatU(comptime U: type, comptime F: type, x: F) Error!U {
     if (std.math.isNan(x)) return error.InvalidConversionToInt;
     const t = @trunc(x);
     const bits = @typeInfo(U).int.bits;
     const hi: F = std.math.ldexp(@as(F, 1.0), bits); // 2^bits
-    if (t < 0 or t >= hi) return error.InvalidConversionToInt;
+    if (t < 0 or t >= hi) return error.IntOverflow;
     return @intFromFloat(t);
 }
 
@@ -5549,6 +5558,9 @@ test "runs i32.trunc_f64_s and traps on NaN" {
     try std.testing.expectEqual(@as(i32, 3), asI32(r[0]));
 
     try std.testing.expectError(error.InvalidConversionToInt, inst.invoke("toi", &.{f64Value(std.math.nan(f64))}));
+    // Out of range is a DIFFERENT trap: "integer overflow", infinities included (D3, letter H10).
+    try std.testing.expectError(error.IntOverflow, inst.invoke("toi", &.{f64Value(3.0e9)}));
+    try std.testing.expectError(error.IntOverflow, inst.invoke("toi", &.{f64Value(-std.math.inf(f64))}));
 }
 
 test "stores then loads through linear memory" {

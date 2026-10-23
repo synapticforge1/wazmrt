@@ -33,11 +33,21 @@ in `tools/size-ceilings.txt`, one place each.
   (The earlier note that binaryang lacked `0xfb 20`–`26` is stale: D1 has them.) ⏳ **Open:**
   - **stage B** — replace the hand tables with reads from the copy, one table at a time, full gate
     each;
-  - 🗓️ **D2 and D1's `feature` column**: D2 is wabt-style, wazmrt is wasm-tools' vocabulary by the
-    owner's 2026-09-21 decision. The two cannot be "equal" without reopening it (workspace
-    `divergences.md` I6);
-  - 🗓️ **D3**: the runner does not check trap TEXT at all (`known-issues.md`); adopting D3 closes it
-    but makes conformance stricter. It awaits the go-ahead.
+  - 🔒 **D2 and D1's `feature` column — DECIDED (owner, 2026-10-23): "we need to align with
+    binaryang not wasm-tools."** This REVERSES the 2026-09-21 wasm-tools decision. ⏳ **Not yet
+    implemented, because it is BREAKING on three fronts:**
+    - the `--features` names, a CLI contract change and kind 3 in `releasing.md`;
+    - the C ABI `wazmrt_feature_t` enum (25 values), whose renumbering or removal is a major and an
+      `abi_version` bump;
+    - `interop.md` v30's `--features` row, which binds wasmrt too.
+
+    The open shape questions, put to the owner: wasm-tools-only names (`floats`, `gc-types`,
+    `legacy-exceptions`, `bulk-memory-opt`, `call-indirect-overlong`, `mutable-global`) dropped,
+    or kept as aliases; and timing relative to binaryang's FL1, which may change D2's `cli`
+    spellings.
+  - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
+    `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
+    (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
   - ⏳ **FOLLOW-UP on the opcodes, once binaryang's opcode work is complete** (owner, 2026-10-23:
     "some of the binaryang opcode work is ongoing"). That work is binaryang `cmem/open-work.md`
     item 34: the opcode profile every widely used engine runs, the relaxed-SIMD lowering, D4, and

@@ -33,25 +33,35 @@ binds the moment it does.
 flag that strips them (archive member names, or debug info). Until then, quote lib sizes with the
 cache path they were built under.
 
-## 🆕 `assert_trap` is satisfied by ANY runtime trap — the expected TEXT is never compared (found 2026-10-23, letter H10)
+## ✅ FIXED SAME DAY — `assert_trap` was satisfied by ANY runtime trap, and it hid TWO wrong-trap defects (2026-10-23, letter H10)
 
-**What:** `wast.zig`'s `assert_trap` passes when the action raises any error `isRuntimeTrap` admits,
-and reads the assertion's message only to skip it. A module that traps with "integer overflow"
-where the spec expects "integer divide by zero" scores as a PASS. `isRuntimeTrap` was written to
-stop a BUG satisfying `assert_trap` (a decode error, an engine limit); it never asked whether the
-trap was the RIGHT one.
+**What it was:** `wast.zig`'s `assert_trap` passed on any error `isRuntimeTrap` admits and never
+read the expected text, so a module trapping with "integer overflow" where the spec says "integer
+divide by zero" scored as a pass. `isRuntimeTrap` stopped a BUG satisfying `assert_trap`; nothing
+asked whether the trap was the RIGHT one.
 
-**Why it matters:** the conformance count (64,092 passed) includes every `assert_trap`, and none of
-them is class-checked, so wazmrt's numbers are not comparable with a runner that checks the class.
-That runner is the shared vocabulary's whole purpose (workspace `divergences.md` C1, D3).
+**The fix** (🔒 owner, 2026-10-23: "start checking against binaryang's trap classes"): the expected
+text is classified by D3 (`src/definitions.zig`, generated from binaryang, longest-prefix rule), and
+the trap must report that class (`trapClasses`). A text with no D3 class FAILS. `assert_exhaustion`
+is held to D3 the same way.
 
-**Surfacing condition / fix:** binaryang's D3 is now in `src/definitions.zig` (20 classes, with the
-reference interpreter's prefix rule). Map each trap error to its class key, classify the expected
-text by D3's longest-prefix rule, and require them to agree. ⚠️ **Not a one-to-one map:**
-`error.NullReference` is one error for D3's five null classes (`null structure/array/i31/function
-reference`), and `TableOutOfBounds` serves both "out of bounds table access" and "undefined
-element". Either the interpreter learns the finer error, or the map accepts a set. **Stricter by
-construction**, so it waits for the owner and a full conformance run against the baseline.
+**What the first class-checked conformance run found** (288 / 64,050 passed / **42 failed**; both
+are wrong-TRAP defects, invisible until the class was checked):
+
+| defect | assertions | fix |
+| --- | --- | --- |
+| a float→int truncation OUT OF RANGE (infinities included) trapped as `InvalidConversionToInt`; the spec says "integer overflow" and keeps "invalid conversion to integer" for NaN | 35, `conversions.wast` | `truncFloatS` / `truncFloatU` return `IntOverflow` for the range check |
+| `ref.get_desc` on a null OBJECT trapped as `NullDescriptor`; the spec says "null reference" (the descriptor class is for a null descriptor OPERAND) | 7, `ref_get_desc.wast` | `NullReference`. A unit test encoded the same misreading and was corrected with a note |
+
+After both: **288 / 64,092 / 0 / 0**, the original count, now class-checked.
+
+**Still open, and recorded rather than hidden:**
+- **The map is not one-to-one.** `NullReference` is one error for D3's five null classes, and
+  `TableOutOfBounds` serves both "out of bounds table access" and "undefined element". The map
+  accepts the set. A finer interpreter error would make each class exact.
+- **`atomic.wait` on a non-shared memory has no D3 class**, because the spec testsuite never
+  asserts it. Its unit test checks `error.ExpectedSharedMemory` at the trap. A class for it is a
+  REQUEST to binaryang, never an edit to the copy.
 
 ## ✅ FIXED SAME DAY — three feature-gate defects found while adding wasm-tools' names (2026-09-21)
 

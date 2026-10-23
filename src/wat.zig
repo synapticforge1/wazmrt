@@ -9315,13 +9315,17 @@ test "D3 soundness: `struct.new_desc` demands the EXACT descriptor, not a relati
     }
 }
 
-test "D3: a null descriptor traps as NullDescriptor, not as an ordinary null deref" {
-    // The two are different guest mistakes with different spec messages ("null descriptor
-    // reference"), and `gcEntry` would already trap `ref.get_desc` on null as `NullReference` —
-    // so a trap-or-not assertion cannot tell the explicit check from the incidental one. An
-    // inversion proved it: commenting the `ref.get_desc` null check out failed nothing until
-    // this test named the error.
-    try std.testing.expectError(error.NullDescriptor, assembleAndRun(
+test "D3: a null DESCRIPTOR operand is NullDescriptor; `ref.get_desc` on a null OBJECT is NullReference" {
+    // ⚠️ **CORRECTED 2026-10-23.** This test asserted `NullDescriptor` for `ref.get_desc` on a null
+    // object, from a reading that the two cases were "different guest mistakes with different spec
+    // messages". The spec testsuite says otherwise: `ref_get_desc.wast` asserts "null reference"
+    // for that case three times (L400–402), and "null descriptor reference" only where the null
+    // is a DESCRIPTOR operand (`struct.new_desc` below, `br_on_cast_desc_eq`). Code and test
+    // encoded the same misreading and agreed with each other. It surfaced the moment `assert_trap`
+    // checked binaryang's D3 classes (letter H10): 7 failures in that file. *(The old note's
+    // inversion point still holds for the second case: the explicit check is what names the
+    // error.)*
+    try std.testing.expectError(error.NullReference, assembleAndRun(
         \\(module
         \\  (rec (type $a (descriptor $b) (struct)) (type $b (describes $a) (struct)))
         \\  (func (export "f") (result (ref (exact $b)))
