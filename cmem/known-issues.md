@@ -13,6 +13,26 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🆕 `wazmrt.lib`'s size depends on the Zig CACHE PATH: the static library embeds it (found 2026-10-23)
+
+**What:** at the same commit, from the same directory, `zig build size -Doptimize=ReleaseSmall` puts
+`wazmrt.lib` EXACTLY on its ceiling (1,075,946) with `ZIG_LOCAL_CACHE_DIR` under the user profile
+(`<user-profile>\.cache\zig-local\wazmrt`, the machine's setting, and the path the ceiling was
+recorded with). It puts it **22 bytes under** with `C:\zig-cache\wazmrt`, the value
+`working-rules.md` recommends: the difference in the two paths' lengths. A worktree in another
+directory moved it 4 bytes more. The exe and the dll do not move. Measured while attributing the
+H10 commit, which moved no byte.
+
+**Why it matters:** (1) the size gate is exact only under the cache path the ceiling was set with,
+so "under" can be the path and not the code, and an honest-looking shrink must not be locked in
+from it; (2) a shipped static library carrying the builder's absolute path is personal
+information in an artifact. That is moot today, because wazmrt publishes no binaries, but it
+binds the moment it does.
+
+**Surfacing condition / fix:** before any binary is published, find the embedded strings and the
+flag that strips them (archive member names, or debug info). Until then, quote lib sizes with the
+cache path they were built under.
+
 ## 🆕 `assert_trap` is satisfied by ANY runtime trap — the expected TEXT is never compared (found 2026-10-23, letter H10)
 
 **What:** `wast.zig`'s `assert_trap` passes when the action raises any error `isRuntimeTrap` admits,
