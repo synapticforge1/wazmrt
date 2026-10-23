@@ -6,7 +6,9 @@ probe that produced a recorded number belongs next to the number, so the next se
 machine) can re-derive it. **Save probes here as you write them, not afterwards.** Build outputs and
 fixture directories are regenerated and are not kept.
 
-All scripts are Deno (`working-rules.md` → TOOLING) or Zig. **Run `--dir` probes through `Deno.Command` or a
+The scripts below are Deno (as written 2026-09) or Zig. ⏳ **Since 2026-10-23 a committed script is
+Bun** (`working-rules.md` → TOOLING), so the `.ts` probes here are waiting for a port under the proof
+rule; they run under Deno while it is installed. A new probe is written for Bun. **Run `--dir` probes through `Deno.Command` or a
 native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the program sees it.
 
 | file | what it measures | how to run |

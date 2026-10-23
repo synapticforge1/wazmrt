@@ -42,7 +42,7 @@ agreement and mean nothing by it.* This tool extracts every **top-level** `(modu
 `.wast` files into a standalone `.wat` and runs the same digest comparison over all of them.
 
 ```
-deno run -A tools/emitter-diff.mjs --suite <testsuite-dir> \
+bun tools/emitter-diff.mjs --suite <testsuite-dir> \
     --wazmrt ./zig-out/bin/wazmrt.exe --other <second-runtime>
 ```
 
@@ -1185,7 +1185,8 @@ quoting the pass count.
   that grows its first real decision needs its first test target in the same commit.**
 - **`zig build c-smoke` is now `zig build capi-smoke`**, and its link-time symbol gate is
   `tests/wazmrt_abi_symbols.c` — **generated from the header**, so it cannot drift by typo.
-  `zig build ffi-demo` now runs `examples/deno_ffi_capi.mjs`.
+  `zig build ffi-demo` now runs `examples/deno_ffi_capi.mjs` (since 2026-10-23
+  `examples/bun_ffi_capi.mjs`, under Bun).
 - **New gate: `zig build size -Doptimize=ReleaseSmall`** — fails the build when a shipped artifact
   exceeds `tools/size-ceilings.txt`. Ceilings are EXACT, so growth must raise the number in the same
   commit and say what bought the bytes. Same shape as `test-security`: its entire value is that it CAN

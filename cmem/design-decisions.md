@@ -709,6 +709,9 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   ⚠️ **The retained value is real and must be replaced, not dropped:** a stable versioned ABI, the
   link-time completeness gate (re-pointed at *our* header — the honest version of it), and the proven
   Deno-FFI path (`examples/deno_ffi.mjs` must keep working; it is the wasmtk integration route).
+  *(2026-10-23: the invariant now reads "the host-language FFI demo must keep working". It is
+  `examples/bun_ffi_capi.mjs` over `bun:ffi`, owner-directed because Deno is going away, and it is
+  run by `zig build ffi-demo`.)*
   **Reusing `wasmrt`'s design and lessons is owner-sanctioned and raises no third-party question** — same
   owner, same `MIT OR Apache-2.0`.
 

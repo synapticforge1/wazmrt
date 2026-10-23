@@ -28,17 +28,34 @@
 //            all (its CLI runs `_start` only), and where LARGE modules live, so
 //            it is the one that separates compile time from fixed startup.
 //
-// Usage: deno run --allow-read --allow-run --allow-env tools/bakeoff.mjs <dir> [reps] [mode]
+// Usage: bun tools/bakeoff.mjs <dir> [reps] [mode]
+// (Bun since 2026-10-23, workspace letter H15; `node:` APIs only, so Node runs it too.)
 
-const [corpusDir, repsArg, modeArg] = Deno.args;
+import { spawn } from "node:child_process";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+
+const [corpusDir, repsArg, modeArg] = process.argv.slice(2);
 if (!corpusDir) {
   console.error("usage: bakeoff.mjs <corpus-dir> [reps] [invoke|start]");
-  Deno.exit(2);
+  process.exit(2);
 }
 const REPS = Number(repsArg ?? 7);
 const MODE = modeArg ?? "invoke";
 
-const here = (p) => new URL(p, import.meta.url).pathname.replace(/^\//, "");
+// Spawn, collect both streams, resolve on close; a missing executable rejects.
+function output(cmd, args, piped = true) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { stdio: ["ignore", piped ? "pipe" : "ignore", piped ? "pipe" : "ignore"] });
+    const out = [], err = [];
+    p.stdout?.on("data", (b) => out.push(b));
+    p.stderr?.on("data", (b) => err.push(b));
+    p.on("error", reject);
+    p.on("close", (code) => resolve({ success: code === 0, stdout: Buffer.concat(out), stderr: Buffer.concat(err) }));
+  });
+}
+
+const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const WAZMRT = here("../zig-out/bin/wazmrt.exe");
 const WASMRT = here("../../wasmrt/target/release/wasmrt.exe");
 
@@ -73,8 +90,7 @@ const RUNTIMES = [
 async function have(rt) {
   if (!rt[MODE]) return false;
   try {
-    const p = new Deno.Command(rt.cmd, { args: ["--version"], stdout: "null", stderr: "null" }).spawn();
-    await p.status;
+    await output(rt.cmd, ["--version"], false);
     return true; // some CLIs exit non-zero on --version; being spawnable is the test
   } catch { return false; }
 }
@@ -84,8 +100,7 @@ const decode = (b) => new TextDecoder().decode(b);
 async function timeRun(rt, c) {
   const argv = MODE === "invoke" ? rt.invoke(c.wasm, c.fn, c.args.map(String)) : rt.start(c.wasm);
   const t0 = performance.now();
-  const p = new Deno.Command(rt.cmd, { args: argv, stdout: "piped", stderr: "piped" }).spawn();
-  const o = await p.output();
+  const o = await output(rt.cmd, argv);
   const ms = performance.now() - t0;
   const text = decode(o.stdout);
   const all = text + decode(o.stderr);
@@ -100,12 +115,12 @@ const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[s.len
 // ---- the corpus -----------------------------------------------------------
 const cases = [];
 if (MODE === "invoke") {
-  for await (const e of Deno.readDir(corpusDir)) {
+  for (const e of await readdir(corpusDir, { withFileTypes: true })) {
     if (!e.name.endsWith(".test.json")) continue;
     const base = e.name.slice(0, -".test.json".length);
     const wasm = `${corpusDir}/${base}.wasm`;
-    try { await Deno.stat(wasm); } catch { continue; }
-    const spec = JSON.parse(await Deno.readTextFile(`${corpusDir}/${e.name}`));
+    try { await stat(wasm); } catch { continue; }
+    const spec = JSON.parse(await readFile(`${corpusDir}/${e.name}`, "utf8"));
     for (const [fn, invs] of Object.entries(spec)) {
       const inv = invs[invs.length - 1];
       if (typeof inv.expected !== "number") continue;
@@ -113,15 +128,15 @@ if (MODE === "invoke") {
     }
   }
 } else {
-  for await (const e of Deno.readDir(corpusDir)) {
+  for (const e of await readdir(corpusDir, { withFileTypes: true })) {
     if (!e.name.endsWith(".wasm")) continue;
     const wasm = `${corpusDir}/${e.name}`;
-    const { size } = await Deno.stat(wasm);
+    const { size } = await stat(wasm);
     cases.push({ base: e.name, wasm, size });
   }
   cases.sort((a, b) => a.size - b.size);
 }
-if (!cases.length) { console.error(`bakeoff: no runnable cases in ${corpusDir}`); Deno.exit(1); }
+if (!cases.length) { console.error(`bakeoff: no runnable cases in ${corpusDir}`); process.exit(1); }
 
 const field = [];
 for (const rt of RUNTIMES) {

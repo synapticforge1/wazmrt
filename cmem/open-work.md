@@ -38,8 +38,12 @@ in `tools/size-ceilings.txt`, one place each.
   (`.claude/settings.local.json` untracked and gitignored, `design-decisions.md`'s drive path → a
   placeholder, real paths in the gitignored `cmem/local/`). **H20** — not applicable: wazmrt has no
   CI workflows and publishes to no registry, so no trusted-publishing policy pins its owner ID.
-  **H15, H19, H16, H21** — in progress the same day (owner said yes to H19's purge and force-push;
-  `build.zig`'s Zig tools are build steps, not scripts; the Deno FFI demo becomes a Bun demo).
+  **H21** — addressed (contract v31). **H15** — addressed for everything `build.zig` runs:
+  `tools/{phases,bakeoff,emitter-diff}.mjs` and the FFI demo (now `examples/bun_ffi_capi.mjs`) run
+  under Bun, each proven against its Deno original. Owner, 2026-10-23: `build.zig`'s Zig tools are
+  build steps, not scripts, and one-time scripts are relaxed (`working-rules.md` → TOOLING).
+  ⏳ **Still open under H15: port the 26 Deno probes in `cmem/probes/` to Bun**, each under the
+  proof rule. **H19, H16** — in progress the same day (owner said yes to the purge and force-push).
 - H1, H3, H8, H13 are addressed; each closes in `../../cmem/handoffs.md` when the workspace names the
   commit. (H3: INDEX 192 KB → 10.7 KB, this file and `working-rules.md` created, drift rows Z1–Z6
   closed, one number per place — proven by `probes/h3-check.ts`, which the workspace can re-run.)

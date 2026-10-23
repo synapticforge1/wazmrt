@@ -98,6 +98,14 @@ The concrete productization target: **wasmtk runs its wasm through native wazmrt
 as a speed boost for wasmtk and its users. wasmtk is the ideal first real consumer (it already produces
 the wasm and the test corpora).
 
+🔄 **2026-10-23 — the host side of this route is now Bun, not Deno.** The owner: the Deno FFI demo
+*"will need to become a bun ffi/node ffi demo due to deno going away"*, and wasmtk itself is moving
+Deno → Bun (workspace `projects.md`). Where this section says `Deno.dlopen` /
+`Deno.UnsafeCallback` / `Deno.UnsafePointerView`, the live equivalents are `bun:ffi`'s `dlopen` /
+`JSCallback` / `read` + `toArrayBuffer`, demonstrated in `examples/bun_ffi_capi.mjs`. The routing
+argument (native FFI, never the wasm/JS loader) is unchanged. ⬜ No Node variant was built, and
+whether Node offers a built-in FFI is UNVERIFIED.
+
 **Critical routing nuance:** the speedup only materializes if wasmtk calls the **native** wazmrt —
 i.e. **Deno FFI → the C-ABI shared/static library** (`dlopen` the native runtime, per the Performance
 target's native-build constraint). It must **not** go through `universalWasmLoader-js`, which runs

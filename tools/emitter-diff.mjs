@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-read --allow-write --allow-run
+#!/usr/bin/env bun
 // tools/emitter-diff.mjs — Track B-a's mechanical emitter audit.
 //
 // Assembles the same WebAssembly TEXT with wazmrt and with a second,
@@ -26,7 +26,7 @@
 // `zig build` depends on it and the default build stays self-contained.
 //
 // USAGE
-//   deno run -A tools/emitter-diff.mjs \
+//   bun tools/emitter-diff.mjs \
 //       --suite <spec-testsuite-dir> \
 //       --wazmrt <path-to-wazmrt.exe> \
 //       --other  <path-to-second-runtime> \
@@ -35,12 +35,18 @@
 // The second runtime must accept `pin <file|dir>` and print
 // `<64-hex>  <path>` lines, which is the contract `interop.md` §3.1 already
 // fixes between the two projects.
+//
+// (Bun since 2026-10-23, workspace letter H15; `node:` APIs only, so Node runs it too.)
 
+import { spawn } from "node:child_process";
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+
+const argv = process.argv.slice(2);
 const args = new Map();
-for (let i = 0; i < Deno.args.length; i++) {
-  const a = Deno.args[i];
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
   if (a.startsWith("--")) {
-    const next = Deno.args[i + 1];
+    const next = argv[i + 1];
     if (next && !next.startsWith("--")) { args.set(a.slice(2), next); i++; }
     else args.set(a.slice(2), true);
   }
@@ -50,8 +56,8 @@ const wazmrt = args.get("wazmrt");
 const other = args.get("other");
 const outDir = args.get("out") ?? "./.emitter-diff";
 if (!suite || !wazmrt || !other) {
-  console.error("usage: deno run -A tools/emitter-diff.mjs --suite <dir> --wazmrt <exe> --other <exe> [--out <dir>] [--list]");
-  Deno.exit(2);
+  console.error("usage: bun tools/emitter-diff.mjs --suite <dir> --wazmrt <exe> --other <exe> [--out <dir>] [--list]");
+  process.exit(2);
 }
 
 // ---- 1. Extract every TOP-LEVEL `(module …)` into a standalone `.wat` -------
@@ -109,23 +115,29 @@ function* topLevelModules(text) {
   }
 }
 
-await Deno.mkdir(outDir, { recursive: true });
+await mkdir(outDir, { recursive: true });
 let modules = 0;
-for await (const ent of Deno.readDir(suite)) {
-  if (!ent.isFile || !ent.name.endsWith(".wast")) continue;
-  const text = await Deno.readTextFile(`${suite}/${ent.name}`);
+for (const ent of await readdir(suite, { withFileTypes: true })) {
+  if (!ent.isFile() || !ent.name.endsWith(".wast")) continue;
+  const text = await readFile(`${suite}/${ent.name}`, "utf8");
   let k = 0;
   for (const form of topLevelModules(text)) {
     const base = ent.name.replace(/\.wast$/, "");
-    await Deno.writeTextFile(`${outDir}/${base}__${String(k++).padStart(3, "0")}.wat`, form + "\n");
+    await writeFile(`${outDir}/${base}__${String(k++).padStart(3, "0")}.wat`, form + "\n");
     modules++;
   }
 }
 
 // ---- 2. Pin the lot with each assembler -------------------------------------
-async function pin(exe) {
-  const o = await new Deno.Command(exe, { args: ["pin", outDir], stdout: "piped", stderr: "piped" }).output();
-  return new TextDecoder().decode(o.stdout) + new TextDecoder().decode(o.stderr);
+function pin(exe) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(exe, ["pin", outDir], { stdio: ["ignore", "pipe", "pipe"] });
+    const out = [], err = [];
+    p.stdout.on("data", (b) => out.push(b));
+    p.stderr.on("data", (b) => err.push(b));
+    p.on("error", reject);
+    p.on("close", () => resolve(Buffer.concat(out).toString("utf8") + Buffer.concat(err).toString("utf8")));
+  });
 }
 // ⚠️ Parse ONLY `<64 hex>  <path>` lines. Both tools print skip warnings, and
 // wazmrt prints them on stdout interleaved with the pin lines (`known-issues`).
@@ -159,4 +171,4 @@ if (args.get("list")) for (const p of differ) console.log("  " + p);
 // A disagreement is a finding to classify, not automatically a defect — see the
 // header. Exit 1 so a scheduled run is noticed; the residual set is recorded in
 // `cmem/testing.md` and should be compared against, not assumed to be zero.
-Deno.exit(differ.length === 0 && onlyA.length === 0 && onlyB.length === 0 ? 0 : 1);
+process.exit(differ.length === 0 && onlyA.length === 0 && onlyB.length === 0 ? 0 : 1);

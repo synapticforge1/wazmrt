@@ -38,21 +38,35 @@
 // `zig build bench` inside a build step contends for the build lock. The bench
 // BINARY is passed in by `build.zig` (`addArtifactArg`) for both reasons.
 //
-// Usage: deno run --allow-read --allow-run --allow-write tools/phases.mjs <bench-exe> <tmp.cwasm> <module.wasm>...
+// Usage: bun tools/phases.mjs <bench-exe> <tmp.cwasm> <module.wasm>...
+// (Bun since 2026-10-23, workspace letter H15; `node:` APIs only, so Node runs it too.)
 
-const [benchExe, scratch, ...modules] = Deno.args;
+import { spawn } from "node:child_process";
+
+const [benchExe, scratch, ...modules] = process.argv.slice(2);
 if (!modules.length) {
   console.error("usage: phases.mjs <bench-exe> <scratch.cwasm> <module.wasm>...");
-  Deno.exit(2);
+  process.exit(2);
 }
 const REPS = 13;
 const med = (x) => { const s = [...x].sort((a, b) => a - b); return s[s.length >> 1]; };
 
+// Spawn, collect both streams, resolve on close; a missing executable rejects.
+function output(cmd, args) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const out = [], err = [];
+    p.stdout.on("data", (b) => out.push(b));
+    p.stderr.on("data", (b) => err.push(b));
+    p.on("error", reject);
+    p.on("close", (code) => resolve({ success: code === 0, stdout: Buffer.concat(out), stderr: Buffer.concat(err) }));
+  });
+}
+
 async function run(cmd, args) {
   const d = new TextDecoder();
   const t = performance.now();
-  const p = new Deno.Command(cmd, { args, stdout: "piped", stderr: "piped" }).spawn();
-  const o = await p.output();
+  const o = await output(cmd, args);
   // BOTH streams: Zig's `std.debug.print` goes to stderr.
   return { ms: performance.now() - t, ok: o.success, out: d.decode(o.stdout) + d.decode(o.stderr) };
 }

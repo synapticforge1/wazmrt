@@ -105,7 +105,7 @@ pub fn build(b: *std.Build) void {
 
     // ---- C ABI *shared* library (`zig build dll`) --------------------------
     // The same implementation as a dynamic library, so host languages can load it over FFI
-    // (Deno.dlopen, Python ctypes, …) — the vision's "native FFI → the C-ABI shared library"
+    // (Bun's `bun:ffi` dlopen, Python ctypes, …) — the vision's "native FFI → the C-ABI shared library"
     // path. Libc-free, like the static lib.
     const dll = b.addLibrary(.{
         .name = "wazmrt",
@@ -135,19 +135,20 @@ pub fn build(b: *std.Build) void {
     const dll_step = b.step("dll", "Build the C ABI as a shared library (for FFI)");
     dll_step.dependOn(&install_dll.step);
 
-    // ---- Deno FFI demo (`zig build ffi-demo`) ------------------------------
-    // Builds the DLL, then runs a Deno script that loads it over FFI and drives
-    // the standard wasm-c-api (decode -> instantiate -> call) — proving the
-    // native runtime binds from a host language. Requires `deno` on PATH.
-    const ffi = b.addSystemCommand(&.{ "deno", "run", "--allow-ffi", "--allow-env" });
+    // ---- Bun FFI demo (`zig build ffi-demo`) -------------------------------
+    // Builds the DLL, then runs a Bun script that loads it over `bun:ffi` and
+    // drives the ABI-2 surface (a `.wat` straight in, a host import reading
+    // guest memory) — proving the native runtime binds from a host language.
+    // Requires `bun` on PATH (Deno until 2026-10-23; workspace letter H15).
+    const ffi = b.addSystemCommand(&.{"bun"});
     // `addFileArg`, not a relative string: a bare "examples/…" resolves against the PROCESS cwd,
     // so the step worked from the repo root and failed from anywhere else — including
     // `zig build --build-file` run from another drive, which is how the sandbox tests have to be
     // run on this machine.
-    ffi.addFileArg(b.path("examples/deno_ffi_capi.mjs"));
+    ffi.addFileArg(b.path("examples/bun_ffi_capi.mjs"));
     ffi.setEnvironmentVariable("WAZMRT_CAPI_DLL", b.getInstallPath(.{ .custom = "dll" }, "wazmrt.dll"));
     ffi.step.dependOn(&install_dll.step);
-    const ffi_step = b.step("ffi-demo", "Build the DLL + run the Deno FFI demo (needs deno)");
+    const ffi_step = b.step("ffi-demo", "Build the DLL + run the Bun FFI demo (needs bun)");
     ffi_step.dependOn(&ffi.step);
 
     // ---- Freestanding wasm build (`zig build wasm`) ------------------------
@@ -237,14 +238,14 @@ pub fn build(b: *std.Build) void {
         // reading stdout silently sees nothing. Both cost a debugging round here.
         {
             const mods = b.option([]const u8, "modules", "Comma-separated .wasm paths for `zig build phases`") orelse "";
-            const ph = b.addSystemCommand(&.{ "deno", "run", "--allow-read", "--allow-run", "--allow-write" });
+            const ph = b.addSystemCommand(&.{"bun"});
             ph.addFileArg(b.path("tools/phases.mjs"));
             ph.addArtifactArg(bench);
             ph.addArg(b.pathJoin(&.{ b.cache_root.path orelse ".", "phases-scratch.cwasm" }));
             var it = std.mem.splitScalar(u8, mods, ',');
             while (it.next()) |m| if (m.len != 0) ph.addArg(m);
             ph.has_side_effects = true; // a measurement; never a cached verdict
-            const ph_step = b.step("phases", "Engine pipeline: bytes->runnable, spawn excluded (needs deno + wasmtime)");
+            const ph_step = b.step("phases", "Engine pipeline: bytes->runnable, spawn excluded (needs bun + wasmtime)");
             ph_step.dependOn(&ph.step);
         }
     }
@@ -487,13 +488,13 @@ pub fn build(b: *std.Build) void {
     // Track 3: measure wazmrt against the runtimes it means to replace, on real
     // modules, with the comparison configured FAIRLY — wasmtime in its
     // fast-start modes (winch / opt-level=0), not only its slowest-starting
-    // default. Driven by a Deno script for the same reason `ffi-demo` is: it
-    // needs to spawn and time other processes, and deno is already a dependency
+    // default. Driven by a Bun script for the same reason `ffi-demo` is: it
+    // needs to spawn and time other processes, and bun is already a dependency
     // of one step rather than a new one.
     {
         const corpus = b.option([]const u8, "corpus", "Directory of .wasm + .test.json for `zig build bakeoff` (wasmtk's tests/module/wasm_mod)");
         const reps = b.option(usize, "reps", "Repetitions per invocation for `zig build bakeoff` (default 7)") orelse 7;
-        const bake = b.addSystemCommand(&.{ "deno", "run", "--allow-read", "--allow-run", "--allow-env" });
+        const bake = b.addSystemCommand(&.{"bun"});
         bake.addFileArg(b.path("tools/bakeoff.mjs"));
         bake.addArg(corpus orelse "");
         bake.addArg(b.fmt("{d}", .{reps}));
@@ -502,7 +503,7 @@ pub fn build(b: *std.Build) void {
         // Needs the CLI built in the mode being measured — benchmarking a Debug
         // build would produce a number that flatters every competitor.
         bake.step.dependOn(b.getInstallStep());
-        const bake_step = b.step("bakeoff", "Benchmark wazmrt vs wasmtime/wasmer on a real corpus (needs deno; -Dcorpus=<dir>)");
+        const bake_step = b.step("bakeoff", "Benchmark wazmrt vs wasmtime/wasmer on a real corpus (needs bun; -Dcorpus=<dir>)");
         bake_step.dependOn(&bake.step);
     }
 

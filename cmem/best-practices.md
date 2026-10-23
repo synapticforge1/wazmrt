@@ -1393,6 +1393,14 @@ shrink the workload, it changes its SHAPE. — 2026-08-19, `testing.md`
 
 ## 6. Tooling — how scripts are written and run
 
+🔄 **REVISED 2026-10-23 — committed scripts are Bun now, Deno is gone from `build.zig`, and one-time
+scripts are relaxed.** The live rule is [`working-rules.md`](working-rules.md) → TOOLING (workspace
+letter H15). The text below is the 2026-09-19 rule as it stood. Its arguments against a COMMITTED
+shell script still hold (the MSYS rewrite of `--dir .:/` is why a measurement goes through a `.mjs`).
+"Deno is the default" does not hold any more. The "no drifting between runtimes" bullet was honoured:
+the port was deliberate, every invoker was updated in the same commit, and each script's output was
+diffed against the Deno original before it was replaced.
+
 🔒 **EVERY SCRIPT IN THIS REPO RUNS UNDER DENO OR BUN — nothing else.** 🚫 **No Python, no bash, no
 PowerShell, no `.bat`, no npm.** (owner, 2026-09-19: *"python scripts not allowed either only deno or
 bun"*.) **Deno is the default and the only one currently wired into `build.zig`**; Bun is permitted for

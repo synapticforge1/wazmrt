@@ -107,8 +107,8 @@ passes is a regression). Surface anything risky or ambiguous rather than fixing 
 
 ## Rules — in [`working-rules.md`](working-rules.md)
 
-The editing boundary (`interop.md` §1a, absolute) · prove or validate before acting · tooling (Deno
-or Bun only, no heredocs, no `deno eval`; scratch work lives in [`probes/`](probes/README.md)) · LF
+The editing boundary (`interop.md` §1a, absolute) · prove or validate before acting · tooling (Bun
+for committed scripts, one-time scripts relaxed, no heredocs; scratch work lives in [`probes/`](probes/README.md)) · LF
 line endings everywhere · building and testing from the exFAT `D:` drive.
 
 ## Files
@@ -116,7 +116,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | File | What it holds |
 | --- | --- |
 | [open-work.md](open-work.md) | 🎯 **Start here for state.** The ONE list of what is outstanding, and the only status line. |
-| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Deno/Bun, no heredocs), LF line endings, building and testing from the exFAT `D:` drive. |
+| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, building and testing from the exFAT `D:` drive. |
 | [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; **live artifact sizes** (the one place they are recorded). |
 | [vision.md](vision.md) | The goal: a fast, small, embeddable WebAssembly runtime, itself wasm-compilable. |
 | [architecture.md](architecture.md) | The decode → validate → instantiate → execute pipeline, module layout, the libc-free core, the C ABI and freestanding targets. |

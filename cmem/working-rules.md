@@ -84,16 +84,32 @@ two days, every one of them wrong when finally run.
 rule 4 is this rule applied to a contract row; §6's assert-your-match-count is it applied to an edit.
 
 
-## 🔧 TOOLING — Deno or Bun only, and no heredocs (binding on every agent, 2026-09-19)
+## 🔧 TOOLING — Bun for committed scripts, and no heredocs (binding on every agent; revised 2026-10-23)
 
-🔒 **Every script in this repo runs under Deno or Bun — nothing else.** 🚫 **No Python, no bash, no
-PowerShell, no `.bat`, no npm** (owner: *"python scripts not allowed either only deno or bun"*). The
-only other tooling language is Zig itself (`tools/size_gate.zig`, `tools/conformance.zig`).
-**Deno is the default and the only one `build.zig` invokes today** — `tools/phases.mjs`,
-`tools/bakeoff.mjs`, `examples/deno_ffi_capi.mjs` all run via `deno run --allow-…`; Bun is permitted
-for new work, chosen per script and named at the top of the file. ⚠️ **It binds throwaway work
-too**, not just committed tools: a one-off sweep is where "just pipe it through bash" is most tempting
-and where a silent mis-measurement costs most, because nobody reviews a command that already ran.
+🔒 **Every COMMITTED script in this repo runs under Bun** (workspace `../../cmem/working-rules.md` §
+Tooling rule 1, letter H15; owner 2026-10-22: *"Deno is going away"*). Zig has no qualifying
+scripting mechanism — `zig run` builds an executable — so Zig falls back to Bun. Scripts are
+JavaScript/TypeScript using `node:*`, web APIs and `Bun.*`, never `Deno.*` or `jsr:`. "Script" means
+anything kept for repeated use that would otherwise be a shell script: `tools/phases.mjs`,
+`tools/bakeoff.mjs`, `tools/emitter-diff.mjs`, `examples/bun_ffi_capi.mjs` (all `bun <file>`, the
+first, second and fourth from `build.zig`), and `cmem/probes/`. 🚫 **No committed Python, bash,
+PowerShell or `.bat`, no npm.** A port replaces its original only after the two are run on the same
+inputs and their OUTPUT is diffed, one must-fail input included, with the comparison recorded in the
+commit.
+
+- 🔒 **A Zig file that is part of a build step is not a script** (owner, 2026-10-23):
+  `tools/size_gate.zig` and `tools/conformance.zig` are compiled and run by `build.zig`, so they
+  stay Zig.
+- 🔒 **The FFI demo is a Bun demo** (owner, 2026-10-23: the Deno FFI demo *"will need to become a
+  bun ffi/node ffi demo due to deno going away"*) — `examples/bun_ffi_capi.mjs` over `bun:ffi`.
+- 🔓 **Throwaway work is relaxed, for speed** (owner, 2026-10-23, *"relax it for faster work"*;
+  replaces 2026-09-19's "it binds throwaway work too"): a ONE-TIME script that is deleted after use may
+  be bash, PowerShell, Bun or Zig, whichever is fastest. It is still WRITTEN with `Write` (the
+  heredoc ban below is unchanged), and a script that turns out to be needed again — or that produced a
+  number someone will quote — is promoted to Bun and saved under [`probes/`](probes/README.md) before
+  it is committed.
+- ⏳ **Still on Deno, to port under the proof rule:** the committed probes in `cmem/probes/` (26
+  files, 2026-10-23). They keep running under Deno while it is installed.
 
 🚫 **Never pass a script to an interpreter through a shell heredoc.** `cmd <<'EOF' … EOF` adds an
 invisible escaping layer and **fails silently more often than loudly** — three distinct corruptions in
@@ -147,7 +163,7 @@ Track B-c2 spent a day closing.
 
 **What this obliges an agent to do:**
 
-- write LF when creating or editing any file (Deno/Bun `writeTextFile` already does);
+- write LF when creating or editing any file (Bun's and Node's file writes already do);
 - ⚠️ **mark a binary file `binary` in `.gitattributes` BEFORE committing the first one** — nothing
   tracked today is binary, which is the only reason `*` can be that blunt;
 - if a CRLF file ever appears, re-check it out rather than hand-editing it:
