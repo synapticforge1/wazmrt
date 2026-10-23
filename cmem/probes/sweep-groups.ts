@@ -2,11 +2,14 @@
 // so "which opcodes does only X know" reads at a glance. Replaces the ad-hoc `deno eval` one-liners
 // this was first done with (working-rules.md → TOOLING forbids those).
 //
-//   deno run -A opcode-sweep.ts … > result.txt ;  deno run -A sweep-groups.ts result.txt [--full]
+//   bun opcode-sweep.ts … > result.txt ;  bun sweep-groups.ts result.txt [--full]
 
-const [file] = Deno.args;
-const full = Deno.args.includes("--full");
-const rows = Deno.readTextFileSync(file).split("\n").filter((l) => /^0x/.test(l));
+import { readFileSync } from "node:fs";
+
+const args0 = process.argv.slice(2);
+const [file] = args0;
+const full = args0.includes("--full");
+const rows = readFileSync(file, "utf8").split("\n").filter((l) => /^0x/.test(l));
 const groups = new Map<string, string[]>();
 for (const l of rows) {
   const op = l.slice(0, 12).trim(); // "0xe0" or "0xfe 4f" — the opcode column is fixed-width

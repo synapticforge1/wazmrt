@@ -3,15 +3,17 @@
 // does not know makes `--features <name> <module>` fail with "unknown"; any other outcome means the
 // name resolved. The module is a trivial valid one, so validation cannot be the reason for a failure.
 //
-//   deno run -A feature-names.ts <module.wat> <runtime exe>...
+//   bun feature-names.ts <module.wat> <runtime exe>...
 //
 // ⚠️ Accepting a name is not the same as GATING the proposal it names (see wazmrt's
 // `extended_const`, a published gate that could never fire). This measures the vocabulary only.
 
-const [mod, ...runtimes] = Deno.args;
+import { output } from "./run.ts";
+
+const [mod, ...runtimes] = process.argv.slice(2);
 
 async function run(cmd: string, args: string[]) {
-  const r = await new Deno.Command(cmd, { args, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, stdout: "piped", stderr: "piped" });
   return { code: r.code, text: new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr) };
 }
 

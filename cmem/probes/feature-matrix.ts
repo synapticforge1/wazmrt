@@ -7,10 +7,13 @@
 //     exposes implications (e.g. does `bulk-memory` alone admit `memory.copy`?).
 // Pass a runtime exe to run the same matrix against it (it must speak `--features <list> <file>`).
 //
-//   deno run -A feature-matrix.ts <out dir> [runtime exe]
+//   bun feature-matrix.ts <out dir> [runtime exe]
 
-const [outDir, runtime] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [outDir, runtime] = process.argv.slice(2);
+await mkdir(outDir, { recursive: true });
 
 const probes: Record<string, string> = {
   "mutable-global": `(module (global (export "g") (mut i32) (i32.const 0)))`,
@@ -53,21 +56,21 @@ const binaries: Record<string, Uint8Array> = {
 const files: Array<[string, string]> = [];
 for (const [n, src] of Object.entries(probes)) {
   const f = `${outDir}/${n}.wat`;
-  await Deno.writeTextFile(f, src + "\n");
+  await writeFile(f, src + "\n");
   files.push([n, f]);
 }
 for (const [n, bytes] of Object.entries(binaries)) {
   const f = `${outDir}/${n.split(" ")[0]}${n.includes("control") ? "-control" : ""}.wasm`;
-  await Deno.writeFile(f, bytes);
+  await writeFile(f, bytes);
   files.push([n, f]);
 }
 
 async function ok(features: string, file: string): Promise<boolean> {
   const r = runtime
-    ? await new Deno.Command(runtime, { args: ["--features", features, file], stdout: "null", stderr: "null" }).output()
+    ? await output(runtime, { args: ["--features", features, file], stdout: "null", stderr: "null" })
     // ⚠️ `--features=<list>` as ONE argument: clap reads a separate leading `-all` as an unknown
     // FLAG and exits 2, which the first run of this probe scored as "the module was refused".
-    : await new Deno.Command("wasm-tools", { args: ["validate", `--features=${features}`, file], stdout: "null", stderr: "null" }).output();
+    : await output("wasm-tools", { args: ["validate", `--features=${features}`, file], stdout: "null", stderr: "null" });
   return r.code === 0;
 }
 
@@ -102,7 +105,7 @@ const refTypes = ["funcref", "externref", "anyref", "eqref", "i31ref", "structre
 const needGcTypes: string[] = [], fine: string[] = [];
 for (const t of refTypes) {
   const f = `${outDir}/ref-${refTypes.indexOf(t)}.wat`;
-  await Deno.writeTextFile(f, `(module (func (param ${t})))\n`);
+  await writeFile(f, `(module (func (param ${t})))\n`);
   if (!(await ok("all", f))) continue;
   ((await ok("all,-gc-types", f)) ? fine : needGcTypes).push(t);
 }
@@ -115,9 +118,9 @@ console.log(`memory.copy under all,-bulk-memory-opt (bulk-memory still on): ${(a
 const overlong = files.find(([n]) => n === "call-indirect-overlong")![1];
 console.log(`overlong call_indirect under all,-call-indirect-overlong (reference-types on): ${(await ok("all,-call-indirect-overlong", overlong)) ? "admitted" : "REFUSED"}`);
 const simdF = `${outDir}/simd-float.wat`;
-await Deno.writeTextFile(simdF, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.add))\n`);
+await writeFile(simdF, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 f32x4.add))\n`);
 const simdI = `${outDir}/simd-int.wat`;
-await Deno.writeTextFile(simdI, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 i32x4.add))\n`);
+await writeFile(simdI, `(module (func (result v128) v128.const i64x2 0 0 v128.const i64x2 0 0 i32x4.add))\n`);
 console.log(`f32x4.add under all,-floats: ${(await ok("all,-floats", simdF)) ? "admitted" : "REFUSED"} · i32x4.add under all,-floats: ${(await ok("all,-floats", simdI)) ? "admitted" : "REFUSED"}`);
 const legacyTry = files.find(([n]) => n === "legacy-exceptions")![1];
 console.log(`legacy try under all,-exceptions (legacy-exceptions on): ${(await ok("all,-exceptions", legacyTry)) ? "admitted" : "REFUSED"}`);
@@ -134,7 +137,7 @@ for (const [what, src, spec] of [
   ["(table 1 externref)", `(module (table 1 externref))`, "all,-gc-types"],
 ] as const) {
   const f = `${outDir}/check-${what.replace(/[^a-z0-9]+/gi, "_")}.wat`;
-  await Deno.writeTextFile(f, src + "\n");
+  await writeFile(f, src + "\n");
   console.log(`${what.padEnd(40)} under ${spec.padEnd(18)}: ${(await ok(spec, f)) ? "admitted" : "REFUSED"}`);
 }
 

@@ -2,9 +2,11 @@
 // does on Windows? Hand bash a command line exactly as a user would type it, and
 // have argv-echo.ts report what arrived.
 //
-//   deno run -A bash-argv.ts <abs path to argv-echo.ts>
+//   bun bash-argv.ts <abs path to argv-echo.ts>
 
-const echo = Deno.args[0];
+import { output } from "./run.ts";
+
+const echo = process.argv[2];
 const typed = [
   "./data:/m",
   ".:/",
@@ -14,13 +16,13 @@ const typed = [
   "a:b::/m",
   "//srv/share:/m",
 ];
-const line = `deno run -A '${echo}' ` + typed.map((t) => `'${t}'`).join(" ");
-const out = await new Deno.Command("bash", {
+const line = `bun '${echo}' ` + typed.map((t) => `'${t}'`).join(" ");
+const out = await output("bash", {
   args: ["-c", line],
-  env: { PATH: `${Deno.env.get("HOME")}/.deno/bin:/usr/bin:/bin` },
+  env: { PATH: `${process.env.HOME}/.bun/bin:/usr/bin:/bin` },
   stdout: "piped",
   stderr: "piped",
-}).output();
+});
 const got = new TextDecoder().decode(out.stdout).trim().split("\n").map((l) => JSON.parse(l));
 
 console.log("| typed | bash delivered | verbatim? |");

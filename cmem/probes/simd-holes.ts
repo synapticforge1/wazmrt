@@ -2,10 +2,13 @@
 // Given two v128 operands and a drop, does each one VALIDATE (a malformed module accepted), and
 // does it RUN? wasm-tools refuses every one ("unknown 0xfd subopcode").
 //
-//   deno run -A simd-holes.ts <wazmrt.exe> <out dir>
+//   bun simd-holes.ts <wazmrt.exe> <out dir>
 
-const [exe, outDir] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [exe, outDir] = process.argv.slice(2);
+await mkdir(outDir, { recursive: true });
 
 const holes = [0x9a, 0xa2, 0xa5, 0xa6, 0xaf, 0xb0, 0xb2, 0xb3, 0xb4, 0xbb, 0xc2, 0xc5, 0xc6, 0xcf, 0xd0, 0xd2, 0xd3, 0xd4, 0xe2, 0xee];
 
@@ -34,7 +37,7 @@ function moduleFor(sub: number, operands: number): Uint8Array {
 }
 
 async function run(args: string[]) {
-  const r = await new Deno.Command(exe, { args, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(exe, { args, stdout: "piped", stderr: "piped" });
   return { code: r.code, text: (new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr)).replace(/\s+/g, " ").trim() };
 }
 
@@ -44,7 +47,7 @@ for (const sub of holes) {
   let runnable: string | null = null;
   for (const n of [1, 2, 3]) {
     const f = `${outDir}/hole-${sub.toString(16)}-${n}.wasm`;
-    await Deno.writeFile(f, moduleFor(sub, n));
+    await writeFile(f, moduleFor(sub, n));
     const v = await run([f]);
     const ok = v.code === 0;
     verdicts.push(ok ? "VALID" : (v.text.match(/FAILED[^:]*: (\w+)/)?.[1] ?? `rc${v.code}`));

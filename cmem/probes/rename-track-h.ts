@@ -2,7 +2,7 @@
 // `H<n>` in this repo's memory unambiguously means a WORKSPACE LETTER
 // (../../cmem/handoffs.md) and `zH<n>` means wazmrt's own Track H.
 //
-// Run:  deno run --allow-read --allow-write rename-track-h.ts <repo-root> [--apply]
+// Run:  bun rename-track-h.ts <repo-root> [--apply]
 // Without --apply it only reports.
 //
 // ✅ APPLIED 2026-09-21 (owner-directed): 155 occurrences in 10 files. Kept as the record of
@@ -14,17 +14,20 @@
 // matches rather than asserting exactly-once per site (`working-rules.md` → TOOLING's corollary is about
 // targeted edits).
 
-const root = Deno.args[0];
-const apply = Deno.args.includes("--apply");
+import { readdir, readFile, writeFile } from "node:fs/promises";
+
+const args0 = process.argv.slice(2);
+const root = args0[0];
+const apply = args0.includes("--apply");
 if (!root) {
   console.error("usage: rename-track-h.ts <repo-root> [--apply]");
-  Deno.exit(2);
+  process.exit(2);
 }
 
 const targets: string[] = [];
 for (const dir of ["cmem", "src"]) {
-  for await (const e of Deno.readDir(`${root}/${dir}`)) {
-    if (e.isFile && (e.name.endsWith(".md") || e.name.endsWith(".zig"))) {
+  for (const e of await readdir(`${root}/${dir}`, { withFileTypes: true })) {
+    if (e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".zig"))) {
       targets.push(`${root}/${dir}/${e.name}`);
     }
   }
@@ -40,7 +43,7 @@ let totalHits = 0;
 const perFile: Array<[string, number]> = [];
 
 for (const path of targets) {
-  const before = await Deno.readTextFile(path);
+  const before = await readFile(path, "utf8");
   let hits = 0;
   const after = before.replace(RE, (_m, pre, n) => {
     hits++;
@@ -49,7 +52,7 @@ for (const path of targets) {
   if (hits === 0) continue;
   totalHits += hits;
   perFile.push([path.slice(root.length + 1), hits]);
-  if (apply && after !== before) await Deno.writeTextFile(path, after);
+  if (apply && after !== before) await writeFile(path, after);
 }
 
 for (const [f, n] of perFile) console.log(`${String(n).padStart(4)}  ${f}`);

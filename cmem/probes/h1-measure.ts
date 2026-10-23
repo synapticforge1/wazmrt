@@ -5,10 +5,11 @@
 //   §5 #10 — the `--dir` drive-letter heuristic (the letter says it is RETIRED)
 //   §5 #12 — zH7-as-error vs §2.4a "guest positions are never examined"
 //
-// Run: deno run -A h1-measure.ts <path-to-wazmrt.exe> <module.wat>
+// Run: bun h1-measure.ts <path-to-wazmrt.exe> <module.wat>
 
-const exe = Deno.args[0];
-const mod = Deno.args[1];
+import { output } from "./run.ts";
+
+const [exe, mod] = process.argv.slice(2);
 
 type Case = { id: string; why: string; argv: string[] };
 
@@ -32,11 +33,11 @@ const cases: Case[] = [
 
 const rows: string[] = [];
 for (const c of cases) {
-  const out = await new Deno.Command(exe, {
+  const out = await output(exe, {
     args: c.argv,
     stdout: "piped",
     stderr: "piped",
-  }).output();
+  });
   const text = (new TextDecoder().decode(out.stdout) + new TextDecoder().decode(out.stderr))
     .trim().split("\n")[0]?.slice(0, 150) ?? "";
   rows.push(`| \`${c.id}\` | ${out.code} | ${text || "(no output)"} | ${c.why} |`);

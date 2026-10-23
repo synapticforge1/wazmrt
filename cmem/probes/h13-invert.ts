@@ -1,15 +1,18 @@
 // Workspace letter H13 — INVERSION: undo each of the three fixes in turn and prove that BOTH the
 // unit test and the corpus measurement notice. A fix whose removal nothing detects is unguarded.
 //
-//   deno run -A h13-invert.ts <repo root> <corpus dir> <out dir>
+//   bun h13-invert.ts <repo root> <corpus dir> <out dir>
 //
 // Every sabotage must match EXACTLY ONCE (working-rules.md → TOOLING). The original `src/wat.zig` is
 // restored in `finally` and re-checked byte for byte at the end, so an aborted run cannot leave a
 // sabotaged tree behind.
 
-const [root, corpus, outDir] = Deno.args;
+import { readFile, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [root, corpus, outDir] = process.argv.slice(2);
 const file = `${root}/src/wat.zig`;
-const original = await Deno.readTextFile(file);
+const original = await readFile(file, "utf8");
 
 type Edit = [from: string, to: string];
 const inversions: Array<{ name: string; edits: Edit[]; expect: string }> = [
@@ -47,7 +50,7 @@ const inversions: Array<{ name: string; edits: Edit[]; expect: string }> = [
 ];
 
 async function run(cmd: string, args: string[], cwd?: string) {
-  const r = await new Deno.Command(cmd, { args, cwd, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, cwd, stdout: "piped", stderr: "piped" });
   return { code: r.code, out: new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr) };
 }
 
@@ -59,7 +62,7 @@ try {
       if (hits !== 1) throw new Error(`${inv.name}: sabotage anchor matched ${hits} times, expected exactly 1:\n${from}`);
       src = src.replace(from, to);
     }
-    await Deno.writeTextFile(file, src);
+    await writeFile(file, src);
     // Build FIRST: a sabotage that does not compile proves nothing, and must say so.
     const build = await run("zig", ["build"], root);
     if (build.code !== 0) {
@@ -69,7 +72,7 @@ try {
     const test = await run("zig", ["build", "test"], root);
     const h13Failed = /H13: the module BODY matches wasm-tools/.test(test.out) && test.code !== 0;
     const parity = build.code === 0
-      ? (await run("deno", ["run", "-A", `${root}/cmem/probes/body-parity.ts`, `${root}/zig-out/bin/wazmrt.exe`, corpus, outDir])).out
+      ? (await run("bun", [`${root}/cmem/probes/body-parity.ts`, `${root}/zig-out/bin/wazmrt.exe`, corpus, outDir])).out
       : "BUILD FAILED\n" + build.out;
     console.log(`\n== ${inv.name}`);
     console.log(`   unit test H13 FAILED under sabotage: ${h13Failed ? "YES ✅" : "NO ❌ — the test does not guard this fix"}`);
@@ -77,7 +80,7 @@ try {
     console.log(parity.split("\n").filter((l) => /same|regroup|other/.test(l)).map((l) => "   " + l).join("\n"));
   }
 } finally {
-  await Deno.writeTextFile(file, original);
+  await writeFile(file, original);
 }
-const restored = await Deno.readTextFile(file);
+const restored = await readFile(file, "utf8");
 console.log(`\nsrc/wat.zig restored byte-for-byte: ${restored === original ? "yes" : "NO — INVESTIGATE"}`);

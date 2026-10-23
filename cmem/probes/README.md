@@ -6,40 +6,43 @@ probe that produced a recorded number belongs next to the number, so the next se
 machine) can re-derive it. **Save probes here as you write them, not afterwards.** Build outputs and
 fixture directories are regenerated and are not kept.
 
-The scripts below are Deno (as written 2026-09) or Zig. ⏳ **Since 2026-10-23 a committed script is
-Bun** (`working-rules.md` → TOOLING), so the `.ts` probes here are waiting for a port under the proof
-rule; they run under Deno while it is installed. A new probe is written for Bun. **Run `--dir` probes through `Deno.Command` or a
-native shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the program sees it.
+The scripts below are TypeScript run by **Bun** (`working-rules.md` → TOOLING), or Zig. They were
+written for Deno in 2026-09 and ported 2026-10-23, each proven against its Deno original (the commit
+that ported them records the comparison). Every probe that spawns a process does it through
+[`run.ts`](run.ts), which returns what `Deno.Command(…).output()` returned (`code`, `success`,
+byte `stdout`/`stderr`; `env` merged into the parent's), so a new probe imports it rather than
+re-deriving those semantics. **Run `--dir` probes through a direct spawn (`run.ts`) or a native
+shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the program sees it.
 
 | file | what it measures | how to run |
 | --- | --- | --- |
-| `argv-echo.ts` | prints its own argv as JSON, so you measure the SHELL, not wazmrt | `deno run -A argv-echo.ts <args…>` from each shell |
-| `bash-argv.ts` | hands a typed line to a real `bash` and reports what arrived | `deno run -A bash-argv.ts <abs path to argv-echo.ts>` |
-| `h1-measure.ts` | the workspace-letter-H1 CLI sweep: `--dir` forms, guest-position flags, unknown/abbreviated flags | `deno run -A h1-measure.ts <wazmrt> <module.wat>` |
+| `argv-echo.ts` | prints its own argv as JSON, so you measure the SHELL, not wazmrt | `bun argv-echo.ts <args…>` from each shell |
+| `bash-argv.ts` | hands a typed line to a real `bash` and reports what arrived | `bun bash-argv.ts <abs path to argv-echo.ts>` |
+| `h1-measure.ts` | the workspace-letter-H1 CLI sweep: `--dir` forms, guest-position flags, unknown/abbreviated flags | `bun h1-measure.ts <wazmrt> <module.wat>` |
 | `dir-forms.ts` | which HOST spellings `--dir` accepts (guest half pinned with `::`) | from a dir containing `./data`, `./q` and a sibling `../probe2/data` |
 | `sep-forms.ts` | the `:` / `::` split, no shell in the path | same cwd as above |
-| `posix-forms.ts` | the `--dir` grammar on a POSIX host; creates `a:b` and `back\slash` itself | `deno run -A posix-forms.ts <wazmrt> <abs module.wat>` |
+| `posix-forms.ts` | the `--dir` grammar on a POSIX host; creates `a:b` and `back\slash` itself | `bun posix-forms.ts <wazmrt> <abs module.wat>` |
 | `guest_names.zig` | a `wasm32-wasi` guest that opens names whose CONTENTS say which file they are | `zig build-exe guest_names.zig -target wasm32-wasi -O ReleaseSmall "-femit-bin=guest_names.wasm"` |
-| `guest-fixtures.ts` | the fixtures for it: `x\y`, `x/y`, `a:b`, `c:`, `b`, two symlinks | `deno run -A guest-fixtures.ts <dir>`, then `wazmrt guest_names.wasm --dir <dir>::/` |
-| `body-parity.ts` | letter H13: wazmrt's module BODIES vs `wasm-tools parse`, custom sections stripped, each difference classed as local-runs or other | `deno run -A body-parity.ts <wazmrt> <corpus dir> <out dir> [--list]` |
-| `pin-parity.ts` | `.wat` PIN parity: full-file equality (= equal pins) vs wasmrt's built binary, or vs `wasm-tools` | `deno run -A pin-parity.ts <wazmrt> <wasmrt.exe \| wasm-tools> <corpus dir> <out dir>` |
-| `type-order.ts` | one file's TYPE SECTION from wazmrt and wasm-tools side by side, differing indices marked | `deno run -A type-order.ts <wazmrt> <file.wat> <out dir>` |
+| `guest-fixtures.ts` | the fixtures for it: `x\y`, `x/y`, `a:b`, `c:`, `b`, two symlinks | `bun guest-fixtures.ts <dir>`, then `wazmrt guest_names.wasm --dir <dir>::/` |
+| `body-parity.ts` | letter H13: wazmrt's module BODIES vs `wasm-tools parse`, custom sections stripped, each difference classed as local-runs or other | `bun body-parity.ts <wazmrt> <corpus dir> <out dir> [--list]` |
+| `pin-parity.ts` | `.wat` PIN parity: full-file equality (= equal pins) vs wasmrt's built binary, or vs `wasm-tools` | `bun pin-parity.ts <wazmrt> <wasmrt.exe \| wasm-tools> <corpus dir> <out dir>` |
+| `type-order.ts` | one file's TYPE SECTION from wazmrt and wasm-tools side by side, differing indices marked | `bun type-order.ts <wazmrt> <file.wat> <out dir>` |
 | `i14-interleave.wat` | the two-function module that separates "function by function" from "all signatures first" interning | with `type-order.ts` |
 | `h13-fixtures/` | the three minimal modules whose wasm-tools bytes the H13 unit test asserts | `body-parity.ts` on the dir: 3/3 same |
-| `h13-invert.ts` | undoes each H13 fix in turn; each must fail the unit test AND bring back its own corpus files. Restores `src/wat.zig` byte-for-byte | `deno run -A h13-invert.ts <repo root> <corpus dir> <out dir>` |
-| `four-assemblers.ts` | letter H8: one or more `.wat` through wasm-tools, wazmrt, wasmrt and binaryang; exit, custom-section list, equality with wasm-tools | `deno run -A four-assemblers.ts <wazmrt> <wasmrt.exe> <binaryang dir> <out dir> <file.wat>...` |
+| `h13-invert.ts` | undoes each H13 fix in turn; each must fail the unit test AND bring back its own corpus files. Restores `src/wat.zig` byte-for-byte | `bun h13-invert.ts <repo root> <corpus dir> <out dir>` |
+| `four-assemblers.ts` | letter H8: one or more `.wat` through wasm-tools, wazmrt, wasmrt and binaryang; exit, custom-section list, equality with wasm-tools | `bun four-assemblers.ts <wazmrt> <wasmrt.exe> <binaryang dir> <out dir> <file.wat>...` |
 | `h8-fixtures/` | the two `(@custom "name" …)` inputs for I8, with and without identifiers | with `four-assemblers.ts` |
-| `feature-names.ts` | letter H8 / I6: which of wasm-tools' `--features` names (read from the tool) each runtime knows | `deno run -A feature-names.ts <module.wat> <runtime exe>...` |
-| `feature-matrix.ts` | what every wasm-tools `--features` name ADMITS: presets × one-module-per-feature, then the single name (or minimal pair) that suffices for each module. Pass a runtime exe to run the same matrix on it | `deno run -A feature-matrix.ts <out dir> [runtime exe]` |
-| `features-invert.ts` | undoes each of the 11 pieces of the 2026-09-21 feature work (six gates, the SIMD float list, both holes, the typed-reference rule, the `try_table` leak); `zig build test` must fail every time. Restores every touched file | `deno run -A features-invert.ts <repo root>` → "ALL GUARDED" |
+| `feature-names.ts` | letter H8 / I6: which of wasm-tools' `--features` names (read from the tool) each runtime knows | `bun feature-names.ts <module.wat> <runtime exe>...` |
+| `feature-matrix.ts` | what every wasm-tools `--features` name ADMITS: presets × one-module-per-feature, then the single name (or minimal pair) that suffices for each module. Pass a runtime exe to run the same matrix on it | `bun feature-matrix.ts <out dir> [runtime exe]` |
+| `features-invert.ts` | undoes each of the 11 pieces of the 2026-09-21 feature work (six gates, the SIMD float list, both holes, the typed-reference rule, the `try_table` leak); `zig build test` must fail every time. Restores every touched file | `bun features-invert.ts <repo root>` → "ALL GUARDED" |
 | `legacy-eh/` | flat legacy-EH forms (`forms.ts`), fixtures that assemble byte-identically to wasm-tools and RUN (`flat/`), and their inversion (`invert.ts`) | see each file's header |
-| `opcode-sweep.ts` | letter H8 / I5: 748 candidate opcodes through wasm-tools, wazmrt, wasmrt and binaryang; calibrates each tool's "unknown opcode" message, then prints only the disagreements | `deno run -A opcode-sweep.ts <out dir> <wazmrt> <wasmrt.exe> <binaryang dir> [--calibrate]` |
-| `sweep-groups.ts` | groups an `opcode-sweep.ts` result by agreement pattern (who knows what) | `deno run -A sweep-groups.ts <result.txt> [--full]` |
-| `three-proposals.ts` | stack-switching, memory-control, shared-everything-threads: does wasm-tools validate each by default, and does wasmtime RUN it, with and without its `-W` switch? | `deno run -A three-proposals.ts <out dir>` |
-| `simd-holes.ts` | the twenty unassigned `0xFD` gaps given 1/2/3 v128 operands: do they VALIDATE, do they run? | `deno run -A simd-holes.ts <wazmrt> <out dir>` |
-| `h3-sections.ts` | a Markdown file's headings with the BYTES under each — how the INDEX cut was planned | `deno run -A h3-sections.ts <file.md>` |
-| `h3-build.ts` | letter H3: rebuilt INDEX.md and created working-rules.md by MOVING line ranges verbatim from a baseline commit, each range asserted to start at its expected heading | `deno run -A h3-build.ts <repo root> <baseline>` (done once; kept as the record of what moved) |
-| `h3-check.ts` | letter H3's proof: every hash the old INDEX cited still resolves AND is still cited; every link resolves; every by-name section reference resolves. `--invert` must report the sabotage | `deno run -A h3-check.ts <repo root> 3f1bfbc1d [--invert]` |
+| `opcode-sweep.ts` | letter H8 / I5: 748 candidate opcodes through wasm-tools, wazmrt, wasmrt and binaryang; calibrates each tool's "unknown opcode" message, then prints only the disagreements | `bun opcode-sweep.ts <out dir> <wazmrt> <wasmrt.exe> <binaryang dir> [--calibrate]` |
+| `sweep-groups.ts` | groups an `opcode-sweep.ts` result by agreement pattern (who knows what) | `bun sweep-groups.ts <result.txt> [--full]` |
+| `three-proposals.ts` | stack-switching, memory-control, shared-everything-threads: does wasm-tools validate each by default, and does wasmtime RUN it, with and without its `-W` switch? | `bun three-proposals.ts <out dir>` |
+| `simd-holes.ts` | the twenty unassigned `0xFD` gaps given 1/2/3 v128 operands: do they VALIDATE, do they run? | `bun simd-holes.ts <wazmrt> <out dir>` |
+| `h3-sections.ts` | a Markdown file's headings with the BYTES under each — how the INDEX cut was planned | `bun h3-sections.ts <file.md>` |
+| `h3-build.ts` | letter H3: rebuilt INDEX.md and created working-rules.md by MOVING line ranges verbatim from a baseline commit, each range asserted to start at its expected heading | `bun h3-build.ts <repo root> <baseline>` (done once; kept as the record of what moved) |
+| `h3-check.ts` | letter H3's proof: every hash the old INDEX cited still resolves AND is still cited; every link resolves; every by-name section reference resolves. `--invert` must report the sabotage. Since the H19 purge the baseline cites pre-purge ids; each is translated through `../history-map-2026-10-23.md` (25/25, 2026-10-23) | `bun h3-check.ts <repo root> 3f1bfbc1d [--invert]` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)
@@ -105,7 +108,7 @@ complete module before it is reported.*
 🍎 **Owner, 2026-09-21: "when I have access to that machine."** Linux is measured; macOS is not. The
 four POSIX resolver defects (`known-issues.md`, fixed 2026-09-21) are fixed there **by construction
 only**, since macOS runs the same `.native = .posix` code. **The check, not the conclusion** — on a Mac
-with Zig 0.16.0 and Deno 2.9.7:
+with Zig 0.16.0 and Bun (Deno 2.9.7 when this was written; the probes are Bun since 2026-10-23):
 
 1. `zig build test` — every test passing, **0 skipped**.
 2. `WAZMRT_SECURITY_STRICT=1 zig build test-security` — 3/3.

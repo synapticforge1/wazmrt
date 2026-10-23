@@ -8,13 +8,17 @@
 // unknown-opcode message is CALIBRATED first, on opcodes no proposal assigns, and printed so the
 // classification can be checked by eye.
 //
-//   deno run -A opcode-sweep.ts <out dir> <wazmrt.exe> <wasmrt.exe> <binaryang dir> [--calibrate]
+//   bun opcode-sweep.ts <out dir> <wazmrt.exe> <wasmrt.exe> <binaryang dir> [--calibrate]
 //
 // Behavioural only: the siblings' BUILT tools are run; nothing is written to their trees.
 
-const [outDir, wazmrt, wasmrt, binaryang] = Deno.args;
-const calibrateOnly = Deno.args.includes("--calibrate");
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const args0 = process.argv.slice(2);
+const [outDir, wazmrt, wasmrt, binaryang] = args0;
+const calibrateOnly = args0.includes("--calibrate");
+await mkdir(outDir, { recursive: true });
 
 function leb(n: number): number[] {
   const out: number[] = [];
@@ -52,7 +56,7 @@ function moduleWith(code: number[]): Uint8Array {
 
 type Tool = { name: string; run: (files: string[]) => Promise<Map<string, string>> };
 async function exec(cmd: string, args: string[], cwd?: string) {
-  const r = await new Deno.Command(cmd, { args, cwd, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, cwd, stdout: "piped", stderr: "piped" });
   return { code: r.code, text: (new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr)).trim() };
 }
 const perFile = (cmd: (f: string) => [string, string[], string?]): Tool["run"] => async (files) => {
@@ -78,7 +82,7 @@ const tools: Tool[] = [
   { name: "wasmrt", run: perFile((f) => [wasmrt, [f]]) },
   // `--enable-all`: binaryang's validator ships with exceptions (and others) OFF — calibration
   // first saw it refuse even `nop` with "tag not allowed".
-  { name: "binaryang", run: perFile((f) => ["deno", ["run", "--no-lock", "-A", "main.ts", "wasm-validate", "--enable-all", f], binaryang]) },
+  { name: "binaryang", run: perFile((f) => ["bun", ["main.ts", "wasm-validate", "--enable-all", f], binaryang]) },
 ];
 
 // --- calibration: opcodes NO proposal assigns, and one every tool knows --------------------
@@ -93,7 +97,7 @@ console.log("== calibration");
 const calFiles: string[] = [];
 for (const [i, [, code]] of calib.entries()) {
   const f = `${outDir}/cal-${i}.wasm`;
-  await Deno.writeFile(f, moduleWith(code));
+  await writeFile(f, moduleWith(code));
   calFiles.push(f);
 }
 for (const t of tools) {
@@ -105,7 +109,7 @@ for (const t of tools) {
     console.log(`   ${what.padEnd(46)} ${t.length > 260 ? t.slice(0, 120) + " … " + t.slice(-120) : t}`);
   });
 }
-if (calibrateOnly) Deno.exit(0);
+if (calibrateOnly) process.exit(0);
 
 // "Not in this tool's table", per tool — the calibrated messages above, 2026-09-21. Any other
 // outcome (OK, a truncated immediate, a type error) means the opcode IS in the table.
@@ -134,7 +138,7 @@ for (const [p, n] of ranges) {
 const files: string[] = [];
 for (const [i, [, code]] of candidates.entries()) {
   const f = `${outDir}/op-${i}.wasm`;
-  await Deno.writeFile(f, moduleWith(code));
+  await writeFile(f, moduleWith(code));
   files.push(f);
 }
 console.log(`\n== sweep: ${candidates.length} candidate opcodes × ${tools.length} tools`);

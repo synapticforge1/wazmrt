@@ -3,10 +3,11 @@
 //
 // Run from a directory that contains ./data and ./q, with the repo's wat file
 // passed absolutely.
-//   deno run -A dir-forms.ts <wazmrt.exe> <abs module.wat>
+//   bun dir-forms.ts <wazmrt.exe> <abs module.wat>
 
-const exe = Deno.args[0];
-const mod = Deno.args[1];
+import { output } from "./run.ts";
+
+const [exe, mod] = process.argv.slice(2);
 
 const hosts: Array<[string, string]> = [
   // the three forms the owner listed
@@ -30,11 +31,11 @@ const hosts: Array<[string, string]> = [
 
 const rows: string[] = [];
 for (const [h, why] of hosts) {
-  const out = await new Deno.Command(exe, {
+  const out = await output(exe, {
     args: [mod, "--dir", `${h}::/m`],
     stdout: "piped",
     stderr: "piped",
-  }).output();
+  });
   const txt = (new TextDecoder().decode(out.stdout) +
     new TextDecoder().decode(out.stderr)).trim().split("\n")[0] ?? "";
   const verdict = out.code === 0 ? "✅ accepted" : "❌ rc " + out.code;

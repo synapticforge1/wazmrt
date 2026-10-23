@@ -3,13 +3,16 @@
 // interning-order class (Z4 cause 3, I14): a type the text never declares gets an index from the
 // ORDER in which the assembler meets it, and that order is the whole bug.
 //
-//   deno run -A type-order.ts <wazmrt.exe> <file.wat> <out dir>
+//   bun type-order.ts <wazmrt.exe> <file.wat> <out dir>
 
-const [exe, wat, outDir] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [exe, wat, outDir] = process.argv.slice(2);
+await mkdir(outDir, { recursive: true });
 
 async function run(cmd: string, args: string[]): Promise<string> {
-  const r = await new Deno.Command(cmd, { args, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, stdout: "piped", stderr: "piped" });
   if (r.code !== 0) throw new Error(`${cmd} ${args.join(" ")}: ${new TextDecoder().decode(r.stderr)}`);
   return new TextDecoder().decode(r.stdout);
 }

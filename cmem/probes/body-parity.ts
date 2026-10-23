@@ -8,24 +8,28 @@
 //   other     still different — export order (I13), type interning order (I14), or new
 //   refused   one of the two would not assemble it
 //
-//   deno run -A body-parity.ts <wazmrt.exe> <corpus dir> <out dir> [--list]
+//   bun body-parity.ts <wazmrt.exe> <corpus dir> <out dir> [--list]
 //
 // Baseline in the letter (2026-09-20): bodies differ on 464/528, 460 fixed by regrouping alone.
 // Expect 0 differ once I12-I14 are fixed; invert by breaking one fix and watching a class reappear.
 
-const [exe, corpus, outDir] = Deno.args;
-const list = Deno.args.includes("--list");
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { output } from "./run.ts";
+
+const argv0 = process.argv.slice(2);
+const [exe, corpus, outDir] = argv0;
+const list = argv0.includes("--list");
 if (!exe || !corpus || !outDir) {
   console.error("usage: body-parity.ts <wazmrt.exe> <corpus dir> <out dir> [--list]");
-  Deno.exit(2);
+  process.exit(2);
 }
-await Deno.mkdir(outDir, { recursive: true });
+mkdirSync(outDir, { recursive: true });
 
 function walk(dir: string, acc: string[] = []): string[] {
-  for (const e of Deno.readDirSync(dir)) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = `${dir}/${e.name}`;
-    if (e.isDirectory && e.name !== "node_modules") walk(p, acc);
-    else if (e.isFile && e.name.endsWith(".wat")) acc.push(p);
+    if (e.isDirectory() && e.name !== "node_modules") walk(p, acc);
+    else if (e.isFile() && e.name.endsWith(".wat")) acc.push(p);
   }
   return acc;
 }
@@ -120,7 +124,7 @@ const eq = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v
 
 async function assemble(argv: string[]): Promise<boolean> {
   try {
-    const r = await new Deno.Command(argv[0], { args: argv.slice(1), stdout: "null", stderr: "null" }).output();
+    const r = await output(argv[0], { args: argv.slice(1), stdout: "null", stderr: "null" });
     return r.code === 0;
   } catch {
     return false;
@@ -146,7 +150,7 @@ async function worker() {
       tally.refused++;
       continue;
     }
-    const a = Deno.readFileSync(ours), b = Deno.readFileSync(theirs);
+    const a = new Uint8Array(readFileSync(ours)), b = new Uint8Array(readFileSync(theirs));
     const tb = body(b, false);
     const ab = body(a, false);
     localBytesOurs += ab.length;

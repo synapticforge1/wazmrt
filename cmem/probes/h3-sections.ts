@@ -1,10 +1,12 @@
 // Letter H3 — measure a Markdown file's structure: every `##`/`###` heading with its line number and
 // the BYTES under it, so the cut is planned against numbers, not impressions.
 //
-//   deno run -A h3-sections.ts <file.md>
+//   bun h3-sections.ts <file.md>
 
-const [file] = Deno.args;
-const lines = Deno.readTextFileSync(file).split("\n");
+import { readFileSync } from "node:fs";
+
+const [file] = process.argv.slice(2);
+const lines = readFileSync(file, "utf8").split("\n");
 const enc = new TextEncoder();
 type Sec = { line: number; level: number; title: string; bytes: number };
 const secs: Sec[] = [{ line: 1, level: 0, title: "(preamble)", bytes: 0 }];

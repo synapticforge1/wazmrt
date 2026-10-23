@@ -2,10 +2,13 @@
 // Which TEXT forms does wazmrt assemble today, and does wasm-tools accept each? Folded and flat,
 // every legacy instruction: try / catch / catch_all / rethrow / delegate.
 //
-//   deno run -A forms.ts <wazmrt.exe> <out dir>
+//   bun forms.ts <wazmrt.exe> <out dir>
 
-const [exe, outDir] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir, writeFile } from "node:fs/promises";
+import { output } from "../run.ts";
+
+const [exe, outDir] = process.argv.slice(2);
+await mkdir(outDir, { recursive: true });
 
 const forms: Record<string, string> = {
   "flat try/catch": `(module (tag $e) (func try catch $e end))`,
@@ -21,7 +24,7 @@ const forms: Record<string, string> = {
 };
 
 async function run(cmd: string, args: string[]) {
-  const r = await new Deno.Command(cmd, { args, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, stdout: "piped", stderr: "piped" });
   return { code: r.code, text: (new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr)).trim().split("\n")[0] };
 }
 
@@ -29,7 +32,7 @@ console.log(`${"form".padEnd(30)} ${"wasm-tools".padEnd(12)} wazmrt`);
 let n = 0;
 for (const [name, src] of Object.entries(forms)) {
   const f = `${outDir}/form-${n++}.wat`;
-  await Deno.writeTextFile(f, src + "\n");
+  await writeFile(f, src + "\n");
   const t = await run("wasm-tools", ["validate", "--features=all", f]);
   const w = await run(exe, ["wat", f, "-o", `${f}.wasm`]);
   console.log(`${name.padEnd(30)} ${(t.code === 0 ? "valid" : "INVALID").padEnd(12)} ${w.code === 0 ? "assembles" : "✗ " + w.text.slice(0, 70)}`);

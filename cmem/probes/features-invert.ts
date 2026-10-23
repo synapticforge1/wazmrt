@@ -5,9 +5,12 @@
 // Builds FIRST — a sabotage that does not compile is "no verdict", never "unguarded". Each edit
 // must match EXACTLY once. Every touched file is restored in `finally` and re-checked byte for byte.
 //
-//   deno run -A features-invert.ts <repo root>
+//   bun features-invert.ts <repo root>
 
-const [root] = Deno.args;
+import { readFile, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [root] = process.argv.slice(2);
 type Inv = { name: string; file: string; from: string; to: string };
 
 const inversions: Inv[] = [
@@ -27,12 +30,12 @@ const inversions: Inv[] = [
 ];
 
 async function run(cmd: string, args: string[]) {
-  const r = await new Deno.Command(cmd, { args, cwd: root, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, cwd: root, stdout: "piped", stderr: "piped" });
   return { code: r.code, out: new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr) };
 }
 
 const originals = new Map<string, string>();
-for (const inv of inversions) if (!originals.has(inv.file)) originals.set(inv.file, await Deno.readTextFile(`${root}/${inv.file}`));
+for (const inv of inversions) if (!originals.has(inv.file)) originals.set(inv.file, await readFile(`${root}/${inv.file}`, "utf8"));
 
 let unguarded = 0;
 try {
@@ -40,7 +43,7 @@ try {
     const orig = originals.get(inv.file)!;
     const hits = orig.split(inv.from).length - 1;
     if (hits !== 1) throw new Error(`${inv.name}: anchor matched ${hits} times in ${inv.file}, expected 1`);
-    await Deno.writeTextFile(`${root}/${inv.file}`, orig.replace(inv.from, inv.to));
+    await writeFile(`${root}/${inv.file}`, orig.replace(inv.from, inv.to));
     const build = await run("zig", ["build"]);
     if (build.code !== 0) {
       console.log(`⚠️  ${inv.name}: SABOTAGE DID NOT COMPILE — no verdict\n    ${build.out.split("\n").find((l) => l.includes("error:"))}`);
@@ -51,13 +54,13 @@ try {
       if (!caught) unguarded++;
       console.log(`${caught ? "✅" : "❌"} ${inv.name}: ${caught ? "tests FAIL" : "tests still PASS — UNGUARDED"}`);
     }
-    await Deno.writeTextFile(`${root}/${inv.file}`, orig);
+    await writeFile(`${root}/${inv.file}`, orig);
   }
 } finally {
-  for (const [f, text] of originals) await Deno.writeTextFile(`${root}/${f}`, text);
+  for (const [f, text] of originals) await writeFile(`${root}/${f}`, text);
 }
 for (const [f, text] of originals) {
-  const now = await Deno.readTextFile(`${root}/${f}`);
+  const now = await readFile(`${root}/${f}`, "utf8");
   console.log(`${f} restored byte-for-byte: ${now === text ? "yes" : "NO — INVESTIGATE"}`);
 }
 console.log(unguarded === 0 ? "\nALL GUARDED" : `\n${unguarded} piece(s) without a verdict or unguarded`);

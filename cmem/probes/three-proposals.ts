@@ -2,10 +2,13 @@
 // tools IMPLEMENT them — wasm-tools validates, wasmtime compiles and RUNS — by default, or only
 // behind a flag? One small valid module per proposal.
 //
-//   deno run -A three-proposals.ts <out dir>
+//   bun three-proposals.ts <out dir>
 
-const [outDir] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdir, writeFile } from "node:fs/promises";
+import { output } from "./run.ts";
+
+const [outDir] = process.argv.slice(2);
+await mkdir(outDir, { recursive: true });
 
 const cases: Array<{ name: string; wat: string; wasmtimeFlags: string[] }> = [
   {
@@ -31,14 +34,14 @@ const cases: Array<{ name: string; wat: string; wasmtimeFlags: string[] }> = [
 ];
 
 async function run(cmd: string, args: string[]) {
-  const r = await new Deno.Command(cmd, { args, stdout: "piped", stderr: "piped" }).output();
+  const r = await output(cmd, { args, stdout: "piped", stderr: "piped" });
   const text = (new TextDecoder().decode(r.stdout) + new TextDecoder().decode(r.stderr)).replace(/\s+/g, " ").trim();
   return r.code === 0 ? "✅ ok" : `❌ ${text.replace(/^.*?(error|Error)[: ]*/, "").slice(0, 110)}`;
 }
 
 for (const [i, c] of cases.entries()) {
   const wat = `${outDir}/p${i}.wat`, wasm = `${outDir}/p${i}.wasm`;
-  await Deno.writeTextFile(wat, c.wat + "\n");
+  await writeFile(wat, c.wat + "\n");
   console.log(`\n== ${c.name}`);
   const parsed = await run("wasm-tools", ["parse", wat, "-o", wasm]);
   console.log(`   wasm-tools parse                 ${parsed}`);

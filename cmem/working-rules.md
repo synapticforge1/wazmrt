@@ -108,8 +108,10 @@ commit.
   heredoc ban below is unchanged), and a script that turns out to be needed again — or that produced a
   number someone will quote — is promoted to Bun and saved under [`probes/`](probes/README.md) before
   it is committed.
-- ⏳ **Still on Deno, to port under the proof rule:** the committed probes in `cmem/probes/` (26
-  files, 2026-10-23). They keep running under Deno while it is installed.
+- ✅ **No committed script runs on Deno any more** (2026-10-23). The 25 probes in `cmem/probes/` were
+  ported the same day; the earlier "26" counted the README, which `git grep -l Deno.` also
+  matched. A probe that spawns a process goes through [`probes/run.ts`](probes/run.ts), which keeps
+  `Deno.Command`'s result shape and `env` merging.
 
 🚫 **Never pass a script to an interpreter through a shell heredoc.** `cmd <<'EOF' … EOF` adds an
 invisible escaping layer and **fails silently more often than loudly** — three distinct corruptions in
@@ -180,6 +182,10 @@ Track B-c2 spent a day closing.
 ```
 ZIG_LOCAL_CACHE_DIR=C:\zig-cache\wazmrt        # or: zig build --cache-dir C:\zig-cache\wazmrt
 ```
+
+*(`C:\zig-cache\wazmrt` is a CONVENTION, not a personal path: it names nothing about one machine and
+works on any Windows host with an NTFS `C:`. The owner confirmed it is fine in a committed file
+(2026-10-23). The privacy rule's test is "is it machine-specific?", not "is it absolute?".)*
 
 Verified this way from `D:\…\wazmrt` directly: `zig build`, `dll`, `size` (all three ceilings
 EXACT), `test` and `test-safe` (633 tests), `features` — all green, repeatedly, in one cache.

@@ -5,26 +5,29 @@
 //
 // Behavioural measurement of the sibling's BUILT binary only: nothing is written to its tree.
 //
-//   deno run -A pin-parity.ts <wazmrt.exe> <wasmrt.exe | wasm-tools> <corpus dir> <out dir>
+//   bun pin-parity.ts <wazmrt.exe> <wasmrt.exe | wasm-tools> <corpus dir> <out dir>
 //
 // Pass the literal `wasm-tools` as the second argument to compare against the canonical assembler
 // (`wasm-tools parse`) instead of the sibling runtime.
 
-const [ours, theirs, corpus, outDir] = Deno.args;
-await Deno.mkdir(outDir, { recursive: true });
+import { mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { output } from "./run.ts";
+
+const [ours, theirs, corpus, outDir] = process.argv.slice(2);
+mkdirSync(outDir, { recursive: true });
 
 function walk(dir: string, acc: string[] = []): string[] {
-  for (const e of Deno.readDirSync(dir)) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = `${dir}/${e.name}`;
-    if (e.isDirectory && e.name !== "node_modules") walk(p, acc);
-    else if (e.isFile && e.name.endsWith(".wat")) acc.push(p);
+    if (e.isDirectory() && e.name !== "node_modules") walk(p, acc);
+    else if (e.isFile() && e.name.endsWith(".wat")) acc.push(p);
   }
   return acc;
 }
 async function assemble(exe: string, f: string, o: string): Promise<boolean> {
   try {
     const sub = exe === "wasm-tools" ? "parse" : "wat";
-    const r = await new Deno.Command(exe, { args: [sub, f, "-o", o], stdout: "null", stderr: "null" }).output();
+    const r = await output(exe, { args: [sub, f, "-o", o], stdout: "null", stderr: "null" });
     return r.code === 0;
   } catch {
     return false;
@@ -40,7 +43,7 @@ async function worker() {
     const a = `${outDir}/w-${n}.wasm`, b = `${outDir}/r-${n}.wasm`;
     const [okA, okB] = await Promise.all([assemble(ours, files[n], a), assemble(theirs, files[n], b)]);
     if (!okA || !okB) { refused++; continue; }
-    if (eq(Deno.readFileSync(a), Deno.readFileSync(b))) agree++; else differ++;
+    if (eq(readFileSync(a), readFileSync(b))) agree++; else differ++;
   }
 }
 await Promise.all(Array.from({ length: 8 }, worker));

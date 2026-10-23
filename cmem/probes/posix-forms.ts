@@ -2,13 +2,15 @@
 // including names that are legal on POSIX and impossible on Windows, then runs
 // wazmrt with no shell in the argv path.
 //
-//   deno run -A posix-forms.ts <wazmrt> <abs module.wat>
+//   bun posix-forms.ts <wazmrt> <abs module.wat>
 
-const exe = Deno.args[0];
-const mod = Deno.args[1];
+import { mkdirSync } from "node:fs";
+import { output } from "./run.ts";
+
+const [exe, mod] = process.argv.slice(2);
 
 for (const d of ["data", "q", "a:b", "back\\slash"]) {
-  await Deno.mkdir(d, { recursive: true });
+  mkdirSync(d, { recursive: true });
 }
 
 const cases: Array<[string, string]> = [
@@ -38,11 +40,11 @@ const cases: Array<[string, string]> = [
 console.log("| --dir spec | rc | first line | expectation |");
 console.log("| --- | --- | --- | --- |");
 for (const [s, want] of cases) {
-  const out = await new Deno.Command(exe, {
+  const out = await output(exe, {
     args: [mod, "--dir", s],
     stdout: "piped",
     stderr: "piped",
-  }).output();
+  });
   const txt = (new TextDecoder().decode(out.stdout) +
     new TextDecoder().decode(out.stderr)).trim().split("\n")[0] ?? "";
   const expectOk = want.startsWith("✅");

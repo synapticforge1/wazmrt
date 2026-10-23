@@ -2,13 +2,16 @@
 // the INDEX.md of a baseline commit by line range (a rewrite by hand is where a rule silently changes).
 // open-work.md and the milestone summary are written separately, by hand, and reviewed on their own.
 //
-//   deno run -A h3-build.ts <repo root> <baseline commit>
+//   bun h3-build.ts <repo root> <baseline commit>
 //
 // Every range is ASSERTED to start with the heading it is expected to start with, so a baseline that
 // has moved fails loudly instead of copying the wrong lines.
 
-const [root, baseline] = Deno.args;
-const r = await new Deno.Command("git", { args: ["show", `${baseline}:cmem/INDEX.md`], cwd: root, stdout: "piped" }).output();
+import { writeFileSync } from "node:fs";
+import { output } from "./run.ts";
+
+const [root, baseline] = process.argv.slice(2);
+const r = await output("git", { args: ["show", `${baseline}:cmem/INDEX.md`], cwd: root, stdout: "piped" });
 const old = new TextDecoder().decode(r.stdout).split("\n");
 
 /** Lines [from, to] (1-based, inclusive), asserting the first line starts with `expect`. */
@@ -105,8 +108,8 @@ ${files.map(([f, d]) => `| [${f}](${f}) | ${d} |`).join("\n")}
 ${take(795, 800, "## Related files outside cmem").trimEnd()}
 `;
 
-Deno.writeTextFileSync(`${root}/cmem/working-rules.md`, workingRules);
-Deno.writeTextFileSync(`${root}/cmem/INDEX.md`, index);
+writeFileSync(`${root}/cmem/working-rules.md`, workingRules);
+writeFileSync(`${root}/cmem/INDEX.md`, index);
 const kb = (s: string) => (new TextEncoder().encode(s).length / 1024).toFixed(1);
 console.log(`INDEX.md          ${kb(index)} KB (was ${kb(old.join("\n"))} KB)`);
 console.log(`working-rules.md  ${kb(workingRules)} KB`);

@@ -38,12 +38,11 @@ in `tools/size-ceilings.txt`, one place each.
   (`.claude/settings.local.json` untracked and gitignored, `design-decisions.md`'s drive path → a
   placeholder, real paths in the gitignored `cmem/local/`). **H20** — not applicable: wazmrt has no
   CI workflows and publishes to no registry, so no trusted-publishing policy pins its owner ID.
-  **H21** — addressed (contract v31). **H15** — addressed for everything `build.zig` runs:
-  `tools/{phases,bakeoff,emitter-diff}.mjs` and the FFI demo (now `examples/bun_ffi_capi.mjs`) run
-  under Bun, each proven against its Deno original. Owner, 2026-10-23: `build.zig`'s Zig tools are
-  build steps, not scripts, and one-time scripts are relaxed (`working-rules.md` → TOOLING).
-  ⏳ **Still open under H15: port the 26 Deno probes in `cmem/probes/` to Bun**, each under the
-  proof rule. **H19** — ✅ done 2026-10-23 (owner: yes to the purge and the force-push): every
+  **H21** — addressed (contract v31). **H15** — ✅ addressed: no committed script runs on Deno.
+  `tools/{phases,bakeoff,emitter-diff}.mjs`, the FFI demo (now `examples/bun_ffi_capi.mjs`) and the
+  25 probes in `cmem/probes/` run under Bun, each proven against its Deno original. Owner,
+  2026-10-23: `build.zig`'s Zig tools are build steps, not scripts, and one-time scripts are relaxed
+  (`working-rules.md` → TOOLING). **H19** — ✅ done 2026-10-23 (owner: yes to the purge and the force-push): every
   commit rewritten, with no drive path in any tree or message, the noreply address as author and
   committer, and the final tree byte-identical. **Every commit id changed**: old ids (in older
   trees, in the workspace's letters, in GitHub's cache) are looked up in
