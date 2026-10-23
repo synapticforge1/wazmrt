@@ -20,7 +20,7 @@ what earns it.
 > ⚠️ **The ladder moves** (also a reading of "release 1.0.3 now", to confirm): `1.0.3` was reserved for
 > Track O, so Track O and Track S now take the next numbers.
 >
-> ✅ **Checklist run 2026-09-21, every gate:** the full gate list was re-run at `8e18cab0a` the same
+> ✅ **Checklist run 2026-09-21, every gate:** the full gate list was re-run at `25ee73588` the same
 > hour — `test` 823/823 (NTFS cwd), `test-safe` and `test-shipped` 817/821 from `D:` (the four exFAT
 > skips; the constant gap of 2 is `version_agreement`), `test-security` 3/3 (NTFS), conformance 288 /
 > 64,092 / 0 / 0 with the baseline file empty, `features` 4/4, `capi-smoke` ✅ — and after the bump:

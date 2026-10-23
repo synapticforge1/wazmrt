@@ -5,14 +5,14 @@
 > written into this repo from outside. (owner directive, 2026-09-20)
 >
 > 🔤 **ID namespace (owner, 2026-09-21):** a bare `H<n>` means a WORKSPACE LETTER; wazmrt's own
-> Track H items are `zH1`–`zH8` (renamed in `50f5bf417` — the two had collided).
+> Track H items are `zH1`–`zH8` (renamed in `da4e558cf` — the two had collided).
 
 This folder is the **authoritative, portable project memory** for `wazmrt`: committed, it travels with
 the repo. **Format:** plain Markdown, one topic per file, and **this file stays small** — policy,
 triggers, one line per file. ⚠️ No status narrative here: the state lives in
 [`open-work.md`](open-work.md) and nowhere else, and completed work is summarized in
 [`roadmap.md`](roadmap.md) with its commits (`../../cmem/memory-conventions.md`, adopted 2026-09-21 by
-letter H3; the file this replaced was 192 KB — `git show 21d633b6c:cmem/INDEX.md`).
+letter H3; the file this replaced was 192 KB — `git show 3f1bfbc1d:cmem/INDEX.md`).
 
 **Reading order for a new session:** this file → [`open-work.md`](open-work.md) →
 [`working-rules.md`](working-rules.md) → the topic file the task needs.
@@ -131,6 +131,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | [text-toolchain.md](text-toolchain.md) | The `.wat`/`.wast` assembler and script runner: spellings accepted, encoding decisions. |
 | [licensing.md](licensing.md) | Why `MIT OR Apache-2.0`, the zero-dependency verification, the reference-code obligations. |
 | [reference-projects.md](reference-projects.md) | The reference runtimes studied, and what each was used for (the retired-oracle scope is in `interop.md`). |
+| [history-map-2026-10-23.md](history-map-2026-10-23.md) | Old → new commit ids after the 2026-10-23 history purge (H19): look up any pre-purge id here. |
 | [probes/README.md](probes/README.md) | 📂 Measurement scripts kept with the memory (owner: scratch work belongs in cmem): how to run each, and the dated results. |
 
 ## Related files outside cmem

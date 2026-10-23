@@ -5,7 +5,7 @@ fixed** — each is safe *today* but will bite a specific future integration. Th
 the **"Surfaces when"** field: before starting one of those integrations, grep this file for the
 milestone and fix the listed items first.
 
-The audit's *fixed* items are in git (commit `d1fae13` — table-export index, instantiation-path leaks,
+The audit's *fixed* items are in git (commit `67eb427` — table-export index, instantiation-path leaks,
 `parseGlobal` OOB, `table.size/grow` `@intCast` panic, dead `ExportNotFunction`, stale doc comments).
 This file tracks only what's left.
 
@@ -1134,7 +1134,7 @@ as unauthorized rather than having its contents inspected and reported on.
   same two, so the runtimes now agree exactly — **532 valid, 2 invalid**.
 - The `.wast` runner is untouched (`if.wast` 216/0, `start.wast` 10/0).
 
-🔒 **This is deliberate oracle drift.** wazmrt was frozen at `dadc727` as the reference oracle for the
+🔒 **This is deliberate oracle drift.** wazmrt was frozen at `d0deab4` as the reference oracle for the
 Rust port; the owner authorized the change in both repos concurrently, and wasmrt's
 `scripts/wazmrt-baseline.txt` was re-baselined in the same breath rather than left for
 `check-wazmrt.sh` to report later as an accident.
@@ -1466,15 +1466,15 @@ live reference implementation, cross-checked against **wasmtime**.
 - **Item 7 — the 2 malformed corpus files: NOT a bug.** The top-level `SumSquared.wat`/`loop.wat` have
   stray line-number digits injected into the source (`(export 1"SumSquared")`, `(6local.get`); any
   conformant parser rejects them. Correct rejection, nothing to fix.
-- **Item 6 — import order preserved** (`6273069`). The assembler collected imports into four per-kind
+- **Item 6 — import order preserved** (`5d39728`). The assembler collected imports into four per-kind
   lists and emitted them grouped; a source order interleaving kinds was lost, and that order is the
   positional linking ABI a C-ABI embedder builds its extern vector against. A source-order tag list now
   drives the section emit; per-kind indices are unchanged.
-- **Item 5 — `delegate` uniformly REFUSED** (`8647784`). Still not *routed* (no oracle — wasmtime and V8
+- **Item 5 — `delegate` uniformly REFUSED** (`d99b9bb`). Still not *routed* (no oracle — wasmtime and V8
   dropped legacy EH; its parser rejects `(try …)` outright), but the earlier inconsistency is closed: the
   validator rejects `delegate` and the runtime traps if one is reached while unwinding, matching the
   assembler's rejection. No "validates yet mis-runs" gap remains.
-- **Item 4 — GC constant expressions** (`363e764`). `struct.new`/`struct.new_default`/`array.new`/
+- **Item 4 — GC constant expressions** (`a9238c1`). `struct.new`/`struct.new_default`/`array.new`/
   `array.new_default`/`array.new_fixed`/`ref.i31` in const-exprs, end to end (decoder `skipConstExpr` now
   skips their immediates; the validator type-checks them; the evaluator allocates into the instance's
   under-construction GC heap at instantiation). **This closes the old `skipConstExpr` GC/SIMD-immediate
@@ -1482,13 +1482,13 @@ live reference implementation, cross-checked against **wasmtime**.
   exposed: the abstract GC ref matchers (`(ref.struct)`/`(ref.array)`/`(ref.i31)`/…) were unhandled and
   *aborted the whole file*; they now match "non-null reference". Values cross-checked against wasmtime;
   gc/ spec dir 149→204 passed.
-- **Item 2 — multi-memory TEXT assembly** (`baefac2`). The runtime supported multi-memory since Phase 7;
+- **Item 2 — multi-memory TEXT assembly** (`5fcd36b`). The runtime supported multi-memory since Phase 7;
   only the assembler deferred it. Now: multiple `(memory …)`, the bit-6 memarg form (`i32.load $m …`),
   `memory.size/grow/fill $m`, `memory.copy $dst $src`, `memory.init $mem $data`, `(data (memory $m) …)`,
   and `(export … (memory $m))`. Also fixed a `.wast`-runner linking bug it exposed —
   `resolveMemoryImport` returned `memory0()`, linking every imported memory to the exporter's FIRST one.
   Multi-memory spec dir: full rejection → 764/4 (the 4 are pre-existing table/import-limits edges).
-- **Item 1 — threads/ATOMICS (`0xFE`)** (`3554e38`). The whole ~66-op family, from scratch across all four
+- **Item 1 — threads/ATOMICS (`0xFE`)** (`e43c7d6`). The whole ~66-op family, from scratch across all four
   layers (mirrors SIMD's `Op.simd` + sub-opcode): notify/wait32/wait64, `atomic.fence`, atomic
   loads/stores (all widths), rmw/cmpxchg (add/sub/and/or/xor/xchg/cmpxchg), plus the `shared` memory
   flag. Single-threaded semantics: every rmw is trivially atomic, fence is a no-op, a misaligned access
@@ -1496,7 +1496,7 @@ live reference implementation, cross-checked against **wasmtime**.
   wait returns 1 on mismatch / 2 (timed-out) on a match. **The entire threads `atomic.wast` suite passes:
   302/0**; values cross-checked against wasmtime (`-W threads=y`).
 
-- **Item 3 — memory64 (i64 memory addresses)** (`1991daa`, 2026-07-27). The last unimplemented proposal,
+- **Item 3 — memory64 (i64 memory addresses)** (`b18b7b5`, 2026-07-27). The last unimplemented proposal,
   now end to end. A memory declared `i64` uses 64-bit addresses; its `memory.size`/`grow` operate in i64.
   The address *type* is per-memory, so every memory instruction consults the target memory's index type.
   - **`Module.zig`**: `readLimits` parses the 64-bit flag (bit 2); `Limits`/`Memory` carry `is64` and page
@@ -1576,7 +1576,7 @@ by the 2026-07-21 batches — annotated as since-fixed at each site.)
 - **#18** — Windows `Io.openFile(.follow_symlinks=false)` returns a broken async handle; worked around in
   `wPathOpen`, leaving #17's final-component TOCTOU residual. Rechecked on every Zig upgrade.
 
-## Post-memory64 audit (2026-07-27 "look for code issues") — 4 fixed (`f478f79`)
+## Post-memory64 audit (2026-07-27 "look for code issues") — 4 fixed (`85275c2`)
 
 Four parallel investigators over the fresh memory64 code found two real gaps the feature commit's own
 tests didn't reach — both the memory64×{u64-offset, SIMD} intersections, i.e. exactly the combinations no
@@ -1611,7 +1611,7 @@ on i32 (both cross-checked vs wasmtime); +3 regression tests in `wat.zig`. **479
 Debug AND ReleaseSafe; c-smoke 319/319. SIMD spec suite 24,956/1; memory64 spec 601/1** — the two "1"s are
 pre-existing/out-of-scope, not regressions.
 
-**All four deferred items CLOSED same day (`e276d09`)** — all `wat.zig` assembler surface, each verified by
+**All four deferred items CLOSED same day (`09d6bae`)** — all `wat.zig` assembler surface, each verified by
 executing the result (values cross-checked vs wasmtime where a live oracle exists):
 - **Multi-memory SIMD text** — `v128.load8_lane $m 1 …` / `v128.store $b …` now assemble (the leading
   explicit memory index emits the bit-6 memarg form). memidx and laneidx are both bare numbers, so the
@@ -1631,7 +1631,7 @@ Net of closing the deferred list: full main testsuite 60,310 → **60,668 passed
 delta is these changes; no regression), memory64 dir unchanged at 601/1. +4 regression tests; **483 local
 tests green under Debug AND ReleaseSafe; c-smoke 319/319.**
 
-**Then the last assembler gap — `tag` imports — was closed (`49e5284`).** The WAT assembler now emits
+**Then the last assembler gap — `tag` imports — was closed (`1474219`).** The WAT assembler now emits
 imported exception tags in both abbreviations: `(import "m" "n" (tag $id? (param …)*|(type $t)))` and the
 inline `(tag $id? (import "m" "n") (param …)*)`. Tag imports already worked at the binary/runtime level
 since Phase 6.2; only the text form was missing. `ImportedTag`/`tag_imports` mirror the memory-import
@@ -1643,14 +1643,14 @@ catch by its index-0 identity → 42; the two forms are byte-identical) and cros
 319/319; full main testsuite 60,668 → 60,670 passed.** **The WAT assembler now has NO remaining known
 gaps** — every construct across every proposal wazmrt targets has text-assembly support.
 
-## Assembler audit 2026-07-27 ("look for code issues") — 3 fixed (`436196e`)
+## Assembler audit 2026-07-27 ("look for code issues") — 3 fixed (`858c984`)
 
 Four parallel investigators over the fresh assembler code. **interp/validate came back clean** (13+ prior
 passes have saturated the numeric/control/GC/typing classes — verdict re-confirmed by an end-to-end trace).
 **The memory64 u64 ripple through the decoder + C ABI came back clean** (`readVarU64` bounded, offset never
 re-narrowed, `limitsOf` saturates not corrupts). Three real bugs, all in THIS session's own `wat.zig`
 changes, each verified by executing the result:
-- **HIGH (a regression from `e276d09`)** — a **flat-form** SIMD memory op swallowed the FOLLOWING
+- **HIGH (a regression from `09d6bae`)** — a **flat-form** SIMD memory op swallowed the FOLLOWING
   instruction. The multi-memory memidx change made the atom-run collection greedy (`while
   items[j].asAtom() != null`), but in flat/stack form `items` is the whole sibling sequence, so `v128.load
   drop …` ate `drop` as a memidx → `BadImmediate` (false-**rejection** of valid WAT, not wrong bytes).
@@ -1670,7 +1670,7 @@ changes, each verified by executing the result:
 +2 regression tests; **487 local tests green (Debug + ReleaseSafe); c-smoke 319/319; SIMD spec suite
 24,956/0; full main testsuite 60,670 (no regression).**
 
-**All four noted-LOW items CLOSED same day (`bc39e89`):**
+**All four noted-LOW items CLOSED same day (`f21c63a`):**
 - **Table-entry OOM amplification** — a defined table's `min` (up to 2^32-1) was allocated eagerly with no
   budget, so `(table 0xffffffff funcref)` demanded ~32 GiB. Added a per-instance `max_table_elems` ceiling
   (default 2^27 ≈ 1 GiB of `Value` slots), summed across defined tables at instantiation and enforced again
@@ -1690,7 +1690,7 @@ changes, each verified by executing the result:
 +3 regression tests; **491 local tests green (Debug + ReleaseSafe); c-smoke 319/319; full main testsuite
 60,670 / memory64 601/1 (no regression).**
 
-### Follow-up audit of the noted-LOW fixes (2026-07-27, `937739c`) — the fixes verified clean, 1 consistency item
+### Follow-up audit of the noted-LOW fixes (2026-07-27, `c8c8bdf`) — the fixes verified clean, 1 consistency item
 
 Three parallel investigators over the four noted-LOW fixes. **The riskiest change — `Reader.readVarS33`,
 on the hottest decode path (every block/heap type) — was verified CORRECT bit by bit** (mask `0x1f`, sign
@@ -1699,7 +1699,7 @@ encodings; **no silent value-change vs the old `readVarI64` for any valid input*
 malformed s33). The **table-entry budget** (overflow-safe sum, alloc-after-check ordering, errdefer
 interaction, Instance-field wiring, CLI plumbing) and the **C-ABI saturating casts + `resolveTagSig`** were
 all confirmed correct; sign/pin/`wasm_c_api` refcounts/wasi narrowing-casts came back clean and (sign/pin)
-fail-closed. **One actionable item:** the s33 strictness added in `bc39e89` had not been applied to the
+fail-closed. **One actionable item:** the s33 strictness added in `f21c63a` had not been applied to the
 OTHER three genuine s33 reads in the decoder — `Module.readHeapTypeRef` (type-section `(ref null? ht)`),
 `skipConstExpr` (`ref.null`), and `skipValType` (`(ref ht)`) — which still accepted over-long/out-of-range
 s33 via `readVarI64`. Now all three use `readVarS33`, so s33 rejection is uniform across every decode
@@ -1707,7 +1707,7 @@ surface. No change for any valid input (full main testsuite 60,670 unchanged; 49
 ReleaseSafe; c-smoke 319/319). *Lesson (again): when a strictness fix lands on one reader, sweep for its
 siblings — the same class of read on a different section.*
 
-### Legacy `try`/`catch` infinite loop — FIXED 2026-07-27 (`d51c004`, found by the wasmtk WASI corpus)
+### Legacy `try`/`catch` infinite loop — FIXED 2026-07-27 (`7b27485`, found by the wasmtk WASI corpus)
 
 Running the full wasmtk WASI corpus (then 397 runnable files across `wasm_wasi` + `wasm_wasi_bundle`;
 `wasm_wasi_dync`'s 3 were out of scope at the time — wasmtk's dynamic-runtime host, which wasmtime also
@@ -1729,7 +1729,7 @@ corner that hid this — real-corpus execution was the oracle.** 493 local tests
 
 ## Code audit 2026-07-19 ("look for code issues") — 8 fixed, a few deferred
 
-**FIXED in git (`d0dddc5`)** — 3 parallel auditors (security / SIMD / sweep): **decodeSimd lane-bounds guard**
+**FIXED in git (`6f55ff2`)** — 3 parallel auditors (security / SIMD / sweep): **decodeSimd lane-bounds guard**
 (out-of-range extract/replace/load_lane/store_lane lane → was an OOB read, and an OOB **stack write** for
 replace/load_lane, since the CLI run path does NOT re-validate); **`sub_sat_u` unsigned-wide underflow**
 (→ 255/panic instead of 0); **`i64x2.all_true`/`bitmask`** (0xc3/0xc4 missing from `execSimd` → trapped);
@@ -1951,7 +1951,7 @@ entries are kept below as the dated record of when each was open:
 ### Integer-overflow-UB sweep — DONE 2026-07-20 (6th "check for code issues", memory-safety-only)
 
 Targeted pass ("fix any memory-unsafe issues"): 3 auditors re-checked the C-ABI import-ref lifecycle
-(commit `c6ff764e`), the `wasi.zig` guest-memory paths, and the `interp.zig` exec/instantiation memory ops.
+(commit `9dd9139c`), the `wasi.zig` guest-memory paths, and the `interp.zig` exec/instantiation memory ops.
 Two of the three came back **clean** (see below); `wasi.zig` had a real class the earlier "contained-u32-
 offset" note missed — **unchecked `@intCast`/`+` narrowings of 64-bit byte counts → ReleaseFast integer UB**
 on the *shipped native* target. All FIXED:
@@ -1972,7 +1972,7 @@ on the *shipped native* target. All FIXED:
 
 These trigger only at multi-GB scale or on wasm32, so a native Debug unit test would need impractical huge
 allocations — verified by code review (a checked cast replaces each unchecked one), the clean full suite, and
-all three targets building. **CLEAN this pass:** the C-ABI `c6ff764e` retain/release is balanced (no
+all three targets building. **CLEAN this pass:** the C-ABI `9dd9139c` retain/release is balanced (no
 `vec_owned`/export-handle ref enters `import_refs`; error paths leak-free; delete ordering correct; no
 `destroyRef` recursion), and the `interp.zig` data/element-segment init, bulk `memory.*`/`table.*`, load/store
 EA, GC-heap/`exn_store` lifecycle, and SIMD lane indexing are all overflow-safe (`@as(u64,x)+n>len` form,
@@ -3015,7 +3015,7 @@ gate still 16/16 (no over-restriction).
 **Anchor:** `walkFull`/`resolveArg` + the module doc in `src/wasi.zig`;
 `examples/wasi_symlink_traversal.zig`.
 
-## RESOLVED 2026-07-09 (second pass — commit `645874c`)
+## RESOLVED 2026-07-09 (second pass — commit `e6e8d57`)
 
 Adding `assert_invalid`/`assert_malformed`/`assert_exhaustion` to the WAST runner made the
 soundness gaps observable, so they were fixed together:
@@ -3032,7 +3032,7 @@ soundness gaps observable, so they were fixed together:
 - **#8 DONE** — `align=` over-natural is now a validation error (the assembler still doesn't reject a
   non-power-of-two `align=` literal, but no test exercises that path).
 
-Third pass (commit `c535de0`):
+Third pass (commit `0d8ca0a`):
 - **#2e DONE** — `ref.is_null` rejects a non-reference operand.
 - **#6 DONE** — the decoder validates value-type bytes (`readValType` / `ValType.isValid`) in func
   types, table element types, global content, and locals (reserved mutability/limits bytes were
@@ -3046,7 +3046,7 @@ Third pass (commit `c535de0`):
 correctness/soundness/dead-code/spec-strictness items remain. The real frontiers are now new *features*,
 not ledger debt: growing the wasm-c-api past introspection (instance/func/call), and **WASI preview 1**
 (in scope; preview 2/3 deferred until browser-standard, mirroring wasmtk). Since cleared: WAST-runner
-invoke-by-module-name (`9745ecb`, `linking.wast` 29 → 100) and the **function-references proposal**
+invoke-by-module-name (`70f2dd7`, `linking.wast` 29 → 100) and the **function-references proposal**
 (P1/P2/P2.5 — typed-ref value types, `call_ref`/`ref.as_non_null`/`br_on_null`, non-null refs +
 local-init; ~+130 ref-file passes, `func` 171/0). Remaining frontier proposals (the main sources of the
 rest of the `.wast` failures): **full GC (WasmGC — the NEXT major increment per the owner, ahead of the
@@ -3064,32 +3064,32 @@ is expected isn't caught (`local_tee` 96/1).
   remains in this group. `imports.wast` 26 → **132**.
 - **`assert_invalid` / `assert_malformed` support in the WAST runner**: #2, #6, #7, #8 — **all DONE**.
   These were *soundness / spec-strictness* gaps; the runner now executes the negative tests.
-- **Start-function support**: #3 **DONE** (`07dd244`).
-- **Host externref values** (embedding API passes real externrefs): #9 **DONE** (`994ee23`) — externrefs
+- **Start-function support**: #3 **DONE** (`5bfe4e2`).
+- **Host externref values** (embedding API passes real externrefs): #9 **DONE** (`3bdd9d7`) — externrefs
   are boxed to non-sentinel handles.
-- **Arbitrary / hand-written WAT** (beyond the testsuite's shape): #10 **DONE** (`3a50f75`, import-after-
-  def rejected); #12 (const-expr section ordering) **DONE** (`e500a51`); #8 (`align=` non-power-of-two)
-  **DONE** (`00bceb4`); #11 (defined-table inline `(export …)`) **DONE** (`ff3de4a`).
+- **Arbitrary / hand-written WAT** (beyond the testsuite's shape): #10 **DONE** (`62379e9`, import-after-
+  def rejected); #12 (const-expr section ordering) **DONE** (`acf2d62`); #8 (`align=` non-power-of-two)
+  **DONE** (`bfdf552`); #11 (defined-table inline `(export …)`) **DONE** (`8664d28`).
 - **Test fidelity, always-on**: #5 (`assert_trap`) **DONE**.
-- **Dead code / duplication**: #13 **DONE** (`78647f6`).
+- **Dead code / duplication**: #13 **DONE** (`c18f07b`).
 
 ---
 
 ## The list
 
 ### #1 — Host imports / `register` — **DONE, all three stages (2026-07-13)**
-- **Stage 1 (`bcf3a11`)** — imported **functions** + **`register`**: `Instance.HostFunc`
+- **Stage 1 (`dc9db52`)** — imported **functions** + **`register`**: `Instance.HostFunc`
   (`wasm{instance,func_index}` | `native fn`) dispatched from `callFunction`; the WAST runner keeps a
   module registry; the assembler emits the import section for top-level/inline func imports.
   `func_ptrs` 29/2 → 32/0.
-- **Stage 2 (`78c6b2b`)** — imported **tables & memories** as shared objects. Linear memory and tables
+- **Stage 2 (`c62bc67`)** — imported **tables & memories** as shared objects. Linear memory and tables
   became `*Memory{bytes,max}` / `*Table{entries,max}`: a defined one is owned/freed by its instance, an
   imported one (low indices) borrows a host-supplied object and is left alone at deinit. `memory.grow` /
   `table.grow` mutate the shared object in place so importers observe the new size. The runner backs
   `spectest.memory` (1 page, max 2) and `spectest.table` (10 funcref, max 20); the assembler emits
   `(import … (table|memory …))` (kinds 0x01/0x02) with imports taking the low indices. `data` 31 → 34/0,
   `elem` 47 → 52.
-- **Stage 3 (`1d6d9f2`)** — link-time **import type-checking** + `assert_unlinkable`: funcs by exact
+- **Stage 3 (`ce3f3a4`)** — link-time **import type-checking** + `assert_unlinkable`: funcs by exact
   signature, globals by content+mutability, tables/memories by element type + limits subtyping
   (`limitsFit`). Unknown name → `UnresolvedImport`; type mismatch → `IncompatibleImportType`;
   `assert_unlinkable` passes iff building fails with such a link error. `imports.wast` 44 → **132/32/7**.
@@ -3098,7 +3098,7 @@ is expected isn't caught (`local_tee` 96/1).
 and `(start …)` (#3, still dropped). `linking.wast`/`memory.wast` complete only under ReleaseFast (debug
 is too slow on their large grow tests), 19/84 and 66/13.
 
-### #2 — Validator over-acceptance (soundness) — **RESOLVED (2a–2e `645874c` 2026-07-09; 2f `bfe663e` 2026-07-19)**
+### #2 — Validator over-acceptance (soundness) — **RESOLVED (2a–2e `e6e8d57` 2026-07-09; 2f `3e3fa92` 2026-07-19)**
 `src/validate.zig` — several rules accepted invalid modules (never a wrong-output risk — execution traps
 safely). **All closed** (verified in code 2026-07-19): 2a untyped `select` rejects ref operands
 (`:537`); 2b `select_t` checks its annotation; 2c load/store require a memory section (`:606/612/840`,
@@ -3121,7 +3121,7 @@ the gaps are invisible). **Fix:** tighten each rule; verify against the `*.wast`
 blocks once the runner supports them (and re-baseline — stricter validation could reject a module that
 currently builds if the check is wrong).
 
-### #3 — Start function — **DONE (`07dd244`, 2026-07-13)**
+### #3 — Start function — **DONE (`5bfe4e2`, 2026-07-13)**
 Implemented end to end: `Module.decode` reads the start section (id 8) into `start: ?u32`; `validate`
 checks the start func exists and has type `[] → []` (`UndefinedFunc` / `InvalidStartFunction`);
 `interp.Instance.runStart()` runs it (no args) right after instantiation — called by the WAST runner and
@@ -3131,19 +3131,19 @@ imports (the memory export-skip loop had silently mis-parsed an inline import as
 `start.wast` 0 → **11/0/0**, `imports` 132 → 137, `memory` 66 → 69. **Out of scope:** `start0.wast`'s
 3 fails are the **multi-memory** proposal (memory-indexed loads `i32.load8_u $n` on a >1 memory space).
 
-### #4 — Non-`spectest` imported global silently defaults to 0 — **RESOLVED (`1d6d9f2`, #1 stage 3)**
+### #4 — Non-`spectest` imported global silently defaults to 0 — **RESOLVED (`ce3f3a4`, #1 stage 3)**
 `resolveGlobalImport` now resolves a global import to a registered module's exported global (its live
 value from the exporting instance) or a known `spectest` global, and errors (`UnresolvedImport` /
 `IncompatibleImportType`) instead of defaulting to 0. The type is checked (content + mutability) too.
 
-### #5 — `assert_trap` fidelity — **RESOLVED (`645874c`, extended `c0c7de2`)**
+### #5 — `assert_trap` fidelity — **RESOLVED (`e6e8d57`, extended `857cb9c`)**
 `src/wast.zig` `assertTrap` now accepts only a genuine runtime trap (`isRuntimeTrap` — an
-assemble/decode/`UnsupportedInstr` error no longer green-washes as a trap). The `c0c7de2` pass added the
+assemble/decode/`UnsupportedInstr` error no longer green-washes as a trap). The `857cb9c` pass added the
 `assert_trap (module …)` form: it builds the inner module in isolation and requires an
 instantiation-time runtime trap (e.g. an out-of-bounds active data/element segment). Matching the
 expected trap *text* is still not done (LOW — no test depends on it).
 
-### #6 — Invalid value-type bytes decode silently — **RESOLVED (module `3321921`; instruction immediates `bfe663e` 2026-07-19)**
+### #6 — Invalid value-type bytes decode silently — **RESOLVED (module `4d6708d`; instruction immediates `3e3fa92` 2026-07-19)**
 Module-structure valtypes validated (`Module.readValType`); the last piece — the `select_t` immediate,
 which read each type via a raw `@enumFromInt` — now rejects an unknown byte (`opcode.zig`). `ref.null`
 already used the validating `readHeapType`. Original detail below.
@@ -3154,20 +3154,20 @@ garbage byte becomes an out-of-range enum with no `error.BadValType` (contrast `
 which *do* guard). **Surfaces when:** `assert_malformed` support, or any untrusted/fuzzed binary input.
 **Fix:** validate the byte against the known valtypes on decode.
 
-### #7 — const-expr `global.get` more permissive than spec — **RESOLVED (`645874c`, 2026-07-09)**
+### #7 — const-expr `global.get` more permissive than spec — **RESOLVED (`e6e8d57`, 2026-07-09)**
 Restricted to a prior *immutable* global. Original detail below.
 ### #7 (original) — const-expr `global.get` more permissive than spec — LOW
 `src/interp.zig` — `evalConstExpr` allows `global.get` of any *prior* global; §3.3.7 restricts
 const-expr `global.get` to *imported* globals. Bounds-checked, so no crash/wrong-value — a strictness
 gap only. **Surfaces when:** `assert_invalid` support.
 
-### #8 — `align=` non-power-of-two silently `@ctz`'d — **RESOLVED (`00bceb4`, 2026-07-13)**
+### #8 — `align=` non-power-of-two silently `@ctz`'d — **RESOLVED (`bfdf552`, 2026-07-13)**
 `emitMemArg` now rejects a zero or non-power-of-two `align=` with `error.BadImmediate` before the
 `@ctz` (§6.5.8), instead of encoding a bogus log2 (`align=3` → 0, `align=0` → 32). No conformance delta
 (the testsuite's `align=0`/`align=7` cases arrive via `(module quote …)`, still `BadCommand`); verified
 directly + new `expectInvalid` unit cases. Over-natural alignment was already a validation error.
 
-### #9 — externref/`null_ref` sentinel collision — **RESOLVED (`994ee23`, 2026-07-13)**
+### #9 — externref/`null_ref` sentinel collision — **RESOLVED (`3bdd9d7`, 2026-07-13)**
 The value stack is untyped `u64` with `null_ref = maxInt(u64)`; a host externref payload could equal it
 and be misread as null. The WAST runner is the sole minter of externref values (`(ref.extern N)` is a
 runner literal, not an instruction), so the fix is contained there: it interns each payload into a
@@ -3176,7 +3176,7 @@ Equal payloads intern to the same value, so an externref round-trips and compare
 `matches` became Runner methods; funcref values still use their index directly. New wast.zig unit test
 proves `(ref.extern 0xFFFFFFFFFFFFFFFF)` is non-null and round-trips.
 
-### #10 — import-after-definition mis-indexing — **RESOLVED (`3a50f75`, 2026-07-13)**
+### #10 — import-after-definition mis-indexing — **RESOLVED (`62379e9`, 2026-07-13)**
 The assembler built func/table/global name→index maps in textual order, but the binary places imports
 first; a def-before-import module (malformed per §6.6.13, and the testsuite has `assert_malformed`
 "import after function/global/table" for it) was silently mis-indexed. `assembleModule` now tracks
@@ -3186,23 +3186,23 @@ not reorder** — reordering would wrongly accept the malformed cases. No confor
 testsuite's cases arrive via `(module quote …)`, still `BadCommand`); new wat.zig unit test + verified
 valid imports-first resolves correctly.
 
-### #11 — inline `(table (export …) …)` on a *defined* table — **RESOLVED (`ff3de4a`, 2026-07-13)**
+### #11 — inline `(table (export …) …)` on a *defined* table — **RESOLVED (`8664d28`, 2026-07-13)**
 `parseTable` now skips and registers leading inline `(export "x")*` forms (kind 1, current table index)
-after the optional `$id`, mirroring `parseGlobal`; the imported-table case was already done (`07dd244`).
+after the optional `$id`, mirroring `parseGlobal`; the imported-table case was already done (`5bfe4e2`).
 No-op for tables without an inline export, so every core file is byte-identical; modules using the form
 previously failed to assemble (no passing assertion to lose) and now build: `imports` 137/31 → **137/17**
 (14 fewer build failures), `linking` 19/84 → **29/108** (+10 passes), `elem` 52/15 → **52/26** (passes
 stable; the new failures are newly-run assertions hitting *other* gaps — typed refs / value-literal
 parsing). New wat.zig unit test.
 
-### #12 — const-expr sections encoded after the type section — **RESOLVED (`e500a51`, 2026-07-13)**
+### #12 — const-expr sections encoded after the type section — **RESOLVED (`acf2d62`, 2026-07-13)**
 The type section (1) was emitted before the global (6), element (9), and data (11) sections, which
 encode const-exprs against the same live `sigs` list — safe only because const-exprs can't intern a
 signature. Extracted `encodeGlobalSection`/`encodeElementSection`/`encodeDataSection` and call them right
 after the function bodies are pre-encoded (before the type section), so any interned signature lands in
 section 1 by construction. Pure reordering — output byte-identical, full regression sweep unchanged.
 
-### #13 — Dead code / duplication — **RESOLVED (`78647f6`, 2026-07-13)**
+### #13 — Dead code / duplication — **RESOLVED (`c18f07b`, 2026-07-13)**
 - `validate.zig`'s `funcTypeOf` was a byte-for-byte duplicate of `Module.funcType` — deleted, the four
   callers now use `module.funcType`. Also changed `Module.funcType` to a `*const Module` receiver so it
   no longer copies the whole Module struct by value per call.
@@ -3215,7 +3215,7 @@ section 1 by construction. Pure reordering — output byte-identical, full regre
 
 ## Discovered 2026-07-09 (while adding assert_invalid support)
 
-### #14 — `func.wast` returns a wrong result (`got 0x2a` = 42) — **RESOLVED 2026-07-09 (`0409f37`)**
+### #14 — `func.wast` returns a wrong result (`got 0x2a` = 42) — **RESOLVED 2026-07-09 (`61e7070`)**
 Root cause: a function declaring its signature via `(type $t)` (not inline `(param …)`) never added the
 type's params to the assembler's local name/index space, so a declared `(local $x)` resolved to the
 param's index. `(func (type $sig) (local $var i32) (local.get $var))` returned the param (42) instead
@@ -3224,20 +3224,20 @@ type's params (bounds-checked against `sigs`). `func.wast` 169/2 → **171/0**.
 
 ### #15 — Element init expressions + bulk table ops + data offsets — **DONE 2026-07-13**
 Landed in four passes:
-- **Element init expressions (`82d0213`, `4ffa2e8`)** — the const-expr element form
+- **Element init expressions (`9d094a7`, `ee07b3a`)** — the const-expr element form
   (`(elem … funcref (ref.func $f) (ref.null func) …)`, incl. `(item …)`), all 8 segment flag variants,
   and const-expr offsets, across assemble/decode/validate/instantiate. `elem.wast` 3/54 → 38/28.
-- **Bulk table ops (`b256a86`)** — `table.init`/`table.copy`/`elem.drop` (`0xFC` 0x0c/0x0e/0x0d) end to
+- **Bulk table ops (`76f4fec`)** — `table.init`/`table.copy`/`elem.drop` (`0xFC` 0x0c/0x0e/0x0d) end to
   end, plus runtime passive-element storage (each segment evaluated to `[]Value` with an `elem_dropped`
   flag; active/declarative dropped after init, passive kept). `table_init` 67 → **729/0/0**, `table_copy`
   120 → **1649/0/0**. Assembler tracks element-segment names (`elem_names`) and a shared
   `emitBulkTableImm` handles the text→binary operand-order swap (`table.init tableidx? elemidx` encoded
   elem-then-table).
-- **Table initializer expressions (`6087eac`)** — inline const-expr table elems
+- **Table initializer expressions (`1f4e445`)** — inline const-expr table elems
   (`(table reftype (elem (ref.func $f) …))`) and `(table N reftype initexpr)`, the latter lowered to an
   active elem of N copies at offset 0 (observably identical; the 0x40 binary form isn't needed for
   execution assertions). `table.wast` 15 → 17, `global.wast` 108 → 109.
-- **Const-expr data offsets (`c0c7de2`)** — `(data $id? (memory idx)? offset? "bytes"…)`; the offset is
+- **Const-expr data offsets (`857cb9c`)** — `(data $id? (memory idx)? offset? "bytes"…)`; the offset is
   any leading list (`(offset …)` / folded `(i32.const N)` / `(global.get $g)`), absent → passive.
   Offsets emit through the shared const-expr path; added active-data-offset validation (memory presence
   + i32 offset). `assert_trap (module …)` now requires a genuine instantiation-time trap. `data.wast`
@@ -3249,18 +3249,18 @@ any immutable global, but ref-producing element exprs / table initializers stay 
 (matches data.wast:89 valid *and* global.wast:674 `"unknown global"`). **Remaining `data`/`elem`
 failures are all imported memories/tables → #1 stage 2, not #15.**
 
-### #16 — Decoder is lenient on malformed binaries — **LEB PART DONE (`10aca3b`); rest LOW**
+### #16 — Decoder is lenient on malformed binaries — **LEB PART DONE (`d30e86d`); rest LOW**
 **Done:** the LEB128 readers (`readVarU32`/`readVarI32`/`readVarI64`) are now spec-correct — accept
 valid encodings up to the max width, reject over-long AND "integer too large" (final-byte overflow/sign
 bits). This also fixed a real bug rejecting *valid* 10-byte `i64.const` modules (`skipConstExpr` skipped
 i64 operands with a 5-byte cap). `binary-leb128.wast` 36/25 → **56/3**. New `skipLeb(max_bytes)` for
 width-aware operand skipping.
-**Part 2 done (`3321921`):** custom-section names are now validated (an empty/nameless or over-long-name
+**Part 2 done (`4d6708d`):** custom-section names are now validated (an empty/nameless or over-long-name
 custom section is rejected, §5.5.3), and the **data-count section** (id 12) is decoded and checked
 against the data-segment count (`DataCountMismatch`, §5.5.16). `custom.wast` 5/3 → **8/0**;
 `binary-leb128.wast` → **58/1**. **Malformed-binary over-acceptance is now ~zero** across the
 negative-conformance files.
 **Malformed-binary leniency: DONE.** #6's instruction-immediate valtype check (`select_t`) was the last
-piece — closed `bfe663e` (2026-07-19). **Only residual is feature gaps, NOT leniency:** `binary-leb128`
+piece — closed `3e3fa92` (2026-07-19). **Only residual is feature gaps, NOT leniency:** `binary-leb128`
 (1) and `names.wast` (1) fail with `UnsupportedInstr`/`UnsupportedOpcode` — *valid* modules using an
 op/instruction the assembler/decoder doesn't support yet (the opposite of over-acceptance).

@@ -3,7 +3,7 @@
 The checklist: boundaries, tooling, line endings, how to build and test on this repo's drives.
 **Rules, not lessons** — the method lessons with their incidents are in
 [`best-practices.md`](best-practices.md). Moved here verbatim from `INDEX.md` on 2026-09-21 (letter H3,
-`../../cmem/memory-conventions.md`); the text as it stood is `git show 21d633b6c:cmem/INDEX.md`.
+`../../cmem/memory-conventions.md`); the text as it stood is `git show 3f1bfbc1d:cmem/INDEX.md`.
 
 ## 🔒 Two things to know before touching anything
 
@@ -202,5 +202,5 @@ cd C:\ntfs\dir && zig build --build-file D:\…\wazmrt\build.zig test-security
 ---
 
 *(How the env-var fix was found — the FOURTH diagnosis of one symptom; three earlier ones blamed
-hardware/event-51 (`e507d1c`, `ed05905`, `458bc96`, `46a0bdb`) and were wrong — is summarized in
-`best-practices.md`; the full account is `git show 21d633b6c:cmem/INDEX.md`, lines 475–510.)*
+hardware/event-51 (`f3496fa`, `e9d9ce6`, `38a6991`, `c66ad49`) and were wrong — is summarized in
+`best-practices.md`; the full account is `git show 3f1bfbc1d:cmem/INDEX.md`, lines 475–510.)*

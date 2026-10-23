@@ -1759,7 +1759,7 @@ the tool.** — 2026-09-21, `probes/opcode-sweep.ts`
 
 ### 🎓 Retiring a rule means finding EVERY test that asserts it — in every language
 
-`f00ff6489` retired the "incoherent configuration" refusal and updated the Zig test that asserted it.
+`520e0089d` retired the "incoherent configuration" refusal and updated the Zig test that asserted it.
 `tests/capi_smoke.c` asserted the same rule from C, and it failed from that commit on. It was only
 noticed hours later, because gates were run selectively ("the ones this change touches") and
 `capi-smoke` was not in the chosen set. 🔒 **When a behaviour is deliberately changed, grep for its

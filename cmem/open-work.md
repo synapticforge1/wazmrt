@@ -17,7 +17,7 @@ in `tools/size-ceilings.txt`, one place each.
 - **Confirm the ladder shift.** `1.0.3` was Track O's number; `releasing.md` and `roadmap.md` now read
   Track O `1.0.4` and Track S `1.0.5` — a reading of "release 1.0.3 now", not a decision.
 - **Tagging** `1.0.2` and `1.0.3` — both commits are on the remote (pushed by the owner's order
-  2026-10-21, `7919b64d6..fbc774508`); nothing is tagged unless the owner says so.
+  2026-10-21, `39ff19e62..46edee93d`); nothing is tagged unless the owner says so.
 
 ## ⏳ Waiting on something outside this repo
 
@@ -43,7 +43,12 @@ in `tools/size-ceilings.txt`, one place each.
   under Bun, each proven against its Deno original. Owner, 2026-10-23: `build.zig`'s Zig tools are
   build steps, not scripts, and one-time scripts are relaxed (`working-rules.md` → TOOLING).
   ⏳ **Still open under H15: port the 26 Deno probes in `cmem/probes/` to Bun**, each under the
-  proof rule. **H19, H16** — in progress the same day (owner said yes to the purge and force-push).
+  proof rule. **H19** — ✅ done 2026-10-23 (owner: yes to the purge and the force-push): every
+  commit rewritten, with no drive path in any tree or message, the noreply address as author and
+  committer, and the final tree byte-identical. **Every commit id changed**: old ids (in older
+  trees, in the workspace's letters, in GitHub's cache) are looked up in
+  [`history-map-2026-10-23.md`](history-map-2026-10-23.md). **H16** — a per-clone fix, so its
+  record is the private `cmem/local/environment.md`.
 - H1, H3, H8, H13 are addressed; each closes in `../../cmem/handoffs.md` when the workspace names the
   commit. (H3: INDEX 192 KB → 10.7 KB, this file and `working-rules.md` created, drift rows Z1–Z6
   closed, one number per place — proven by `probes/h3-check.ts`, which the workspace can re-run.)

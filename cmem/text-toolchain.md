@@ -83,7 +83,7 @@ reuses `opcode.zig` in reverse (instruction name → `Op`).
   compares (NaN-aware). CLI `.wast` mode. **Passes thousands of positive + negative official-testsuite
   assertions** (see `testing.md`). Handles `(register "name" $id?)` + cross-module imports, **module
   `$name` tracking so `(invoke $M …)` / `(get $M …)` / `(register "x" $M)` target a named (non-current)
-  module** (`9745ecb`), and the `(get …)` action (reads an exported global).
+  module** (`70f2dd7`), and the `(get …)` action (reads an exported global).
   **Added 2026-08-13 (R2):** `(module definition $M …)` + `(module instance $I $M)` — a definition is
   assembled but NOT instantiated, and each `instance` command builds a fresh one, which is how
   `instance.wast` checks that instantiation is generative. That file had been scoring 0 passed / 8
@@ -143,7 +143,7 @@ reuses `opcode.zig` in reverse (instruction name → `Op`).
     `elem.drop`, `register`/multi-module linking, imported functions/tables/memories (→ host imports /
     WASI). Standing conformance gate (`testing.md`).
 11. ~~Negative conformance + validator/decoder strictness~~ **DONE 2026-07-09** (post-audit; commits
-    `645874c`/`0409f37`/`c535de0`/`10aca3b`/`3321921`). Runner executes `assert_invalid`/
+    `e6e8d57`/`61e7070`/`0d8ca0a`/`d30e86d`/`4d6708d`). Runner executes `assert_invalid`/
     `assert_malformed`/`assert_exhaustion` and gates `assert_trap` on a real runtime trap. Validator
     rejects invalid modules (const-exprs, elements, `select`/`if`/`call_indirect`/`ref.is_null`,
     alignment ≤ natural + memory-presence). Decoder rejects malformed binaries (spec-correct LEB128,
@@ -151,19 +151,19 @@ reuses `opcode.zig` in reverse (instruction name → `Op`).
     function local-indexing bug (`func.wast` 171/0). Thousands of skips → pass/fail; malformed
     over-acceptance ~zero. **Next:** `register`/linking + imported functions (host imports / WASI), then
     table/element init expressions. See `known-issues.md` for the remaining ledger.
-12. ~~Element init expressions~~ **DONE 2026-07-09** (`82d0213`/`4ffa2e8`). Element const-expr form
+12. ~~Element init expressions~~ **DONE 2026-07-09** (`9d094a7`/`ee07b3a`). Element const-expr form
     (`(elem … funcref (ref.func $f) (ref.null func) …)`, `(item …)` wrapper) + all 8 segment flag
     variants (active/passive/declarative × func-index/expr) + const-expr offsets, across
     decode/interp/validate/assemble. `elem.wast` 3/54 → **38/28**.
-13. ~~Host imports stage 1: imported functions + `register`~~ **DONE 2026-07-09** (`bcf3a11`).
+13. ~~Host imports stage 1: imported functions + `register`~~ **DONE 2026-07-09** (`dc9db52`).
     `Instance.HostFunc` (cross-module `wasm` call or `native` fn) dispatched from `callFunction`; the
     runner keeps a module registry + `(register "name")`, wiring imported funcs to a registered export
     or a `spectest` native and imported globals to values; the assembler emits the import section for
     top-level/inline func imports (imports take the low func indices). `func_ptrs` 32/0, `table_copy`
     0 → **120**, `table_init` 0 → **67**. **Next:** imported tables/memories, bulk table ops
     (`table.init`/`.copy`/`elem.drop`), passive elements. See `known-issues.md` #1.
-14. ~~Bulk table ops + table-init exprs + const-expr data offsets~~ **DONE 2026-07-13** (`b256a86`,
-    `6087eac`, `c0c7de2`; closes #15). `table.init`/`table.copy`/`elem.drop` (`0xFC` 0x0c/0x0e/0x0d) end
+14. ~~Bulk table ops + table-init exprs + const-expr data offsets~~ **DONE 2026-07-13** (`76f4fec`,
+    `1f4e445`, `857cb9c`; closes #15). `table.init`/`table.copy`/`elem.drop` (`0xFC` 0x0c/0x0e/0x0d) end
     to end + runtime passive-element storage (`elem_values`/`elem_dropped`): `table_init` 67 →
     **729/0/0**, `table_copy` 120 → **1649/0/0**. Assembler gained element-segment names (`elem_names`)
     + a shared `emitBulkTableImm` (handles the `table.init tableidx? elemidx` → elem-then-table wire
@@ -175,11 +175,11 @@ reuses `opcode.zig` in reverse (instruction name → `Op`).
     exprs / table inits stay imported-only. **Next:** imported tables/memories (#1 stage 2) — the only
     remaining `data`/`elem` blocker.
 15. ~~Host imports stages 2/3 + start (#3) + audit-ledger closeout + invoke-by-module-name~~ **DONE
-    2026-07-13** (`78c6b2b`/`1d6d9f2`/`07dd244`/`9745ecb` + the #8–#13 fixes). Imported tables/memories
+    2026-07-13** (`c62bc67`/`ce3f3a4`/`5bfe4e2`/`70f2dd7` + the #8–#13 fixes). Imported tables/memories
     (shared objects), link-time import type-checking + `assert_unlinkable`, the start section, and the
     WAST runner's `(invoke $M …)`/`(get …)`/`(register "x" $M)` by module name (`linking` 29 → 100).
-16. ~~Function-references proposal (typed refs)~~ **DONE 2026-07-13** (P1 `87ac6a7`, P2 `7ebfd1e`, P2.5
-    `446b61b`). Assembler + decoder accept all typed/GC reference *value-type* forms (`(ref null? ht)`,
+16. ~~Function-references proposal (typed refs)~~ **DONE 2026-07-13** (P1 `99203b4`, P2 `879e4ee`, P2.5
+    `b33cb2a`). Assembler + decoder accept all typed/GC reference *value-type* forms (`(ref null? ht)`,
     `anyref`/`eqref`/`i31ref`/…, collapsing to two opaque ref slots), with distinct non-null variants
     (`funcref_nn`/`externref_nn`, synthetic bytes 0x67/0x68). `call_ref`/`return_call_ref` (immediate is
     a *type* index), `ref.as_non_null`, `br_on_null`/`br_on_non_null`. Validator adds ref subtyping

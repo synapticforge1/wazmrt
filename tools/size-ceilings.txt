@@ -41,12 +41,12 @@
 # RAISED 2026-08-13 (R2). Measured ReleaseSmall, Zig 0.16.0, x86_64-windows, static lib from a
 # PLAIN `zig build` (never after `zig build dll`).
 #
-#   artifact     ceiling was    at 3dd41a0 (pre-R2)    after R2      R2's share
+#   artifact     ceiling was    at 87474f1 (pre-R2)    after R2      R2's share
 #   wazmrt.exe       911,872               933,888      939,008          +5,120
 #   wazmrt.lib       973,600               998,228      999,296          +1,068
 #   wazmrt.dll       845,312               864,768      864,768               0
 #
-# ⚠️ MOST OF THIS OVERSHOOT IS NOT R2's. The ceilings were ALREADY breached at 3dd41a0 — exe
+# ⚠️ MOST OF THIS OVERSHOOT IS NOT R2's. The ceilings were ALREADY breached at 87474f1 — exe
 # +22,016, lib +24,628, dll +19,456 — by the R1/typematch commits of 2026-08-12, which grew the
 # artifacts without running `zig build size`. R2 is charged +5,120 exe / +1,068 lib / +0 dll, and
 # the rest is drift that this gate was built to catch and did not, because nothing RAN it. The
@@ -61,7 +61,7 @@
 # RAISED 2026-08-13 (R3 — the six GC array bulk ops). Measured ReleaseSmall, Zig 0.16.0,
 # x86_64-windows, static lib from a PLAIN `zig build` (never after `zig build dll`).
 #
-#   artifact     ceiling was    at 6291038 (pre-R3)    after R3      R3's share
+#   artifact     ceiling was    at b9f972e (pre-R3)    after R3      R3's share
 #   wazmrt.exe       939,008               939,008      945,152          +6,144
 #   wazmrt.lib       999,296               999,186    1,007,444          +8,258
 #   wazmrt.dll       864,768               864,768      871,936          +7,168
@@ -141,7 +141,7 @@
 # Zig 0.16.0, x86_64-windows: `zig build dll` then a plain `zig build`, the same sequence on both
 # sides so the static lib is the real one and not the DLL's import library.
 #
-#   artifact     at 6a9dc9b (pre-R9)     after R9      R9's share
+#   artifact     at 1ff280a (pre-R9)     after R9      R9's share
 #   wazmrt.exe              953,344       956,928          +3,584
 #   wazmrt.lib            1,016,760     1,020,890          +4,130
 #   wazmrt.dll              878,592       882,176          +3,584
@@ -331,7 +331,7 @@
 # and not antivirus; the physical disk reports Healthy. See `INDEX.md` and `best-practices.md` §2.
 
 # ⚠️ GATE HOLE FOUND 2026-08-17 — `wazmrt.lib`'s BYTE SIZE DEPENDS ON WHERE YOU BUILD, so the lib
-# ceiling is only reproducible under the conditions it was measured in. HEAD (c367f2f, clean tree)
+# ceiling is only reproducible under the conditions it was measured in. HEAD (1aaa75c, clean tree)
 # measures, with no code change whatsoever:
 #
 #   build location / local cache dir                         wazmrt.lib     delta
@@ -896,7 +896,7 @@
 #
 # ⚠️⚠️ THE EXE WAS ALREADY 4,608 BYTES OVER ITS CEILING AT HEAD, BEFORE THIS CHANGE. Measured by
 # stashing this work and re-running the gate: `996,352` against a ceiling of `991,744`. The two
-# preceding Track B commits — `0a48957a` (B-b: Z1/Z2/Z3) and `22437455` (B-c1/c3/c5) — grew the
+# preceding Track B commits — `f780ad27` (B-b: Z1/Z2/Z3) and `3fb36c7a` (B-c1/c3/c5) — grew the
 # CLI and did not raise the number in the same commit, which is the one thing this file's header
 # says every growth must do. Nothing caught it because neither commit ran `zig build size`, and
 # the step is not part of `zig build`. 🎓 **A gate that has to be remembered is not enforcement**
@@ -998,12 +998,12 @@
 # 📐 **ATTRIBUTED BEFORE PAYING FOR IT, by building each parent commit in a worktree** rather
 # than assuming the growth was the newest change's:
 #
-#   6cc89ce5  Track H, the commit that WROTE `900608`   ->  906,240   (already 5,632 over)
-#   41a96aa3  before Track B's 2026-09-20 work          ->  906,240
-#   a495424f  B-c2 (the `name` section)                 ->  906,240   (+0 — the claim was right)
-#   973dc0de  B-d (inline typeuse)                      ->  906,240   (+0)
-#   8e04263b  B-c4 (subcommand spellings)               ->  906,240   (+0)
-#   d47ecd18  B-a (the emitter audit)                   ->  910,336   (**+4,096**)
+#   9acdcb4e  Track H, the commit that WROTE `900608`   ->  906,240   (already 5,632 over)
+#   d590bb33  before Track B's 2026-09-20 work          ->  906,240
+#   1bfdc6f5  B-c2 (the `name` section)                 ->  906,240   (+0 — the claim was right)
+#   35d8aa4b  B-d (inline typeuse)                      ->  906,240   (+0)
+#   b35940cb  B-c4 (subcommand spellings)               ->  906,240   (+0)
+#   ff856744  B-a (the emitter audit)                   ->  910,336   (**+4,096**)
 #
 # 🎓 **So three of the four "dll +0" claims this file makes today were TRUE — and every one of
 # them was checked against a number that was already wrong.** Being right for a reason you did

@@ -5,36 +5,36 @@
 Moved here from `INDEX.md` on 2026-09-21 (letter H3): the index used to carry ~50 KB of dated STATE
 narrative and a 128 KB Files table of changelogs. **The narrative is summarized, not kept** — each row
 names its commits and the file that now holds the substance; the full text as it stood is
-`git show 21d633b6c:cmem/INDEX.md`. What is still OPEN is in [`open-work.md`](open-work.md), not here.
+`git show 3f1bfbc1d:cmem/INDEX.md`. What is still OPEN is in [`open-work.md`](open-work.md), not here.
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
 | 2026-09-21 | 🔖 **Release `1.0.3`** — fixes for four `1.0.2` defects, flat legacy EH, wasm-tools' feature vocabulary; the full checklist ran | the release commit | `releasing.md` |
-| 2026-09-21 | `wazmrt_memory_size_pages` honours custom page sizes; `capi_smoke.c` un-staled; the letter-H3 follow-up closed | `8e18cab0a` | `known-issues.md` |
-| 2026-09-21 | Letter H3: INDEX 192 KB → 10.7 KB, `open-work.md`, `working-rules.md`, drift Z1–Z6 | `0c6f4dc46` | `INDEX.md`, `probes/h3-check.ts` |
-| 2026-09-21 | Opcode sweep (letter H8 / I5): the twenty unassigned `0xFD` gaps refused; wazmrt's table = wasmrt's (582); 44 wasm-tools-only opcodes, off the table (owner) | `1f4a83320`, `21d633b6c` | `known-issues.md`, `probes/README.md` |
-| 2026-09-21 | `--features` = wasm-tools' whole vocabulary and meanings; locals walked; `funcref` table under `mvp`; `try_table` leak | `f00ff6489`, `88b63d008` | `interop.md` v30, `known-issues.md` |
-| 2026-09-21 | Flat legacy exception handling (`try … catch … end`) | `ee5157419` | `probes/legacy-eh/` |
-| 2026-09-21 | Letter H8: I6, I7, I8 measured | `0c931de6e` | `probes/README.md` |
-| 2026-09-21 | 🔖 **Release `1.0.2`** — Track B plus the day's work; the full checklist ran | `f2f890695` | `releasing.md` |
-| 2026-09-21 | Letter H13: module bodies equal wasm-tools' (528/528) — local runs, export order, one-pass interning; `.wat` pins change | `9a22cab02` | `interop.md` v29 |
-| 2026-09-21 | Letter H1 addressed; contract v28; lockstep recorded; probes kept in cmem | `f734ef7c5` | `interop.md` §1e, `releasing.md` gate 11 |
-| 2026-09-21 | `--dir` host grammar (closes §5 #10); POSIX path rules in the WASI resolver (three wrong-file opens) | `24e5e0958` | `interop.md` v27, `security-model.md` |
-| 2026-09-21 | Own Track H ids renamed `zH1`–`zH8` | `50f5bf417` | `INDEX.md` (namespace note) |
-| 2026-09-20 | A wazmrt flag in a guest position is an ERROR (zH7) | `89f380a5b` | `interop.md` v26 |
-| 2026-09-20 | Custom annotations (`@custom`, `@name`, branch hints) | `bef9372be` | `text-toolchain.md` |
-| 2026-09-20 | `hostRefPayload` / `BadFuncType` kept as supported API (owner) | `21ea6cc50` | `roadmap.md` (general hunt) |
-| 2026-09-20 | The six filed Track B items worked through | `91aee68c` | `roadmap.md` (general hunt) |
-| 2026-09-20 | Track B general hunt: `extended_const` unreachable gate, internal valtype tags on the wire, `(table 1 exnref)` | `e5ac7fb3`, `7de54a45` | `roadmap.md`, `best-practices.md` |
-| 2026-09-20 | B-e: the size gate builds what it grades; ceiling had been behind reality at `41a96aa3` | `90d501d2` | `tools/size-ceilings.txt`, `releasing.md` |
-| 2026-09-20 | B-a: four emitter defects (spec-corpus differential) | `d47ecd18` | `roadmap.md`, `tools/emitter-diff.mjs` |
-| 2026-09-20 | B-d: `(type N)` inline-signature mismatch refused; cross-runtime parity total | `973dc0de` | `interop.md` v23 |
-| 2026-09-20 | B-c4: the four subcommand spellings | `8e04263b` | `interop.md` v24 |
-| 2026-09-19/20 | B-b (unknown flags, Z1–Z3), B-c1/c3/c5, B-c2 (Z4, `.wat` pins portable 954/954 — superseded by v29) | `0a48957a`, `22437455`, `a495424f` | `interop.md` v21–v22 |
+| 2026-09-21 | `wazmrt_memory_size_pages` honours custom page sizes; `capi_smoke.c` un-staled; the letter-H3 follow-up closed | `25ee73588` | `known-issues.md` |
+| 2026-09-21 | Letter H3: INDEX 192 KB → 10.7 KB, `open-work.md`, `working-rules.md`, drift Z1–Z6 | `3fe416f12` | `INDEX.md`, `probes/h3-check.ts` |
+| 2026-09-21 | Opcode sweep (letter H8 / I5): the twenty unassigned `0xFD` gaps refused; wazmrt's table = wasmrt's (582); 44 wasm-tools-only opcodes, off the table (owner) | `b783e6920`, `3f1bfbc1d` | `known-issues.md`, `probes/README.md` |
+| 2026-09-21 | `--features` = wasm-tools' whole vocabulary and meanings; locals walked; `funcref` table under `mvp`; `try_table` leak | `520e0089d`, `d138d5b47` | `interop.md` v30, `known-issues.md` |
+| 2026-09-21 | Flat legacy exception handling (`try … catch … end`) | `b64a048a9` | `probes/legacy-eh/` |
+| 2026-09-21 | Letter H8: I6, I7, I8 measured | `5f82c94bf` | `probes/README.md` |
+| 2026-09-21 | 🔖 **Release `1.0.2`** — Track B plus the day's work; the full checklist ran | `c7a75888d` | `releasing.md` |
+| 2026-09-21 | Letter H13: module bodies equal wasm-tools' (528/528) — local runs, export order, one-pass interning; `.wat` pins change | `9aee871d1` | `interop.md` v29 |
+| 2026-09-21 | Letter H1 addressed; contract v28; lockstep recorded; probes kept in cmem | `ba205dea7` | `interop.md` §1e, `releasing.md` gate 11 |
+| 2026-09-21 | `--dir` host grammar (closes §5 #10); POSIX path rules in the WASI resolver (three wrong-file opens) | `589c954e5` | `interop.md` v27, `security-model.md` |
+| 2026-09-21 | Own Track H ids renamed `zH1`–`zH8` | `da4e558cf` | `INDEX.md` (namespace note) |
+| 2026-09-20 | A wazmrt flag in a guest position is an ERROR (zH7) | `2c1fb37f2` | `interop.md` v26 |
+| 2026-09-20 | Custom annotations (`@custom`, `@name`, branch hints) | `038726e56` | `text-toolchain.md` |
+| 2026-09-20 | `hostRefPayload` / `BadFuncType` kept as supported API (owner) | `95ebb0379` | `roadmap.md` (general hunt) |
+| 2026-09-20 | The six filed Track B items worked through | `0622496b` | `roadmap.md` (general hunt) |
+| 2026-09-20 | Track B general hunt: `extended_const` unreachable gate, internal valtype tags on the wire, `(table 1 exnref)` | `7a09b88e`, `6dd8dc98` | `roadmap.md`, `best-practices.md` |
+| 2026-09-20 | B-e: the size gate builds what it grades; ceiling had been behind reality at `d590bb33` | `256176df` | `tools/size-ceilings.txt`, `releasing.md` |
+| 2026-09-20 | B-a: four emitter defects (spec-corpus differential) | `ff856744` | `roadmap.md`, `tools/emitter-diff.mjs` |
+| 2026-09-20 | B-d: `(type N)` inline-signature mismatch refused; cross-runtime parity total | `35d8aa4b` | `interop.md` v23 |
+| 2026-09-20 | B-c4: the four subcommand spellings | `b35940cb` | `interop.md` v24 |
+| 2026-09-19/20 | B-b (unknown flags, Z1–Z3), B-c1/c3/c5, B-c2 (Z4, `.wat` pins portable 954/954 — superseded by v29) | `f780ad27`, `3fb36c7a`, `1bfdc6f5` | `interop.md` v21–v22 |
 | 2026-08-19 | 🔖 Release `1.0.1` — Track H | — | Track H below |
-| 2026-08-17 | Builds run from `D:` again (one env var); merged to main. Three earlier diagnoses blamed hardware (`e507d1c`, `458bc96`, `46a0bdb`) and were wrong | `ed05905` | `working-rules.md` |
+| 2026-08-17 | Builds run from `D:` again (one env var); merged to main. Three earlier diagnoses blamed hardware (`f3496fa`, `38a6991`, `c66ad49`) and were wrong | `e9d9ce6` | `working-rules.md` |
 | 2026-08-11 | The C ABI replaced (ABI 2, `capi.zig`) | — | `architecture.md`, `include/wazmrt.h` |
-| earlier | Legacy `try`/`catch` infinite loop fixed; C-ABI `c6ff764e` re-audited clean | `d51c004`, `c6ff764e` | `known-issues.md` |
+| earlier | Legacy `try`/`catch` infinite loop fixed; C-ABI `9dd9139c` re-audited clean | `7b27485`, `9dd9139c` | `known-issues.md` |
 
 ---
 
@@ -427,7 +427,7 @@ change only the program name, and it must do the same thing under the other runt
 
 | obligation | state |
 | --- | --- |
-| accept wasmrt's **subcommand spellings** — `run`, `wasi`, `wast` — alongside our extension dispatch | ✅ **DONE, B-c4** (`8e04263b`) — re-verified by RUNNING each 2026-09-20 |
+| accept wasmrt's **subcommand spellings** — `run`, `wasi`, `wast` — alongside our extension dispatch | ✅ **DONE, B-c4** (`b35940cb`) — re-verified by RUNNING each 2026-09-20 |
 | grow **`wazmrt wat <file.wat> [-o out]`** (assemble text → binary); wasmrt has it, we do not | ✅ **DONE, B-c4** — the one genuinely new capability of the four |
 | `--dir` / `--ro-dir`: **accept BOTH separators** — prefer `::`, fall back to a single `:` when the spec has no `::` and the split is not a drive letter | ✅ **DONE** — `splitPreopen`; the `x:/` ambiguity is documented rather than guessed away |
 
@@ -566,7 +566,7 @@ investigators per category, consolidate, report `file:line` + one line + severit
    turned the ABI version into a real gate. The version-string drift in `releasing.md` (four copies, no
    test) is a ready-made instance.
 
-#### ✅ THE GENERAL HUNT — categories 3, 4 and 5. **RUN 2026-09-20** (`e5ac7fb3`, `7de54a45`) `[x]`
+#### ✅ THE GENERAL HUNT — categories 3, 4 and 5. **RUN 2026-09-20** (`7a09b88e`, `6dd8dc98`) `[x]`
 
 **`INDEX.md`'s "look for code issues" trigger, run as written**: two read-only investigators fanned
 out per category, consolidated here. ⚠️ **Every finding was re-verified by RUNNING before it was
@@ -597,7 +597,7 @@ const-expr *at all*. So the opcode→proposal map was right to return null for i
 walking more places would have produced the bit** — the const-expr walk had to ask a different
 question. *A coverage gap and a classification gap look identical from outside.*
 
-##### ✅ THE FILED ITEMS — WORKED THROUGH 2026-09-20 (`91aee68c`). **Six closed, two open.**
+##### ✅ THE FILED ITEMS — WORKED THROUGH 2026-09-20 (`0622496b`). **Six closed, two open.**
 
 🔑 **Two were filed UNVERIFIED and verification changed both**: the third memory site was a real
 accept-invalid, and the mis-verdict cluster was real while **the consequence filed for it was not** —
@@ -605,7 +605,7 @@ the SKIP count never moved. *File a suspicion as a suspicion, then measure it be
 
 | item | status |
 | --- | --- |
-| **The third memory site** | ✅ **CONFIRMED AND FIXED** (`91aee68c`). `(import "m" "n" (memory 0 (bogus)))` assembled and **validated OK**; the other two spellings refuse it and so does the sibling. `checkMemTail`'s doc named three sites and two called it |
+| **The third memory site** | ✅ **CONFIRMED AND FIXED** (`0622496b`). `(import "m" "n" (memory 0 (bogus)))` assembled and **validated OK**; the other two spellings refuse it and so does the sibling. `checkMemTail`'s doc named three sites and two called it |
 | **`UnsupportedProposal` / `UnsupportedInstr` mis-verdicts** | ✅ **REAL, FIXED — and the consequence claimed for them was NOT real.** Both now `BadModuleField`, so wazmrt's correct rejections stop scoring as our gap. ⚠️ **But the SKIP count did not move**: still 20, measured. The 20 are three files in a `custom/` subdirectory the Track H corpus lacked — `custom_annot`, `name_annot`, `branch_hint` — using `(@custom …)` and branch-hint metadata, i.e. untargeted proposal syntax, **correctly** classified. 🎓 *The mis-verdict was worth fixing on its own terms; the reason filed for fixing it was wrong.* |
 | **The second LEB decoder** | ✅ **HARDENED, and verified NOT exploitable first.** `sign.readUleb` ran on untrusted bytes before the real decoder and accepted an over-long 5th byte. Measured: `Module.decode` refuses such a module, so the lax parser was a strict superset-acceptor and the strict one gates execution. Tightened anyway — *"the other layer catches it" must be re-derived every time either layer moves* — and a test now pins the two parsers on what they accept AND refuse |
 | **`atomicIs64` vs `atomicValType`** | ✅ **DERIVED, not pinned.** It was a second copy of the same fourteen literals in another file with the opposite polarity. They agreed — which is why it had to go: *the validator and the interpreter agreeing because they were written from the same head rather than the same table* is how a `try_table` catch label was resolved one frame too deep in three places at once, corpus green |
@@ -740,7 +740,7 @@ passing / 808 total (4 skipped)**, +6 from the three tests this pass adds — ea
 both test targets, so a count of tests written is not the count the summary prints.
 **8 of 8 inversions compiled and were caught.** Sizes: exe +10,752, lib +12,186, dll +9,728.
 
-#### ✅ B-a — The EMITTER audit. **COMPLETE 2026-09-20** (`d47ecd18`). **FOUR DEFECTS, 4-FOR-4 AGAIN** `[x]`
+#### ✅ B-a — The EMITTER audit. **COMPLETE 2026-09-20** (`ff856744`). **FOUR DEFECTS, 4-FOR-4 AGAIN** `[x]`
 
 🎯 **The prediction held exactly.** The mechanism produced four defects in the sibling project; it
 produced four here. None was visible to any gate wazmrt owns, and all four were **behaviour-preserving
@@ -834,7 +834,7 @@ data segments (active / passive / active-with-memidx), limits flags (`shared`, `
 either read by the emitter or documented as deliberately not emitted; suite and corpus counts do not
 regress. **Expect it to find something** — the mechanism is 4-for-4 in the sibling project.
 
-#### ✅ B-b — The INTEROP handoff: Z1, Z2, Z3. **COMPLETE 2026-09-19** (`0a48957a`)
+#### ✅ B-b — The INTEROP handoff: Z1, Z2, Z3. **COMPLETE 2026-09-19** (`f780ad27`)
 
 | item | outcome |
 | --- | --- |
@@ -939,17 +939,17 @@ row, each **inversion-proven** (reverting the fix fails it); `install --yes` and
 still to reach the guest; conformance and suite counts do not regress. Then **`coordinate`** at the end
 of the track (§1d) and report to the owner.
 
-#### ✅ B-c — The T9e/T9i CONVERGENCE. **COMPLETE 2026-09-20 — 5 of 5** (`22437455`, `a495424f`, `8e04263b`) `[x]`
+#### ✅ B-c — The T9e/T9i CONVERGENCE. **COMPLETE 2026-09-20 — 5 of 5** (`3fb36c7a`, `1bfdc6f5`, `b35940cb`) `[x]`
 
 | # | state |
 | --- | --- |
 | **B-c1** `--dir` | ✅ **DONE.** `.:/` works, `::` accepted, drive letter narrowed to one ASCII letter (owner, §5 #10) |
-| **B-c2** Z4 name section | ✅ **DONE 2026-09-20** (`a495424f`). **954 of 954 comparable `.wat` digests agree, up from 2.** The `name` section was one of **three** causes — see below |
+| **B-c2** Z4 name section | ✅ **DONE 2026-09-20** (`1bfdc6f5`). **954 of 954 comparable `.wat` digests agree, up from 2.** The `name` section was one of **three** causes — see below |
 | **B-c3** pin DB path | ✅ **DONE.** Shared `wasmtk` path → own path → **warn when the sibling's DB exists and ours does not.** Decision is a pure function, all 8 combinations tested, the row that matters inversion-proven |
-| **B-c4** subcommands | ✅ **DONE 2026-09-20** (`8e04263b`). All four accepted, additively — every bare form verified unchanged. `run`/`wasi` are **aliases onto the existing paths**, so one parser serves both spellings; **`wat` is the new capability**. 🔒 **The named modes do NOT fall back** — see below |
+| **B-c4** subcommands | ✅ **DONE 2026-09-20** (`b35940cb`). All four accepted, additively — every bare form verified unchanged. `run`/`wasi` are **aliases onto the existing paths**, so one parser serves both spellings; **`wat` is the new capability**. 🔒 **The named modes do NOT fall back** — see below |
 | **B-c5** feature vocabulary | ✅ **DONE — for the direction it tested.** ⚠️ **CORRECTED 2026-09-21 (letter H8 / I6, measured by `probes/feature-names.ts` against wasm-tools 1.259's own list): "wasm-tools' whole vocabulary resolves" was an OVERCLAIM.** The test checks that every name wazmrt ACCEPTS appears in wasm-tools' list; nothing checked the converse, and **28 of wasm-tools' 48 names are `unknown` here** — on wasmrt too, identically. Core-relevant among them: the presets `wasm1` `wasm2` `wasm3` `lime1`, the always-on `mutable-global` and `floats`, `legacy-exceptions`, `bulk-memory-opt`, `call-indirect-overlong`, `gc-types`; the rest are component-model (`cm-*`, `component-model`) and out of scope for a core runtime. ✅ **DONE 2026-09-21, owner: every name, wasm-tools' meanings, component-model included.** Six new GATES (not bare names), each inversion-proven (`probes/features-invert.ts`, 11/11 guarded), and the whole `probes/feature-matrix.ts` run on wazmrt is IDENTICAL to wasm-tools'. Unimplemented proposals are names that switch nothing — honest because `--features` only narrows. `interop.md` v30 |
 
-##### ✅ B-c4 IS DONE — 2026-09-20 (`8e04263b`). **B-c IS COMPLETE, AND SO IS THE 2026-09-19 LIST.**
+##### ✅ B-c4 IS DONE — 2026-09-20 (`b35940cb`). **B-c IS COMPLETE, AND SO IS THE 2026-09-19 LIST.**
 
 ```
 wazmrt run  <module> <export> [args...]      wazmrt wat  <file.wat> [-o out.wasm]
@@ -991,7 +991,7 @@ none of which have guest argv — sending the user to try something that cannot 
 did not move **at all**: none of this is in `root.zig`, so an embedder gets the engine and not the
 command line. Every earlier ceiling entry had to argue a size/feature trade; this one does not.
 
-##### ✅ B-c2 (Z4) IS DONE — 2026-09-20 (`a495424f`). **The name section was ONE of THREE causes.**
+##### ✅ B-c2 (Z4) IS DONE — 2026-09-20 (`1bfdc6f5`). **The name section was ONE of THREE causes.**
 
 📊 **The measurement, same command before and after** (`wazmrt pin wasmtk` vs `wasmrt pin wasmtk`,
 both binaries run over the same 1,469-file tree; the sibling built from its committed `ff99f6f1` (was `ab13ba975`)
@@ -1071,7 +1071,7 @@ dangerous partial fix.** A test that the warning FIRES is part of the item, not 
 row, each inversion-proven; the `wasmtk` `.wat` corpus agreeing on digests; suite and conformance counts
 unchanged. Then `coordinate` at the end of the track (§1d) and report.
 
-#### ✅ B-d — `(type N)` NAMING AN UNDECLARED TYPE BOUND THE IMPORT TO A DIFFERENT SIGNATURE. **DONE 2026-09-20** (`973dc0de`)
+#### ✅ B-d — `(type N)` NAMING AN UNDECLARED TYPE BOUND THE IMPORT TO A DIFFERENT SIGNATURE. **DONE 2026-09-20** (`35d8aa4b`)
 
 | what | outcome |
 | --- | --- |
@@ -1141,7 +1141,7 @@ wording was reaching for, and the wording was wrong about *how*. 📌 A gate wri
 predicts the shape of the answer; when it predicts wrong and the outcome is right, say so rather
 than re-reading the number until it matches.
 
-#### ✅ B-e — THE SIZE GATE IS WIRED IN NOW, AND IT HAD BEEN GRADING A 34-DAY-OLD DLL. **DONE 2026-09-20** (`90d501d2`)
+#### ✅ B-e — THE SIZE GATE IS WIRED IN NOW, AND IT HAD BEEN GRADING A 34-DAY-OLD DLL. **DONE 2026-09-20** (`256176df`)
 
 🔑 **The item was "give the gate a trigger". Consulting the sibling found the trigger AND two defects
 the item had not suspected.** ⚠️ **That consultation was OWNER-DIRECTED**, and `interop.md` §1's
@@ -1177,12 +1177,12 @@ a worktree rather than assuming the growth was the newest change's:
 
 | commit | dll |
 | --- | --- |
-| `6cc89ce5` Track H — **the commit that WROTE `900608`** | **906,240** (already 5,632 over) |
-| `41a96aa3` before today's Track B work | 906,240 |
-| `a495424f` B-c2, the `name` section | 906,240 (**+0**) |
-| `973dc0de` B-d, inline typeuse | 906,240 (**+0**) |
-| `8e04263b` B-c4, subcommand spellings | 906,240 (**+0**) |
-| `d47ecd18` B-a, the emitter audit | **910,336 (+4,096)** |
+| `9acdcb4e` Track H — **the commit that WROTE `900608`** | **906,240** (already 5,632 over) |
+| `d590bb33` before today's Track B work | 906,240 |
+| `1bfdc6f5` B-c2, the `name` section | 906,240 (**+0**) |
+| `35d8aa4b` B-d, inline typeuse | 906,240 (**+0**) |
+| `b35940cb` B-c4, subcommand spellings | 906,240 (**+0**) |
+| `ff856744` B-a, the emitter audit | **910,336 (+4,096)** |
 
 🎓 **Three of the four "dll +0" claims made on 2026-09-20 were TRUE, and every one was checked against
 a number that was already wrong.** *Being right for a reason you did not check is being lucky.* B-a's
@@ -1193,8 +1193,8 @@ commits** and was never attributed, because nothing ever measured it. Ceiling no
 #### ~~B-e~~ — the item as filed, retained for the record
 
 **`zig build size` is a separate step, so it only runs when somebody remembers it — and on
-2026-09-20 nobody had.** `main` at `41a96aa3` was **4,608 bytes over the exe ceiling**: `0a48957a`
-(B-b) and `22437455` (B-c1/c3/c5) both grew the CLI without raising the number, which
+2026-09-20 nobody had.** `main` at `d590bb33` was **4,608 bytes over the exe ceiling**: `f780ad27`
+(B-b) and `3fb36c7a` (B-c1/c3/c5) both grew the CLI without raising the number, which
 `tools/size-ceilings.txt`'s own header says every growth must do *in the same commit*. The ceiling
 was last touched by Track zH2.
 
@@ -3393,16 +3393,16 @@ only #8 (upstream Zig) and out-of-scope harness command forms remain.
 
 **Then (2026-07-27, same day) — a "look for code issues" audit + the deferred-item cleanup.** Four
 parallel investigators over the fresh memory64 code found two real gaps at the memory64×{u64-offset, SIMD}
-intersections (which no single-feature test exercises) + two minor finds, all fixed (`f478f79`): the
+intersections (which no single-feature test exercises) + two minor finds, all fixed (`85275c2`): the
 memarg **offset was decoded as u32** (memory64 widens it to u64 — a valid `offset=0x1_0000_0000` was
 rejected at decode, and the assembler already emitted u64, a round-trip break), **SIMD v128 memory ops
 were memory64-blind** (i32 address hard-coded in validator + interp), a dead `max_atomic_sub` const, and a
-wrapping `\u{…}` escape. Then all four audit-**deferred** items were closed (`e276d09`), all `wat.zig`:
+wrapping `\u{…}` escape. Then all four audit-**deferred** items were closed (`09d6bae`), all `wat.zig`:
 **multi-memory SIMD text** (`v128.load8_lane $m …` → SIMD suite 24,956/0), the **canonical index-type
 ordering** (`(memory (export "m") i64 1)`), a **de-duplicated limits parser** (`parseMemLimits`), and
 **`uleb` widened to u64**. Full main testsuite 60,310 → **60,668 passed**; 483 local tests green. **Then the
 last assembler gap — `tag` imports (the text form; they already worked at the binary/runtime level since
-Phase 6.2) — was closed (`49e5284`):** both `(import … (tag …))` and inline `(tag (import …) …)` emit,
+Phase 6.2) — was closed (`1474219`):** both `(import … (tag …))` and inline `(tag (import …) …)` emit,
 verified by executing both forms (→ 42) and cross-checked vs wasmtime `wast`. **The WAT assembler now has
 NO remaining known gaps** — every construct across every proposal wazmrt targets has text-assembly support.
 485 local tests green (Debug + ReleaseSafe); c-smoke 319/319; full main testsuite 60,670 passed.
@@ -3411,13 +3411,13 @@ NO remaining known gaps** — every construct across every proposal wazmrt targe
 "look for code issues" pass over the fresh assembler code found a **flat-form SIMD memory-op regression**
 (the multi-memory memidx change greedily ate the next flat instruction — HIGH, false-rejection), a
 **defined-tag-before-imported-tag mis-index** (`isDefKind` omitted `tag` — MEDIUM), and a doubled index
-type (LOW), all fixed (`436196e`). Then the four items that pass had *noted but deferred* were all closed
-(`bc39e89`): a **table-entry budget** (`max_table_elems`/`--max-table-elems`/`TableLimitExceeded`,
+type (LOW), all fixed (`858c984`). Then the four items that pass had *noted but deferred* were all closed
+(`f21c63a`): a **table-entry budget** (`max_table_elems`/`--max-table-elems`/`TableLimitExceeded`,
 mirroring the linear-memory budget — a `(table 0xffffffff funcref)` no longer demands ~32 GiB), **C-ABI
 saturating** u64→u32 memory casts, a strict **`Reader.readVarS33`** for block/heap types (≤5 bytes, in
 range), and a **tag typeuse consistency check** (`resolveTagSig`). A follow-up audit then verified those
 four correct (readVarS33 traced bit-by-bit, no miscompile) and swept the strict s33 reader into the **three
-remaining decoder s33 sites** (`937739c`). **After all this: every wasm proposal implemented, the WAT
+remaining decoder s33 sites** (`c8c8bdf`). **After all this: every wasm proposal implemented, the WAT
 assembler has no gaps, and there are no open LOW *defects* — only by-design limits + the upstream-Zig class
 (see `known-issues.md` "Remaining LOW items").** **491 local tests green under Debug AND ReleaseSafe;
 c-smoke 319/319; full main testsuite 60,670 / memory64 601/1 / SIMD 24,956/0.**
@@ -3425,7 +3425,7 @@ c-smoke 319/319; full main testsuite 60,670 / memory64 601/1 / SIMD 24,956/0.**
 **Then (2026-07-27, continued) — ran the full wasmtk WASI corpus and fixed a legacy-EH bug.** Ran all
 400 runnable files (`wasm_wasi` 336 + `wasm_wasi_bundle` 61 + `wasm_wasi_dync` 3 — the dync trio initially
 imported wasmtk's custom dynamic-runtime host and was out of scope, then the owner regenerated them
-self-contained and they run identically to wasmtime). One real bug (`d51c004`): `15_LexicalShadowing_Stress.wasm`
+self-contained and they run identically to wasmtime). One real bug (`7b27485`): `15_LexicalShadowing_Stress.wasm`
 **infinite-looped** — a raw `throw` inside a legacy `catch` handler re-matched the same handler instead of
 propagating to the enclosing try (`throwException` now skips a legacy try whose handler is executing).
 **Result: `wasm_wasi` 333 clean + 3 correct uncaught-exception traps (identical to wasmtime) + 0 hangs;
@@ -3573,7 +3573,7 @@ the **WAST script runner** (`wast.zig`) is next.
   **38/28**, func_ptrs **32/0**, table_copy **120**, table_init **67**, global 108/2 (see `testing.md`).
   **65 unit tests.** Remaining gaps: imported **tables/memories** (`imports.wast` 26/56), bulk table ops
   (`table.init`/`.copy`/`elem.drop`), passive element segments.
-- **Licensing baseline** (git `888b87e`): dual `MIT OR Apache-2.0` (`LICENSE-MIT` + `LICENSE-APACHE`),
+- **Licensing baseline** (git `252db40`): dual `MIT OR Apache-2.0` (`LICENSE-MIT` + `LICENSE-APACHE`),
   `NOTICE`, and the compliance scaffold `third_party/LICENSES.md` (obligations table + Adoption
   Checklist + Component Ledger + verified SPDX inventory). README license section + SPDX + contribution
   clause. See `licensing.md`, `reference-projects.md`.
@@ -3591,9 +3591,9 @@ the **WAST script runner** (`wast.zig`) is next.
 
 **Remaining (in owner-set order):** **(1) full GC — P3, IN PROGRESS** (WasmGC: i31 → struct/array →
 `ref.test`/`ref.cast`/`br_on_cast`; browser-standard, so in scope; owner directive 2026-07-13 puts it
-*ahead* of the C-ABI/benchmark work — build in tested parts). **i31 slice DONE 2026-07-14** (`0f1e0c2`):
+*ahead* of the C-ABI/benchmark work — build in tested parts). **i31 slice DONE 2026-07-14** (`7363b51`):
 distinct `any`-hierarchy value types with real subtyping (`types.RefHeap.sub`), unboxed i31 in the `u64`
-slot, `ref.i31`/`i31.get_s`/`i31.get_u` under `0xFB`. **struct/array slice DONE 2026-07-14** (`bec0cf7`
+slot, `ref.i31`/`i31.get_s`/`i31.get_u` under `0xFB`. **struct/array slice DONE 2026-07-14** (`7b7f7d2`
 type-space refactor + runtime): `Module.func_types`→`comp_types` composite-type table (func/struct/
 array + rec/sub/packed decode with a forward-ref kind pre-scan); an arena-backed GC heap
 (`Instance.gc_heap`, no collector yet); `struct.new`/`new_default`/`get`(`_s`/`_u`)/`set`, `array.new`/
@@ -3660,7 +3660,7 @@ now assembled by the CLI) sees the exported `_start`, wires WASI, and runs it; `
 exit 0; +3 unit tests (98 total). **Deferred:** the filesystem (`path_open`, preopened dirs), stdin
 (`fd_read` reports EOF), sockets, `poll_oneoff`. **The function-references proposal is complete** (typed-ref value types, `call_ref`/
 `return_call_ref`/`ref.as_non_null`/`br_on_null`, non-null refs + local-init tracking, P1/P2/P2.5
-2026-07-13 — ~+130 ref-file passes). (The WAST runner's invoke-by-module-name landed `9745ecb` —
+2026-07-13 — ~+130 ref-file passes). (The WAST runner's invoke-by-module-name landed `70f2dd7` —
 `linking.wast` 29 → 100.) **Start function (#3) DONE 2026-07-13; the 2026-07-09
 audit ledger is now FULLY cleared — every item #1–#16 resolved** (externref boxing #9, import-after-def
 rejection #10, const-expr section ordering #12, dead-code cleanup #13, non-power-of-two `align=` #8,

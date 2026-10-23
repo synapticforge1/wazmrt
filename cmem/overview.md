@@ -18,6 +18,12 @@ with it, and `wasmtk` followed to `synapticforge1/wasmtk` on 2026-10-23 (workspa
 the frozen `wabt-ts` / `binaryen-ts` stay under `jrmarcum`; registry names did not move (JSR scope
 `@jrmarcum`). Canonical table: `../../cmem/projects.md` § "Where each project lives".
 
+**History rewritten 2026-10-23** (workspace letter H19; owner-approved purge of personal
+information). Every commit id changed. The old → new map, one row per commit, is
+[`history-map-2026-10-23.md`](history-map-2026-10-23.md). This repo's own citations were mapped at
+the same time, so a current file quotes current ids and an older tree quotes old ones. wazmrt has
+no tags and publishes to no registry, so no published artifact names an old id.
+
 ## Repo layout
 
 ```text

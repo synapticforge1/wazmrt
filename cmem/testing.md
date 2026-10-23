@@ -18,7 +18,7 @@ wasmrt pin  <wasmtk>  > b.txt        # sibling built into a SCRATCH CARGO_TARGET
 # compare the `<64-hex>  <path>` lines only; both tools print warnings on the same stream
 ```
 
-📊 **State at 2026-09-20** (`973dc0de`): **`.wat` 954 agree / 0 differ**, **`.wasm` 513 agree / 0
+📊 **State at 2026-09-20** (`35d8aa4b`): **`.wat` 954 agree / 0 differ**, **`.wasm` 513 agree / 0
 differ**, and **both listings are 1,467 lines — nothing is in one and not the other.** Before B-c2 it
 was `.wat` 2 / 952, and until B-d two `.wat` files were in wazmrt's listing only. 3 files use
 obsolete keywords and are refused by both.
@@ -822,7 +822,7 @@ opcodes via `emitOpcode`. The interp tracks per-table max and `table.grow` reall
 `table_copy.wast` (1650 skipped) and `table_init.wast` (730 skipped).
 
 **Update 2026-07-09 — `assert_invalid`/`assert_malformed`/`assert_exhaustion` + validator strictness
-(commit `645874c`):** the runner now *executes* the negative-conformance commands (previously all
+(commit `e6e8d57`):** the runner now *executes* the negative-conformance commands (previously all
 `skipped`), and `assert_trap` accepts only a genuine runtime trap. This converted **thousands** of
 skips into real pass/fail AND forced the validator to correctly reject invalid modules. Representative
 before → after (all now **0 skipped** unless noted): i32 374 → **459/0**, i64 384 → **415/0**, block 52
@@ -837,7 +837,7 @@ failures). Remaining fails are pre-existing feature gaps (host imports for `impo
 malformed edges, table/element init exprs) + the pre-existing `func.wast` result-mismatch bug — all in
 `known-issues.md` (#14–#16).
 
-**Update 2026-07-09 — follow-ups (`0409f37`, `c535de0`, `10aca3b`, `3321921`):** cleared most of the
+**Update 2026-07-09 — follow-ups (`61e7070`, `0d8ca0a`, `d30e86d`, `4d6708d`):** cleared most of the
 newly-exposed gaps. `func.wast` **171/0** (fixed #14 — `(type $t)` functions mis-indexed their locals).
 `ref.is_null` requires a reference; decoder rejects undefined valtype bytes (#2e/#6). **Decoder
 hardening (#16):** spec-correct LEB128 (`binary-leb128.wast` 36/25 → **58/1**), custom-section-name +
@@ -849,14 +849,14 @@ expressions** (#15) — not correctness holes. **63 unit tests.**
 
 **Update 2026-07-09 — element init expressions (#15) + host imports stage 1 (#1):** `elem.wast` 3/54 →
 **38/28** (element const-expr form + all 8 segment flag variants + const-expr offsets; commits
-`82d0213`/`4ffa2e8`). **Imported functions + `register`/module-linking** (`bcf3a11`): the runner keeps a
+`9d094a7`/`ee07b3a`). **Imported functions + `register`/module-linking** (`dc9db52`): the runner keeps a
 module registry, cross-module calls run in the exporting instance, `spectest` funcs are native no-ops —
 `func_ptrs` 29/2 → **32/0**, `table_copy` 0 → **120**, `table_init` 0 → **67**. Remaining fails are
 `table.copy`/`.init`/`elem.drop` (bulk table ops), passive elements, and imported **tables/memories**
 (`imports.wast` 26/56). **65 unit tests.** No regressions across the numeric/control/reference suites.
 
 **Update 2026-07-13 — #15 finished: bulk table ops + table-init exprs + const-expr data offsets**
-(commits `b256a86`, `6087eac`, `c0c7de2`). **Bulk table ops** — `table.init`/`table.copy`/`elem.drop`
+(commits `76f4fec`, `1f4e445`, `857cb9c`). **Bulk table ops** — `table.init`/`table.copy`/`elem.drop`
 end to end + runtime passive-element storage (segments evaluated to `[]Value` with an `elem_dropped`
 flag): `table_init.wast` 67 → **729/0/0**, `table_copy.wast` 120 → **1649/0/0**. **Table initializer
 expressions** — inline const-expr table elems + `(table N reftype initexpr)` (lowered to an active elem
@@ -873,7 +873,7 @@ if 240, align 140, address 256, const 320/56, table_get/set/fill/size, unreached
 identical). **All remaining `data`/`elem` failures are imported memories/tables → #1 stage 2.**
 
 **Update 2026-07-13 — host imports #1 stages 2 & 3 (imported tables/memories + link type-checking)**
-(commits `78c6b2b`, `1d6d9f2`). **Stage 2:** linear memory and tables became shared objects
+(commits `c62bc67`, `ce3f3a4`). **Stage 2:** linear memory and tables became shared objects
 (`*Memory`/`*Table`) so an imported one borrows the exporter's storage and observes its `grow`; the
 runner backs `spectest.memory`/`spectest.table`; the assembler emits `(import … (table|memory …))`.
 `data.wast` 31 → **34/0/0** (fully passing), `elem.wast` 47 → **52**. **Stage 3:** the runner
@@ -887,33 +887,33 @@ under ReleaseFast — debug is too slow on their large grow tests (pre-existing)
 gaps are separate features: invoke-by-module-name, inline `(table (export …) …)` (#11), tags, memory64,
 `(start …)` (#3).
 
-**Update 2026-07-13 — start function (#3) + inline abbreviations** (`07dd244`). Start section decoded
+**Update 2026-07-13 — start function (#3) + inline abbreviations** (`5bfe4e2`). Start section decoded
 + validated (`[] → []`, else "unknown function"/"start function") + run at instantiation (a trap fails
 instantiation). Also: `(memory (data "…"))` abbreviation and inline `(memory|table (import …))` imports.
 `start.wast` 0 → **11/0/0**, `imports` 132 → **137**, `memory` 66 → **69** (ReleaseFast), `table` 17/10
 → 17/9. **No core regressions** (i32 459, i64 415, table_init 729, table_copy 1649, call_indirect 169,
 func 171, global 109/1, … all HEAD-identical). `start0.wast` (3/3) needs multi-memory (out of scope).
 
-**Update 2026-07-13 — audit ledger closeout (#9/#10/#12/#13)** (`994ee23`/`3a50f75`/`e500a51`/`78647f6`).
+**Update 2026-07-13 — audit ledger closeout (#9/#10/#12/#13)** (`3bdd9d7`/`62379e9`/`acf2d62`/`c18f07b`).
 Robustness/cleanup fixes with no conformance delta (all HEAD-identical): #9 boxes host externrefs so no
 payload collides with `null_ref` (+2 new unit tests: externref-sentinel round-trip, import-after-def
 rejection); #10 rejects import-after-definition (`error.ImportAfterDefinition`) instead of silently
 mis-indexing; #12 pre-encodes the const-expr sections before the type section (byte-identical output);
-#13 removes the `funcTypeOf` duplicate + a redundant export re-resolution; #8 (`00bceb4`) rejects a
-zero/non-power-of-two `align=`; #11 (`ff3de4a`) assembles inline `(export …)` on a defined table
+#13 removes the `funcTypeOf` duplicate + a redundant export re-resolution; #8 (`bfdf552`) rejects a
+zero/non-power-of-two `align=`; #11 (`8664d28`) assembles inline `(export …)` on a defined table
 (`imports` 137/31 → 137/17, `linking` 19/84 → 29/108 with +10 passes, `elem` 52/15 → 52/26 — passes
 stable, new failures are newly-run assertions hitting typed-ref gaps). **68 unit tests. The 2026-07-09
 audit ledger is now FULLY cleared — every item #1–#16 resolved.** Remaining `.wast` gaps are new
 proposals (typed/GC refs, multi-memory, EH tags), not ledger debt.
 
-**Update 2026-07-13 — invoke-by-module-name** (`9745ecb`). The WAST runner tracks each `(module $M …)`
+**Update 2026-07-13 — invoke-by-module-name** (`70f2dd7`). The WAST runner tracks each `(module $M …)`
 by name and resolves `(invoke $M …)` / `(get $M …)` / `(register "x" $M)` to that module (else the
 current one); `(get …)` reads an exported global; a missing target → `NoTarget` → the assertion skips.
 `linking.wast` 29/108 → **100/37** (+71 passes — named invokes were the blocker for most of it),
 `elem.wast` 52/26 → **63/17** (+11). No core regressions; passes strictly up. **70 unit tests.**
 
-**Update 2026-07-13 — typed/GC references, function-references tier (P1/P2/P2.5;** `87ac6a7`, `7ebfd1e`,
-`446b61b`**).** Built in three tested increments (the "wasmtk way"):
+**Update 2026-07-13 — typed/GC references, function-references tier (P1/P2/P2.5;** `99203b4`, `879e4ee`,
+`b33cb2a`**).** Built in three tested increments (the "wasmtk way"):
 - **P1 value-type acceptance** — the decoder + assembler accept every typed/GC reference *value-type*
   form (`(ref null? func|extern|$t|any|eq|i31|struct|array|exn)`, `anyref`/`eqref`/`i31ref`/… ) and
   collapse them to the runtime's two opaque ref slots. `ref_null` 0 → **32/0**, `ref_is_null` 2 → 18.
@@ -948,7 +948,7 @@ a hand-written `i31.wast`** run through the CLI. Results:
 
 ### full GC — P3, struct/array slice (2026-07-14)
 
-Second tested part (git `bec0cf7` type-space refactor 2a + the runtime 2b). Same gating as i31 — in-repo
+Second tested part (git `7b7f7d2` type-space refactor 2a + the runtime 2b). Same gating as i31 — in-repo
 unit tests + a hand-written `.wast` (the official GC corpus isn't in this tree). Results:
 
 - **2a fixtures (+2)**: a hand-built binary with a struct (`(mut i32)`, `i64`) + a packed-`i8` array
@@ -1479,7 +1479,7 @@ languages), so it's a *manual* check, not a CI gate. Ran each through the releas
 **Net: every one of the 400 runnable files behaves correctly — 397 run cleanly + 3 correctly trap on a
 deliberate uncaught exception (identical to wasmtime). wazmrt runs the whole wasmtk WASI suite.**
 
-**This pass found and fixed one REAL bug** (`d51c004`): `15_LexicalShadowing_Stress.wasm` **infinite-looped**
+**This pass found and fixed one REAL bug** (`7b27485`): `15_LexicalShadowing_Stress.wasm` **infinite-looped**
 (1.86 billion identical "Inner Catch:" lines) — a legacy `try`/`catch` control-flow bug where a raw `throw`
 inside a catch handler re-matched the SAME handler instead of propagating to the enclosing try (the
 re-throw idiom `catch (e) { … throw e; }`). See `known-issues.md`. *Method note: guest programs legitimately

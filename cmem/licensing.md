@@ -13,7 +13,7 @@ Chosen by the owner over the alternatives (Apache-2.0-only; keep MIT-only) becau
   ISC, Apache-2.0, and Apache-2.0 WITH LLVM-exception.
 - Apache-2.0's explicit **patent grant** remains available to anyone who wants it; MIT simplicity too.
 
-The previous MIT-only `LICENSE` was replaced (git `888b87e`).
+The previous MIT-only `LICENSE` was replaced (git `252db40`).
 
 ## The compliance rule that drove the choice
 

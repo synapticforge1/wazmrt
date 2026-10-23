@@ -195,7 +195,7 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   DEFENCE IN DEPTH).** 🔁 *Superseded half, summarized 2026-09-21 (letter H3, drift row Z4): this entry
   was written when the run path executed modules WITHOUT validating them, and it chose "harden, don't
   validate-before-run". That choice was REVERSED on 2026-08-10 — every path that executes now validates
-  first (the 🔒 entry above). The original wording is `git show 21d633b6c:cmem/design-decisions.md`.*
+  first (the 🔒 entry above). The original wording is `git show 3f1bfbc1d:cmem/design-decisions.md`.*
   What still stands: since wazmrt ships ReleaseSmall, an unchecked OOB is real UB, so the interpreter
   must **trap, never index out of bounds**, even behind the validator. Mechanism:
   `checkStaticIndices` bounds-checks every *static* index immediate ONCE at instantiation; *dynamic* values
@@ -722,7 +722,7 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   🔁 *Summarized 2026-09-21 (letter H3): the instance that paid for this — the vendored Apache-2.0-only
   `wasm.h`, installed as `zig-out/include/LICENSE.wasm-c-api` — was deleted with the wasm-c-api on
   2026-08-11, and nothing third-party ships today. The original entry is
-  `git show 21d633b6c:cmem/design-decisions.md`.*
+  `git show 3f1bfbc1d:cmem/design-decisions.md`.*
 
 - **Zero-copy decode (2026-07-02).** `Reader` borrows slices; `Module` stores only section
   `{id, offset, size}` extents — no eager payload copies. Consequence: a decoded `Module` must remain
@@ -828,7 +828,7 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
     benchmark.** It needs a GC heap + object model + RTTs — a size cost accepted despite the
     smallest-binary lean (likely gated to a native/opt-in build). Build it in tested parts (the wasmtk
     way): i31 first, then struct/array, then the cast/test ops. **WASI preview 1** follows.
-    - **i31 slice DONE 2026-07-14** (first tested part, git `0f1e0c2`). The WasmGC `any` internal
+    - **i31 slice DONE 2026-07-14** (first tested part, git `7363b51`). The WasmGC `any` internal
       hierarchy is now modeled as *distinct* `ValType`s (`anyref`/`eqref`/`i31ref`/`structref`/
       `arrayref`/`nullref` + non-null `*_nn` synthetic tags) instead of collapsing to `externref` — so
       `refHeap()` + `RefHeap.sub()` in `types.zig` drive real GC subtyping (i31/struct/array <: eq <:
@@ -837,9 +837,9 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
       value slot (range `0..2^31-1`, so it can never alias the `null_ref = maxInt(u64)` sentinel).
       Ops `ref.i31`/`i31.get_s`/`i31.get_u` decode under the **`0xFB` prefix** (internal `Op` tags via
       `gcSubOpcode`, mirroring the `0xFC` table-op scheme), assemble+run, `i31.get` on null traps.
-      *Cleanup (git `7cba25f`):* a nullable-ref local now defaults to `null_ref`, not `0`
+      *Cleanup (git `c76eb98`):* a nullable-ref local now defaults to `null_ref`, not `0`
       (`FuncBody.local_defaults`, memcpy'd at entry) — fixed the pre-existing `@memset(locals, 0)` gap.
-    - **struct/array slice DONE 2026-07-14** (git `bec0cf7` type-space refactor 2a + the runtime 2b).
+    - **struct/array slice DONE 2026-07-14** (git `7b7f7d2` type-space refactor 2a + the runtime 2b).
       - **2a — type space is now a composite-type table.** `Module.func_types` (`[]FuncType`) →
         `comp_types` (`[]CompType` = func | struct(`[]FieldType`) | array(`FieldType`)) + `supertypes`
         (kept for later cast). Accessors `funcSig`/`structFields`/`arrayField` gate by kind so a struct

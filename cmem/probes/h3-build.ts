@@ -42,7 +42,7 @@ ${take(465, 474, "**Set the zig LOCAL CACHE")}
 ${take(511, 524, "### Still true").replace(/^### Still true, and unchanged by any of this — /, "### ")}
 
 *(How the env-var fix was found — the FOURTH diagnosis of one symptom; three earlier ones blamed
-hardware/event-51 (\`e507d1c\`, \`ed05905\`, \`458bc96\`, \`46a0bdb\`) and were wrong — is summarized in
+hardware/event-51 (\`f3496fa\`, \`e9d9ce6\`, \`38a6991\`, \`c66ad49\`) and were wrong — is summarized in
 \`best-practices.md\`; the full account is \`git show ${baseline}:cmem/INDEX.md\`, lines 475–510.)*
 `;
 
@@ -74,7 +74,7 @@ const index = `# cmem — Portable Project Memory for wazmrt
 > written into this repo from outside. (owner directive, 2026-09-20)
 >
 > 🔤 **ID namespace (owner, 2026-09-21):** a bare \`H<n>\` means a WORKSPACE LETTER; wazmrt's own
-> Track H items are \`zH1\`–\`zH8\` (renamed in \`50f5bf417\` — the two had collided).
+> Track H items are \`zH1\`–\`zH8\` (renamed in \`da4e558cf\` — the two had collided).
 
 This folder is the **authoritative, portable project memory** for \`wazmrt\`: committed, it travels with
 the repo. **Format:** plain Markdown, one topic per file, and **this file stays small** — policy,

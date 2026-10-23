@@ -261,4 +261,4 @@ breaking change.
 implemented and the spec testsuite runs with zero failures and zero skips. The current status line is
 in [`open-work.md`](open-work.md) and nowhere else. *(Summarized 2026-09-21, letter H3 / drift row Z5:
 this section read "Status (2026-07-02) … not yet done: `call_indirect`/host imports/WASI, multi-value"
-for two months after all of them shipped — `git show 21d633b6c:cmem/vision.md`.)*
+for two months after all of them shipped — `git show 3f1bfbc1d:cmem/vision.md`.)*
