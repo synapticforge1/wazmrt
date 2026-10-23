@@ -1178,6 +1178,15 @@
 # 2026-09-21 — `wazmrt_memory_size_pages` divides by the memory's OWN page size. **lib +4.** One
 # field load in place of a constant; exe and dll unmoved (page granularity).
 
-wazmrt.exe  1027584
-wazmrt.lib  1075946
+# 2026-10-23 — `assert_trap` CLASS-CHECKED against binaryang's D3, plus two wrong-trap fixes (letter
+# H10, `a65c677`). **exe +4,608, lib +48, dll +0.** Attributed by BUILDING, not by reading: HEAD
+# with the parent's `wast.zig` gives exe +0 / lib +48, so the exe's growth is the runner alone
+# (D3's twenty class messages and keys, `d3Class`, `trapClasses`, the new failure texts, rounded up
+# to the PE section granularity), and the lib's 48 bytes are the interpreter fixes (an
+# out-of-range truncation now traps `IntOverflow`, `ref.get_desc` on null traps `NullReference`).
+# The dll carries no `.wast` runner, so it does not move. ⚠️ Measured with the machine's own
+# `ZIG_LOCAL_CACHE_DIR`; the lib embeds the cache path (`cmem/known-issues.md`).
+
+wazmrt.exe  1032192
+wazmrt.lib  1075994
 wazmrt.dll  923648

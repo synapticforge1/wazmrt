@@ -41,10 +41,19 @@ in `tools/size-ceilings.txt`, one place each.
       `abi_version` bump;
     - `interop.md` v30's `--features` row, which binds wasmrt too.
 
-    The open shape questions, put to the owner: wasm-tools-only names (`floats`, `gc-types`,
-    `legacy-exceptions`, `bulk-memory-opt`, `call-indirect-overlong`, `mutable-global`) dropped,
-    or kept as aliases; and timing relative to binaryang's FL1, which may change D2's `cli`
-    spellings.
+    🔒 **Shape DECIDED (owner, 2026-10-23), three answers:**
+    1. **D2's names become canonical, and the wasm-tools-only names stay as deprecated ALIASES**
+       for one minor release, then go in a major (`floats`, `gc-types`, `legacy-exceptions`,
+       `bulk-memory-opt`, `call-indirect-overlong`, `mutable-global`). Deprecate before removing;
+       the README Breaking Changes row lands with the deprecation.
+    2. **It lands AFTER binaryang's FL1 settles**, together with the opcode follow-up below, so the
+       vocabulary migrates once, to D2's final `cli` spellings.
+    3. **The C ABI's `wazmrt_feature_t` APPENDS** any D2 feature it lacks and keeps every existing
+       value valid (deprecated where it has no D2 counterpart). That is additive: a minor, with no
+       `abi_version` bump.
+
+    Contract v30's `--features` row changes with it (a contract version bump, PENDING MIRROR to
+    wasmrt).
   - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
     `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
     (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
