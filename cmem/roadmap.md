@@ -9,6 +9,13 @@ names its commits and the file that now holds the substance; the full text as it
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
+| 2026-10-23 | **`assert_trap` class-checked against binaryang's D3** (owner); the first checked run found two wrong-trap defects (out-of-range truncation, `ref.get_desc` on null), both fixed; 288 / 64,092 / 0 / 0, now class-checked; size ceilings raised by measurement | `a65c677`, `27e5f93` | `known-issues.md`, `tools/size-ceilings.txt` |
+| 2026-10-23 | Letter H10 stage A: `src/definitions.zig`, a hash-verified copy of binaryang's D1/D2/D3; the decoder and assembler held to D1 (582, both ways); the opcode follow-up queued behind binaryang; `wazmrt.lib` found to embed the cache path | `f00a177`, `05f37b4`, `9495d5a` | `open-work.md` (H10), `known-issues.md` |
+| 2026-10-23 | Letter H6: SemVer 2.0.0 replaces the odometer; the compatibility gate `zig build surface`; the 28 ★ rules adopted; a README Breaking Changes table | `6c055eb`, `98d9313` | `releasing.md`, `best-practices.md` §7 |
+| 2026-10-23 | Letter H15: every committed script on Bun (`tools/*.mjs`, the FFI demo now `bun:ffi`, the 25 probes, each proven against its Deno original) | `d445fbd`, `1e37ec0` | `working-rules.md` → TOOLING, `probes/README.md` |
+| 2026-10-23 | Letters H18 / H19 / H16: no personal paths tracked; the whole history purged and force-pushed (owner); `.git` repacked on exFAT | `fd95e77`, `dff030f` | `history-map-2026-10-23.md`, `overview.md` |
+| 2026-10-23 | Letter H21: contract v31, wasmrt's post-rewrite commit ids; drift Z3 closed (`licensing.md`) | `0327fea`, `4fd923b` | `interop.md`, `licensing.md` |
+| 2026-10-21 | The move to the `synapticforge1` organization recorded; `1.0.2` and `1.0.3` pushed (untagged) | `46edee9`, `70432bd` | `overview.md` |
 | 2026-09-21 | 🔖 **Release `1.0.3`** — fixes for four `1.0.2` defects, flat legacy EH, wasm-tools' feature vocabulary; the full checklist ran | the release commit | `releasing.md` |
 | 2026-09-21 | `wazmrt_memory_size_pages` honours custom page sizes; `capi_smoke.c` un-staled; the letter-H3 follow-up closed | `25ee73588` | `known-issues.md` |
 | 2026-09-21 | Letter H3: INDEX 192 KB → 10.7 KB, `open-work.md`, `working-rules.md`, drift Z1–Z6 | `3fe416f12` | `INDEX.md`, `probes/h3-check.ts` |
@@ -48,11 +55,12 @@ version ladder these earn.
 | --- | --- | --- | --- |
 | **H** | `1.0.1` | **Hardening** — make the *shipped* configuration defensible, and re-measure the baselines | do the work |
 | **B** | `1.0.2` | **Bug hunt + code hygiene** — go looking for the unknown ones, across tested **and untested** paths | do the work |
-| **O** | `1.0.4` | **Optimization review** — measured options presented for a decision | **review + recommend** |
-| **S** | `1.0.5` | **Security review** — find the penetration surfaces, recommend the plugs | **review + recommend** |
+| **O** | the gate's | **Optimization review** — measured options presented for a decision | **review + recommend** |
+| **S** | the gate's | **Security review** — find the penetration surfaces, recommend the plugs | **review + recommend** |
 
-*(O and S were `1.0.3` / `1.0.4` until 2026-09-21, when `1.0.3` shipped the fixes for four `1.0.2`
-defects — `releasing.md`. The shift is a reading of that release, to confirm.)*
+*(O and S were `1.0.3` / `1.0.4`, then `1.0.4` / `1.0.5` after `1.0.3` shipped early. Since
+2026-10-23 the number comes from SemVer and `zig build surface`'s floor, not from a ladder
+(`releasing.md`), so a track no longer owns a number. Only the ORDER is left to confirm.)*
 
 🔒 **The order is `measure → find → optimize → attack`, and it is deliberate.** Optimizing before the
 bug hunt tunes code that is about to change. Reviewing performance before H re-measures yields opinions
@@ -1208,7 +1216,7 @@ that refusal is correct.
 
 ---
 
-### ⚡ Track O — Optimization review (a DISCUSSION, not a blind pass). `1.0.4` `[ ]`
+### ⚡ Track O — Optimization review (a DISCUSSION, not a blind pass). `[ ]`
 
 **Deliverable: options with measurements and trade-offs, then a decision.** Scope: faster and smaller,
 **judged at the artifact boundary** — the CLI exe, the static lib, the DLL, the freestanding `wasm32`
@@ -1308,7 +1316,7 @@ recorded invariant for a number** unless the owner takes that decision explicitl
 
 ---
 
-### 🔓 Track S — Security review: find the penetration surfaces, recommend the plugs. `1.0.5` `[ ]`
+### 🔓 Track S — Security review: find the penetration surfaces, recommend the plugs. `[ ]`
 
 **A review-and-recommend phase, like O** — findings + recommended mitigations **with their costs**,
 presented for a decision. **Do not unilaterally harden:** the obvious mitigations trade against zero
