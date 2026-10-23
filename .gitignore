@@ -1,3 +1,7 @@
 .zig-cache/
 zig-out/
 *.o
+# Machine-local, never public (workspace working-rules § Records, letter H18):
+# tool settings that record absolute paths, and private memory.
+.claude/settings.local.json
+cmem/local/

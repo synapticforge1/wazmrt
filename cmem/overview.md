@@ -14,7 +14,9 @@ earns its place.
 confirmed by the GitHub API, which resolves the old name to the new one. GitHub redirects the old URL,
 but new references use the organization path. The local `origin` was repointed to
 `https://github.com/synapticforge1/wazmrt.git` and verified with `git ls-remote` (2026-10-21). The loaders, `wasmrt`, `binaryang` and `rsxtk` moved
-with it; as of 2026-10-21 `wasmtk` is still at `jrmarcum/wasmtk`.
+with it, and `wasmtk` followed to `synapticforge1/wasmtk` on 2026-10-23 (workspace letter H17). Only
+the frozen `wabt-ts` / `binaryen-ts` stay under `jrmarcum`; registry names did not move (JSR scope
+`@jrmarcum`). Canonical table: `../../cmem/projects.md` § "Where each project lives".
 
 ## Repo layout
 

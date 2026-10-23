@@ -34,6 +34,12 @@ in `tools/size-ceilings.txt`, one place each.
 
 - **H6** — SemVer 2.0.0 with a compatibility gate on every bump script; the ★ rules block copied into
   `best-practices.md` under a dated stamp; memory layout per `memory-conventions.md`.
+- **2026-10-23 sweep** (owner: "review letters or rules that have changed"): **H18** — addressed
+  (`.claude/settings.local.json` untracked and gitignored, `design-decisions.md`'s drive path → a
+  placeholder, real paths in the gitignored `cmem/local/`). **H20** — not applicable: wazmrt has no
+  CI workflows and publishes to no registry, so no trusted-publishing policy pins its owner ID.
+  **H15, H19, H16, H21** — in progress the same day (owner said yes to H19's purge and force-push;
+  `build.zig`'s Zig tools are build steps, not scripts; the Deno FFI demo becomes a Bun demo).
 - H1, H3, H8, H13 are addressed; each closes in `../../cmem/handoffs.md` when the workspace names the
   commit. (H3: INDEX 192 KB → 10.7 KB, this file and `working-rules.md` created, drift rows Z1–Z6
   closed, one number per place — proven by `probes/h3-check.ts`, which the workspace can re-run.)

@@ -1022,8 +1022,8 @@ The 0.16 stdlib differs from older docs — verified against the installed stdli
   on its own; this is a harness/timing artifact, not a code defect.
 
 - **Git "dubious ownership" on D:.** `git` refuses the repo until
-  `git config --global --add safe.directory <repo-root>`
-  (already applied this session).
+  `git config --global --add safe.directory <repo-root>` (forward slashes; already applied on the
+  owner's machine — the real path is machine-local, `cmem/local/environment.md`).
 
 - **PowerShell `2>&1` mangles native stderr.** Zig's stderr wraps into PowerShell ErrorRecords. To read
   real Zig output, redirect via `cmd /c "... 1> file 2>&1"` and read the file, or rely on captured

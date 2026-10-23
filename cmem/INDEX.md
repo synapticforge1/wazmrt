@@ -126,7 +126,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | [roadmap.md](roadmap.md) | The tracks (H ✅, B ✅, O, S), their items and gates; **milestone summaries** with commits at the top. |
 | [testing.md](testing.md) | How to run every gate, what each can see, and **the dated counts** (the one place they are recorded). |
 | [known-issues.md](known-issues.md) | The defect log: fixed-with-root-cause and deferred-with-surfacing-condition. |
-| [releasing.md](releasing.md) | The version (`1.0.2`), the cadence and ladder, what counts as breaking, the binding per-release checklist. |
+| [releasing.md](releasing.md) | The version (`1.0.3`), the cadence and ladder, what counts as breaking, the binding per-release checklist. |
 | [best-practices.md](best-practices.md) | METHOD rules, one bold rule + the incident that paid for it. |
 | [text-toolchain.md](text-toolchain.md) | The `.wat`/`.wast` assembler and script runner: spellings accepted, encoding decisions. |
 | [licensing.md](licensing.md) | Why `MIT OR Apache-2.0`, the zero-dependency verification, the reference-code obligations. |
