@@ -20,7 +20,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v3.0.0` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v38** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both and corrects the ladder line); wasmrt mirrored v36 + v37 (`5315faf`), and v38 is PENDING MIRROR. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v38** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both and corrects the ladder line); wasmrt's copy is byte-identical at v38 (`f88a9ab`). The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -67,8 +67,8 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     day. ✅ **wasmrt mirrored v35 and made §5 #13's change by letter** (`cfeee31`); re-verified by
     running both, identical on six `--env` cases, recorded as v36. ✅ **wasmrt mirrored v36 + v37
     and made the v37 `--features` change** (`5315faf`, `4162c52`, `daec1d6`); re-run on both
-    binaries: D2 matrix 2,352 / 0 differ, CLI corpus identical, recorded as v38. ⏳ **wasmrt to
-    mirror v38** (record-only). §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    binaries: D2 matrix 2,352 / 0 differ, CLI corpus identical, recorded as v38. ✅ **wasmrt
+    mirrored v38** (`f88a9ab`): the copies are byte-identical (`cmp`). §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
