@@ -19,7 +19,22 @@ what earns it.
 > Also: the class-checked `.wast` runner, the generated copy of binaryang's definitions with the
 > opcode tables held to it (H10), the compatibility gate with behaviour carried forward (S1, S2;
 > S3 local), every committed script on Bun (H15), and the history purged of personal information
-> (H19). The full checklist record is the release commit's follow-up (step 9a).
+> (H19).
+>
+> ✅ **Checklist run 2026-10-23 on the release commit `7bc9f56`, every gate:**
+> - `test` 825/829 from `D:` (the four exFAT symlink skips) and **829/829 from NTFS**;
+>   `test-safe` and `test-shipped` 823/827; `test-security` 3/3 (NTFS);
+> - conformance 288 / 64,092 / 0 / 0, with the baseline file empty and every `assert_trap`
+>   class-checked; **S2 vs `1.0.3`: 288 compared, 0 regressed**;
+> - `features` 4/4; `capi-smoke` ✅; size EXACT on all three (exe 1,032,192 / lib 1,075,994 /
+>   dll 923,648);
+> - the surface gate accepted `1.0.3` → `1.0.4` as a patch, which meets the floor;
+> - standalone: the exe in an empty directory with `PATH` cut to the system directories prints
+>   `wazmrt 1.0.4 (abi 2)` and runs a WASI module; the exe and the dll import only `KERNEL32` and
+>   `ntdll`; the old version string is gone from all four places.
+>
+> Step 9a recorded `1.0.4` as the baseline of the surface (S1 included) and of the per-file
+> conformance (S2). Only the `released-as` line moved in either file, as a patch requires.
 
 > 🔒 **`1.0.3` — owner, 2026-09-21: *"yes release 1.0.3 now."*** It carries **fixes for four defects
 > that shipped in `1.0.2`** (a plain `funcref` table refused under `--features mvp`; function locals
