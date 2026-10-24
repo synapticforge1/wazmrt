@@ -819,6 +819,16 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
     for (module.tables) |t| if (t.limits.is64) {
         require(fs, .memory64, &found) catch return found;
     };
+    // 🚨 **A table INITIALIZER (`0x40 0x00 tt e`) is function-references'** (D2 2.2.0
+    // `encodingRules`: "a table initializer expression"), and until 2026-10-24 nothing here looked
+    // at it. `(table 1 funcref (ref.null func))` validated with function-references off — under
+    // `wasm2`, `all,-function-references` and `-all,reference-types` — where wasmrt, wasm-tools
+    // 1.262 and binaryang 2.2.0 refuse it. Found by wasmrt while mirroring v39: the module was not
+    // in S1's corpus, which is why the D2 matrix read 0. The expression itself is walked below,
+    // with the other const-exprs, so a GC instruction in it is gated by gc as well.
+    for (module.tables) |t| if (t.init_expr != null) {
+        require(fs, .function_references, &found) catch return found;
+    };
     for (module.globals) |g| requireValType(fs, g.content, &found) catch return found;
 
     // --- tags ----------------------------------------------------------------------------
@@ -845,9 +855,10 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
     // opcode is worse than no gate: it reads as a control while letting the thing through"* —
     // and it was published to embedders as a control they could rely on.
     //
-    // 🔑 Same decode-and-require loop as the bodies below, over the three places a const-expr
-    // lives: defined globals' initializers, and active element / data segments' offsets. Element
-    // segments in the expression form carry one per entry.
+    // 🔑 Same decode-and-require loop as the bodies below, over the FOUR places a const-expr
+    // lives: defined globals' initializers, active element / data segments' offsets, and tables'
+    // initializers (the fourth was missed until 2026-10-24). Element segments in the expression
+    // form carry one per entry.
     {
         for (module.global_inits) |expr| try requireConstExprFeatures(gpa, fs, expr, &found);
         for (module.elements) |e| {
@@ -855,6 +866,8 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
             for (e.exprs) |expr| try requireConstExprFeatures(gpa, fs, expr, &found);
         }
         for (module.data) |d| try requireConstExprFeatures(gpa, fs, d.offset_expr, &found);
+        // …and a table's initializer, the fourth place a const-expr lives (2026-10-24).
+        for (module.tables) |t| if (t.init_expr) |ie| try requireConstExprFeatures(gpa, fs, ie, &found);
         if (found) |_| return found;
     }
 
@@ -1091,6 +1104,18 @@ test "gating: custom_page_sizes — the proposal that shipped with no switch at 
             return e;
         };
     }
+}
+
+test "gating: a table INITIALIZER needs function-references, and its expression is walked" {
+    // 🚨 D2 2.2.0 `encodingRules`: "a table initializer expression" needs function-references.
+    // Until 2026-10-24 the `0x40 0x00 tt e` form was never looked at (found by wasmrt).
+    const src = "(module (table 1 funcref (ref.null func)))";
+    try std.testing.expectEqual(@as(?Feature, .function_references), try needs(src, setWithout(&.{.function_references})));
+    try std.testing.expectEqual(@as(?Feature, null), try needs(src, .{}));
+    // The plain form, no initializer, is 1.0 and needs nothing.
+    try std.testing.expectEqual(@as(?Feature, null), try needs("(module (table 1 funcref))", noFeatures()));
+    // The expression is a const-expr like any other: a GC instruction in it is gated by gc.
+    try std.testing.expectEqual(@as(?Feature, .gc), try needs("(module (table 1 i31ref (ref.i31 (i32.const 0))))", setWithout(&.{.gc})));
 }
 
 test "gating: a 64-bit TABLE needs memory64, defined or imported" {

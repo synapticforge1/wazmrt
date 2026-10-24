@@ -6,6 +6,10 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
+**Unreleased on `main`: a table INITIALIZER needs function-references** (found by wasmrt while
+mirroring v39; contract v40, `known-issues.md`). It was accepted under every config; S1 −30, so the
+gate's floor is MAJOR (`5.0.0`, owner's call). README has a _next release_ row.
+
 **`4.0.1` is released** (2026-10-24, owner: "fix the issues", then "yes"): two validator defects
 from wasmrt's fuzz fixed. Deep constant expressions are no longer refused, and element flags > 7
 are refused. A patch by the gate (+0 −0; `known-issues.md`).
@@ -14,7 +18,8 @@ are refused. A patch by the gate (+0 −0; `known-issues.md`).
 value types follow binaryang D2 2.2.0's `typeRules`, read from the definitions copy (`interop.md`
 v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 agree on all 2,352
 judgements of the D2 matrix. wasmrt made the same change (`cee7bd1`) and released its own `1.0.0`
-(`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ⏳ The v39 mirror.
+(`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ⏳ The v39 and v40
+mirrors. wasmrt's copy was still v38 when re-checked 2026-10-24.
 
 **`3.0.0`** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
 `--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1

@@ -13,6 +13,31 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## ✅ FIXED 2026-10-24 — a table INITIALIZER was accepted with function-references off (found by wasmrt)
+
+**What it was:** `(table 1 funcref (ref.null func))` (binary `0x40 0x00 tt e`) validated on wazmrt
+under every `--features` configuration, `-all` and `mvp` included. wasmrt 1.0.0, wasm-tools 1.262
+and binaryang 2.2.0 refuse it with function-references off, and D2 2.2.0's `encodingRules` gives "a
+table initializer expression" to function-references. `features.firstViolation` never looked at
+`TableType.init_expr`, and it did not walk the initializer as a const-expr either, so a GC
+instruction there was not gated by gc.
+
+**How it hid:** contract v39 claimed wazmrt "already met" the encoding rules, on the strength of a
+D2 matrix reading 0. No module in S1's corpus had a table initializer. 🎓 *A comparison that agrees
+everywhere has proved agreement over its corpus, not over the rule.*
+
+**The fix**, done in the gate's order:
+1. `tests/behaviour/table-init.wat` joined S1 at 4.0.1's behaviour, accepted under all 32 configs
+   (`4aa4e15`).
+2. The gate requires function-references for an initializer, and the const-expr walk covers table
+   initializers as the fourth place a const-expr lives.
+
+S1 −30, so the floor is MAJOR. A unit test pins the gate, the 1.0 table without an initializer,
+and the walk; it fails with the gate removed. The D2 matrix on 49 modules is 2,401 / 0 differ,
+against binaryang and against wasmrt.
+
+---
+
 ## ✅ FIXED 2026-10-24 — two validator defects, re-measured on 4.0.0 (first reported by wasmrt's fuzz)
 
 **The fixes** (owner: "fix the issues"):
