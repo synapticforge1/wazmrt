@@ -13,6 +13,20 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🆕 `--features all,-memory64` still ADMITS a 64-bit TABLE (found by wasmrt, re-measured 2026-10-23)
+
+**What:** `(module (table i64 1 funcref))` validates under `--features all,-memory64` on wazmrt
+1.0.4, where wasm-tools refuses it. The 64-bit table index type belongs to the memory64 proposal
+(table64), so `-memory64` should refuse it: a feature switch letting through what it was told to
+refuse. wasmrt reported it from wazmrt's 1.0.2 build in its §2.2m annex (letter H8 measurements),
+and it still holds on the current build.
+
+**Why not fixed on sight:** the fix makes wazmrt REFUSE a module it accepts today. That is kind 4,
+"accepting less", which `releasing.md` calls breaking even when correct, so the S1 surface gate
+would demand a major. It belongs with the binaryang D2 migration's release (names AND meanings,
+v32/v33), where gating per instruction and per type is redone anyway. That is the owner's release
+call. ⏳ When it is fixed, add `(table i64 …)` to `tests/behaviour/` so S1 watches it.
+
 ## 🆕 `wazmrt.lib`'s size depends on the Zig CACHE PATH: the static library embeds it (found 2026-10-23)
 
 **What:** at the same commit, from the same directory, `zig build size -Doptimize=ReleaseSmall` puts

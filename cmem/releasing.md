@@ -75,6 +75,8 @@ what earns it.
 > system dirs prints `wazmrt 1.0.2 (abi 2)` and runs a WASI module · four places bumped, grep clean,
 > the version test green. 🐧 **Beyond the checklist: 814/814 and `test-security` 3/3 on native Linux.**
 
+> 🗄️ **Lockstep ENDED 2026-10-23** (owner: "officially out of lock step now due to differences";
+> gate 11). Kept as it was recorded:
 > 🤝 **LOCKSTEP ENGAGES WHEN wasmrt REACHES `1.0.1` (owner, 2026-09-21)**, and from then neither
 > runtime releases alone (`interop.md` §1e, gate 11 below). 🔒 **`1.0.2` ships BEFORE that** (owner,
 > same day), under the ordinary checklist. ⚠️ *A same-day draft said wazmrt must hold at `1.0.1` so the
@@ -392,7 +394,11 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
 10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
     ladder, and `open-work.md`'s Status line (the only one — letter H3, 2026-09-21). A doc pass scheduled "after the release" is a doc pass that
     does not happen.
-11. 🆕 🤝 **THE LOCKSTEP GATE — once wasmrt reaches `1.0.1`** (owner, 2026-09-21; `interop.md` §1e).
+11. 🗄️ **RETIRED 2026-10-23** (owner: *"we are officially out of lock step now due to differences"*;
+    `interop.md` v33, §1e). wazmrt releases on its own checklist. The contract stays the shared
+    reference, and a coordination pass is still the right move before a change to an in-scope row,
+    but it no longer blocks a release. The gate as it stood:
+    🤝 **THE LOCKSTEP GATE — once wasmrt reaches `1.0.1`** (owner, 2026-09-21; `interop.md` §1e).
     From that point neither runtime releases alone, and **two things must be true before the bump**:
     the **coordination pass** has run in full (`interop.md` §1b — compare copies, diff every in-scope
     row, **verify by running both on the same bytes**), and the **contract mirror is current**, meaning

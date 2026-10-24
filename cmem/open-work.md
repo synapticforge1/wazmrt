@@ -9,7 +9,7 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 **`1.0.4` is released** (2026-10-23, owner: "release 1.0.4"), the first release under SemVer and
 the compatibility gate. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v32**; wasmrt's copy is at 10. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v33** (lockstep ended); wasmrt's copy is at v32 + the folded annexes. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -47,10 +47,11 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
   bytes:
-  - ✅ **Contract mirrored to v32** (`28f2982`, `6c06f5d`). Its copy is wazmrt's v32 verbatim PLUS
-    two wasmrt annexes, §2.2f (2026-09-20) and §2.2m (the mirror's verification). That makes 62
-    lines in which the copies are not identical. ⏳ **wazmrt, as pen holder, folds them** with a
-    version bump (as v13 did for §2.3m). §2.2m asked whether v32 reverses v30's MEANINGS too, or
+  - ✅ **Contract mirrored to v32** (`28f2982`, `6c06f5d`), with two wasmrt annexes, §2.2f and
+    §2.2m. ✅ **Folded verbatim in v33** (2026-10-23), and the copies were byte-identical at the
+    fold. v33 also ends lockstep (owner) and carries the meanings answer below. ⏳ **wasmrt
+    mirrors v33.** Still for wazmrt as pen holder: refresh the stale wasmrt cells §2.2m lists, after
+    re-running them. §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
@@ -73,7 +74,9 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
     ⬜ **Claimed in its commit, NOT verified here by running** (that is wasmrt's `cargo test`,
     from a clone).
-  - ⏳ **Still `0.9.0`**, so lockstep (§1e, at wasmrt `1.0.1`) is not armed.
+  - 🗄️ **Lockstep ENDED** (owner, 2026-10-23: "we are officially out of lock step now due to
+    differences"; `interop.md` v33 §1e, checklist gate 11 retired). wasmrt is `0.9.0`; the two
+    release independently.
 
   ⚠️ **Do NOT ask it to match v30's wasm-tools `--features` vocabulary** (owner reversed it; v32).
   Letters H1 and H8 close in the workspace once wasmrt records its side.
