@@ -61,8 +61,14 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     (`./data:/m`, `.:/`, `data:/m`, `C:`, …) give identical exit codes in both. ⚠️ Through Git
     Bash the single-colon rows looked broken in both: the MSYS rewrite again, so measure with a
     direct spawn.
-  - ⏳ **H23 in progress, UNCOMMITTED** in its tree (`tests/behaviour.rs`,
-    `scripts/carry-forward.ts`, `behaviour-s2.ts`, …).
+  - ✅ **H23 committed by wasmrt** (`188fe8a`, 23:27; it was uncommitted when this check began):
+    - S1 in `cargo test`: 71 modules × 38 configs, 1,523 accepted pairs, validate-only;
+    - a carry-forward script that judges a tag with the current judge;
+    - S2 pinned by content SHA-256, the same choice wazmrt made, reached independently;
+    - and a fix for a defect it found, "MVP element segments".
+
+    ⬜ **Claimed in its commit, NOT verified here by running** (that is wasmrt's `cargo test`,
+    from a clone).
   - ⏳ **Still `0.9.0`**, so lockstep (§1e, at wasmrt `1.0.1`) is not armed.
 
   ⚠️ **Do NOT ask it to match v30's wasm-tools `--features` vocabulary** (owner reversed it; v32).
