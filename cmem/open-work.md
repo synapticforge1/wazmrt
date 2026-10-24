@@ -82,8 +82,29 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - S2 pinned by content SHA-256, the same choice wazmrt made, reached independently;
     - and a fix for a defect it found, "MVP element segments".
 
-    ⬜ **Claimed in its commit, NOT verified here by running** (that is wasmrt's `cargo test`,
-    from a clone).
+    ✅ **VERIFIED BY RUNNING 2026-10-24** (owner: "verify H23 is done"), on wasmrt HEAD `6df2108`
+    exported into a scratch dir (nothing written to its tree). `188fe8a` is now `6f68bab`
+    (history map 10-24).
+    - S1 is `crates/wasmrt-core/tests/behaviour.rs`, validate-only: 71 modules × 38 configs =
+      1,523 pairs, as claimed. `cargo test --workspace`: 604 passed, 0 failed, 1 ignored.
+    - S2 is `scripts/behaviour-s2.ts`, pinned by content SHA-256: 288 files, 0 regressed.
+    - S3 is `scripts/carry-forward.ts`. From `v0.9.0`: 0 accepted → refused over 1,201 modules.
+    - Each stage goes red when broken. Restoring the MVP-element defect gives S1 57 accepted →
+      refused (major) and S3 306. The fix `6f68bab` has its own two-way test.
+    - Recorded in wasmrt's `releasing.md` step 1c, `testing.md`, `roadmap.md` and
+      `known-issues.md`.
+
+    ⚠️ **Two claims did not reproduce:**
+    - The "661 accepted → refused" in its commit and `known-issues.md` measures **306** today. Its
+      corpus has moved (1,201 modules, against ~1,195 then), so this may be drift.
+    - There is no tag-to-tag history yet: `v0.8.0` has no `features.rs`, so the only pair that
+      runs is `v0.9.0` → HEAD.
+
+    Notes for wasmrt, not defects:
+    - `carry-forward.ts` adds a `git worktree` to the repo it runs from, then prunes it.
+    - `carry-forward.ts` exits 0 at a MAJOR floor; `bump.ts` is what enforces the floor.
+    - S2 only warns on a hash mismatch.
+    - S2 needs `../wasmtk` to be a git checkout.
   - 🗄️ **Lockstep ENDED** (owner, 2026-10-23: "we are officially out of lock step now due to
     differences"; `interop.md` v33 §1e, checklist gate 11 retired). wasmrt is `0.9.0`; the two
     release independently.
