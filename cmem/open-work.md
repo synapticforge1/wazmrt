@@ -159,8 +159,33 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   - ⏳ **Waiting on binaryang: the D2 feature matrix, MEASURED 2026-10-24** (owner: "yes feature
     matrix against binaryang"). `probes/d2-matrix.ts`, wazmrt `b534ee4`+ against binaryang 2.1.0
     (`src` unchanged since the tag): 48 modules × 49 configs = 2,352 judgements, **62 differ**, in
-    four groups. **wazmrt's TYPE rules wait on the answer to (3) and (4).** 📬 **SENT to binaryang
-    by the owner, 2026-10-24.** The letter as sent:
+    four groups. 📬 **SENT to binaryang by the owner, 2026-10-24.**
+    ✅ **ANSWERED the same day** (binaryang § 44, sent by the owner). Every row reproduced, and every
+    one was binaryang's. On binaryang `main`, shipping in its next release (≥ 2.2.0):
+    - `--disable-mutable-globals` now refuses;
+    - the overlong index is reference-types';
+    - D2 gains `typeRules`, wasm-tools 1.262's type rule (owner: "wasm-tools' rule"), and
+      `encodingRules`;
+    - `(ref any)` is gc's.
+    - The D3 shared-memory class is the owner's decision, not yet made.
+
+    ⏳ **wazmrt's side, re-measured against binaryang `main` `4a829d216`: 22 of 2,352 differ, all
+    wazmrt ACCEPTING what D2's `typeRules` refuse.** Three gaps in `valTypeNeeds` and the gc
+    grant:
+    - the GC types (`any` `eq` `i31` struct array, the bottoms) need reference-types AND gc, and
+      wazmrt asks gc only (18);
+    - `exnref` needs reference-types AND exceptions, and wazmrt asks exceptions only (2);
+    - `(ref func)` / `(ref extern)` need reference-types AND function-references, but wazmrt lets
+      gc stand in for function-references, which `typeRules` allows only for a concrete
+      `(ref $t)` (2).
+
+    🔒 **Owner, 2026-10-24: fix it AFTER binaryang ships.** Re-pin to that release, generate the
+    type rules from the copy (the generator renders `typeRules` / `encodingRules` first), fix,
+    re-run `probes/d2-matrix.ts` to 0. It is accepting less, so the gate sets **4.0.0**. The
+    contract's `--features` row changes for both runtimes: wasmrt applies the same rules (its
+    matrix matched wazmrt's), so it migrates at the same time.
+
+    The letter as sent:
 
     > **To binaryang — the feature matrix you asked for (letter of 2026-10-24), wazmrt against
     > 2.1.0.** wazmrt now gates each instruction by D1 alone, uses D2's names and presets, and
