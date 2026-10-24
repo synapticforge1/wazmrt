@@ -44,13 +44,29 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- **wasmrt**: mirror `interop.md` v32 (it holds 10); letter H23 (the behaviour carry-forward
-  testing) is in the workspace's `handoffs.md` for it; make letter H13's three encoder fixes (`.wat`
-  pins agree 64/528 until it does, §3.1); its `--dir` help still shows the pre-v27 rules. ⚠️ **Do
-  NOT ask it to match v30's wasm-tools `--features` vocabulary any more**: the owner reversed that on
-  2026-10-23 (align with binaryang's D2, below), so wasmrt should wait for the contract row that
-  change brings. Lockstep engages when wasmrt reaches `1.0.1` (`interop.md` §1e). Letters H1 and H8
-  close in the workspace once wasmrt records its side.
+- **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
+  committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
+  bytes:
+  - ✅ **Contract mirrored to v32** (`28f2982`, `6c06f5d`). Its copy is wazmrt's v32 verbatim PLUS
+    two wasmrt annexes, §2.2f (2026-09-20) and §2.2m (the mirror's verification). That makes 62
+    lines in which the copies are not identical. ⏳ **wazmrt, as pen holder, folds them** with a
+    version bump (as v13 did for §2.3m). §2.2m asks a real question for the owner: does v32
+    reverse v30's MEANINGS too (no configuration refused; dependencies checked on the module), or
+    only the vocabulary?
+  - ✅ **Letter H13 done and VERIFIED** (`97d2d55`): over wasmtk's 609 `.wat`, wazmrt and wasmrt
+    agree on 607, differ on 0, and both equal `wasm-tools parse` on all 607. The other 2
+    (`ArtOfWebAssembly_tests/Chapter3/table_export.wat` and `table_test.wat`) are refused by all
+    three tools.
+  - ✅ **`--dir`**: its help states the v27 grammar, and 10 spellings run with no shell
+    (`./data:/m`, `.:/`, `data:/m`, `C:`, …) give identical exit codes in both. ⚠️ Through Git
+    Bash the single-colon rows looked broken in both: the MSYS rewrite again, so measure with a
+    direct spawn.
+  - ⏳ **H23 in progress, UNCOMMITTED** in its tree (`tests/behaviour.rs`,
+    `scripts/carry-forward.ts`, `behaviour-s2.ts`, …).
+  - ⏳ **Still `0.9.0`**, so lockstep (§1e, at wasmrt `1.0.1`) is not armed.
+
+  ⚠️ **Do NOT ask it to match v30's wasm-tools `--features` vocabulary** (owner reversed it; v32).
+  Letters H1 and H8 close in the workspace once wasmrt records its side.
 - **Letter H10 — stage A done 2026-10-23.** `src/definitions.zig` is a GENERATED copy of
   binaryang 1.15.0's D1/D2/D3 (`tools/gen-definitions.ts`, which verifies each source file's own
   SHA-256; `zig build definitions` regenerates and diffs when binaryang is present). On
@@ -119,8 +135,6 @@ them up in [`history-map-2026-10-23.md`](history-map-2026-10-23.md).
 - **The static library embeds the Zig cache path**: fix before any binary is published
   (`known-issues.md`).
 - **A self-contained round-trip test** for the emitter — blocked: wazmrt has no disassembler.
-- **Four `.wat` files of the wasmtk corpus refused by one side** in the parity probes
-  ([`probes/body-parity.ts`](probes/body-parity.ts)) — which side, and why, is unexamined.
 - Low-value duplicates of trivial code (`readF32Bits` ≡ `readU32Le` and similar) — left standing on
   purpose ([`roadmap.md`](roadmap.md)).
 
