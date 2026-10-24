@@ -197,8 +197,26 @@ Every module of wasmtk's corpus (1,189) was then judged under `default` / `mvp` 
   pinned. It is the widest net, and the one that ran today. Run outcomes (exit code, stdout hash)
   for deterministic WASI programs only, with an explicit exclusion list for clocks and randomness.
 
-**Owner calls in this scope:** whether S1 is enough to call rule 3 met; whether S2 joins the
-binding checklist; and whether S3 is worth its local-only nature. Effort, roughly: S1 is a day's
+**Owner calls in this scope — DECIDED 2026-10-23:**
+- ✅ **S1 and S2 agreed** (owner: "I agree with S1, and S2"), as COMPLEMENTARY layers, not one
+  broader than the other. S1 asks whether a module is ACCEPTED, under every preset and single
+  feature, without running it. S2 asks whether code RUNS correctly (the spec scripts, at each
+  script's own features). Measured: `1.0.3`'s break was caught by S1 and missed by S2.
+- ✅ **S3 agreed for testing** (owner: "I agree with S3 on testing"): local-only, a wide net, not a
+  binding gate.
+- 🔒 **The stages run IN ORDER and STOP at the first one that finds an issue** (owner: "If S1 runs
+  and finds issues we will not run S2 or S3 until those issues are resolved and the same for S2").
+  Cheapest and narrowest first, and an S1 change would also perturb S2's and S3's results.
+  ⚠️ **"Resolved" includes INTENDED**: an issue that is the correct new behaviour (a refusal like
+  `1.0.3`'s) is resolved by a deliberate re-baseline in its own commit, with the major version (or
+  the owner's explicit call) and the Breaking Changes row it demands. Otherwise an intended break
+  would block the later stages forever.
+
+**S1's design, chosen while building it:** the accept verdicts are a FOURTH kind of line in the
+surface snapshot, `beh <config> accepts <module>`, ACCEPTED modules only. Accepted → refused
+removes a line, which the existing rule already reads as MAJOR; refused → accepted adds one, read
+as minor. So the snapshots, the re-baseline commands, the floor and the bump refusal are reused,
+not written a second time beside them. Effort, roughly: S1 is a day's
 increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 
 ### The ladder from here

@@ -28,10 +28,15 @@ milestone table.
   commit that first set it) was tagged the same day at the owner's word. **There is no
   `v1.0.0`: no commit ever carried it** (`0.1.0` went straight to `1.0.1` in `9acdcb4`), so a tag
   would claim a version the tree does not state.
-- 🗓️ **H6's rule 3 as behaviour carried forward from a tag: SCOPED 2026-10-23**, three stages
-  with a measurement behind them (`releasing.md` → "Rule 3 as behaviour carried forward"). The
-  probe caught exactly `1.0.3`'s `mutable_global` refusals and nothing else. Owner calls: is S1
-  enough; does S2 join the checklist; is S3 worth it.
+- 🔒 **H6's rule 3 as behaviour carried forward from a tag: DECIDED 2026-10-23** (`releasing.md`
+  → "Rule 3 as behaviour carried forward"):
+  - S1 and S2 agreed, as complementary layers; S3 agreed for local testing;
+  - the stages run in order and stop at the first issue until it is resolved (intended counts as
+    resolved, by a deliberate re-baseline);
+  - ⏳ **building S1** (the accept verdicts as `beh` lines in the surface snapshot); S2 is next.
+  - 📬 Owner-directed: written up as workspace letter **H23** to wasmrt ("lets also make this a
+    letter for wasmrt team on testing", 2026-10-23), `../../cmem/handoffs.md`, with the check
+    (`probes/carry-forward.ts`), not the conclusion.
 - **GitHub Support request** to purge the cached pre-rewrite commits (letter H19; only the owner can
   file it).
 
