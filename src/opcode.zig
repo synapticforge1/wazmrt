@@ -753,14 +753,41 @@ const ImmKind = enum {
 /// this table; they previously kept byte-identical private copies, one of them
 /// misnamed `naturalAlign` as though it returned a byte count.
 pub fn naturalAlignLog2(op: Op) u32 {
-    return switch (op) {
-        .i32_load8_s, .i32_load8_u, .i64_load8_s, .i64_load8_u, .i32_store8, .i64_store8 => 0,
-        .i32_load16_s, .i32_load16_u, .i64_load16_s, .i64_load16_u, .i32_store16, .i64_store16 => 1,
-        .i32_load, .f32_load, .i32_store, .f32_store, .i64_load32_s, .i64_load32_u, .i64_store32 => 2,
-        .i64_load, .f64_load, .i64_store, .f64_store => 3,
-        else => 0,
-    };
+    const v = @intFromEnum(op);
+    return if (v < core_align.len) core_align[v] else 0;
 }
+
+// 🔒 **Stage B of letter H10 (2026-10-24): the three alignment tables are READ FROM D1**, the
+// generated copy of binaryang's shared definitions, instead of being hand-kept switches. Built at
+// COMPILE time into plain byte arrays, so the binary carries a few hundred bytes and none of D1's
+// strings. `default` is what an opcode without a memarg answers — what the switches answered.
+const defs = @import("definitions.zig");
+
+/// One past the highest D1 opcode under `prefix` that has a memarg: each table stops there, so
+/// it holds only the range memory instructions live in (measured: whole opcode spaces cost the
+/// exe and the dll a 512-byte page each).
+fn alignTableLen(comptime prefix: ?u8) usize {
+    @setEvalBranchQuota(100_000);
+    var n: usize = 0;
+    for (defs.opcodes) |e| if (e.prefix == prefix and e.natural_align != null) {
+        n = @max(n, e.opcode + 1);
+    };
+    return n;
+}
+
+fn alignTable(comptime prefix: ?u8, comptime default: u8) [alignTableLen(prefix)]u8 {
+    @setEvalBranchQuota(100_000);
+    var t: [alignTableLen(prefix)]u8 = @splat(default);
+    for (defs.opcodes) |e| {
+        if (e.prefix != prefix) continue;
+        const w = e.natural_align orelse continue;
+        t[e.opcode] = std.math.log2_int(u32, w);
+    }
+    return t;
+}
+const core_align = alignTable(null, 0);
+const simd_align = alignTable(0xfd, 4);
+const atomic_align = alignTable(0xfe, 0);
 
 pub fn immediateKind(op: Op) ImmKind {
     return switch (@intFromEnum(op)) {
@@ -987,13 +1014,8 @@ pub fn freeBody(a: std.mem.Allocator, ir: []const Instr) void {
 /// separate copies until 2026-07-21, so the validator simply had no SIMD
 /// alignment check at all.
 pub fn simdNaturalAlignLog2(sub: u32) u32 {
-    return switch (sub) {
-        0x07, 0x54, 0x58 => 0, // 1-byte: load8_splat, load8_lane, store8_lane
-        0x08, 0x55, 0x59 => 1, // 2-byte
-        0x09, 0x5c, 0x56, 0x5a => 2, // 4-byte: load32_splat/zero/lane, store32_lane
-        0x01...0x06, 0x0a, 0x5d, 0x57, 0x5b => 3, // 8-byte: loadMxN, load64_splat/zero/lane, store64_lane
-        else => 4, // 16-byte: v128.load / v128.store
-    };
+    // From D1 (stage B, above); 16 bytes (log2 4) where D1 lists no memarg, as the switch did.
+    return if (sub < simd_align.len) simd_align[sub] else 4;
 }
 
 /// Does this `0xFD` sub-opcode carry a memarg (i.e. touch linear memory)?
@@ -1018,37 +1040,8 @@ pub const max_atomic_sub: u32 = 0x4e;
 /// `32`→4, else the full type width (i32=4, i64=8). notify/wait32 are 4, wait64
 /// is 8. `atomic.fence` (0x03) has no memarg; returns 0.
 pub fn atomicNaturalAlignLog2(sub: u32) u32 {
-    return switch (sub) {
-        0x00, 0x01 => 2, // notify, wait32
-        0x02 => 3, //       wait64
-        0x03 => 0, //       fence (no memarg)
-        // i32 full / i64 full loads+stores
-        0x10, 0x17 => 2, // i32.atomic.load / store
-        0x11, 0x18 => 3, // i64.atomic.load / store
-        // sub-width loads (0x12–0x16) and stores (0x19–0x1d): width in the name
-        0x12, 0x19 => 0, // i32 …8
-        0x13, 0x1a => 1, // i32 …16
-        0x14, 0x1b => 0, // i64 …8
-        0x15, 0x1c => 1, // i64 …16
-        0x16, 0x1d => 2, // i64 …32
-        // rmw/cmpxchg: 7 ops per group, laid out
-        // [i32.full, i64.full, i32.8, i32.16, i64.8, i64.16, i64.32] from 0x1e.
-        else => atomicRmwAlign(sub),
-    };
-}
-
-fn atomicRmwAlign(sub: u32) u32 {
-    if (sub < 0x1e or sub > 0x4e) return 0;
-    return switch ((sub - 0x1e) % 7) {
-        0 => 2, // i32 full  (4 bytes)
-        1 => 3, // i64 full  (8 bytes)
-        2 => 0, // i32.8     (1)
-        3 => 1, // i32.16    (2)
-        4 => 0, // i64.8     (1)
-        5 => 1, // i64.16    (2)
-        6 => 2, // i64.32    (4)
-        else => unreachable,
-    };
+    // From D1 (stage B, beside `naturalAlignLog2`); 0 where D1 lists no memarg (`atomic.fence`).
+    return if (sub < atomic_align.len) atomic_align[sub] else 0;
 }
 
 /// Decode a `0xFE` atomic op. `atomic.fence` (0x03) carries a reserved byte;
@@ -1732,7 +1725,6 @@ test "H10: the decoder knows EXACTLY binaryang's D1 opcodes, both directions" {
     // the generated copy. This holds the hand-kept decoder to it: every D1 instruction decodes, and
     // every candidate encoding D1 does NOT list is refused as an unknown opcode — over the ranges
     // `opcode-sweep.ts` sweeps, each prefix's sub-opcodes running well past its last assigned one.
-    const defs = @import("definitions.zig");
     var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer arena.deinit();
     const a = arena.allocator();
