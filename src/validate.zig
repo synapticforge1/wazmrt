@@ -256,7 +256,7 @@ pub fn validateWith(gpa: std.mem.Allocator, module: *const Module, era: features
     const n_imported_globals: u32 = @intCast(module.globals.len - module.global_inits.len);
     for (module.global_inits, 0..) |init_expr, i| {
         const self_index = n_imported_globals + @as(u32, @intCast(i));
-        try validateConstExpr(module, init_expr, module.globals[self_index].content, self_index, &refs);
+        try validateConstExpr(gpa, module, init_expr, module.globals[self_index].content, self_index, &refs);
     }
 
     // Active-segment *offset* const-exprs may reference any immutable global —
@@ -285,7 +285,7 @@ pub fn validateWith(gpa: std.mem.Allocator, module: *const Module, era: features
         // `applyActiveSegments`, after every global is initialized, so the value
         // is genuinely available. The segment OFFSET (line ~252) already used the
         // full bound; only the element expressions kept the old restriction.
-        for (elem.exprs) |ex| try validateConstExpr(module, ex, elem.elem_type, all_globals, &refs);
+        for (elem.exprs) |ex| try validateConstExpr(gpa, module, ex, elem.elem_type, all_globals, &refs);
         if (elem.mode == .active) {
             if (elem.table_index >= module.tables.len) return error.UndefinedTable;
             const tet = module.tables[elem.table_index].element;
@@ -306,7 +306,7 @@ pub fn validateWith(gpa: std.mem.Allocator, module: *const Module, era: features
             // The active-elem offset has the target TABLE's index type, exactly
             // as an active-data offset takes its memory's (table64).
             const off_ty: V = if (module.tables[elem.table_index].limits.is64) .i64 else .i32;
-            try validateConstExpr(module, elem.offset_expr, off_ty, all_globals, null);
+            try validateConstExpr(gpa, module, elem.offset_expr, off_ty, all_globals, null);
         }
     }
 
@@ -317,7 +317,7 @@ pub fn validateWith(gpa: std.mem.Allocator, module: *const Module, era: features
         if (seg.mem_index >= module.memories.len) return error.MissingMemory;
         // The active-data offset has the target memory's index type (memory64).
         const off_ty: V = if (module.memories[seg.mem_index].limits.is64) .i64 else .i32;
-        try validateConstExpr(module, seg.offset_expr, off_ty, all_globals, null);
+        try validateConstExpr(gpa, module, seg.offset_expr, off_ty, all_globals, null);
     }
 
     // Limits (§3.2.5): `min <= max`, and each is bounded by the type's ceiling —
@@ -373,7 +373,7 @@ pub fn validateWith(gpa: std.mem.Allocator, module: *const Module, era: features
         // INTERPRETER would find out, at instantiation. `table.wast` pins six
         // modules on the first half.
         if (tt.init_expr) |ie| {
-            try validateConstExpr(module, ie, tt.element, n_imported_globals, &refs);
+            try validateConstExpr(gpa, module, ie, tt.element, n_imported_globals, &refs);
         } else if (tt.element.isNonNullRef()) {
             return error.TypeMismatch;
         }
@@ -450,14 +450,21 @@ fn offsetOfPc(a: std.mem.Allocator, code: Module.Code, pc: usize) ?u32 {
 /// `add`/`sub`/`mul`). It must produce exactly one value of `expected`. A
 /// `global.get x` may reference only a *prior* (`x < self_index`) *immutable*
 /// global; anything outside the const-expr opcode set is rejected.
-fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_index: u32, refs: ?*std.DynamicBitSetUnmanaged) Error!void {
+fn validateConstExpr(gpa: std.mem.Allocator, module: *const Module, expr: []const u8, expected: V, self_index: u32, refs: ?*std.DynamicBitSetUnmanaged) Error!void {
     var r = Reader.init(expr);
-    var stack: [8]V = undefined;
+    // 🚨 **The operand stack GROWS** (2026-10-24). It was a fixed `[8]V`, and a push past it
+    // returned `ConstantExpressionRequired`: a VALID initializer deeper than 8 operands was
+    // refused, with the wrong reason. Found by wasmrt's differential fuzz; re-measured on 4.0.0
+    // (`cmem/probes/constexpr-elemflags.ts`: depth 9-128 refused here, valid in wasm-tools, wasmrt
+    // and binaryang). Eight was never a bound the spec has: an extended-const sum, a `struct.new`
+    // with nine fields or an `array.new_fixed` of nine elements all need more. Bounded only by the
+    // expression's own bytes, as each push consumes at least one.
+    var stack: std.ArrayList(V) = .empty;
+    defer stack.deinit(gpa);
     var sp: usize = 0;
     const push = struct {
-        fn f(s: *[8]V, p: *usize, t: V) Error!void {
-            if (p.* >= s.len) return error.ConstantExpressionRequired;
-            s[p.*] = t;
+        fn f(a: std.mem.Allocator, s: *std.ArrayList(V), p: *usize, t: V) Error!void {
+            if (p.* < s.items.len) s.items[p.*] = t else try s.append(a, t);
             p.* += 1;
         }
     }.f;
@@ -467,19 +474,19 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
             0x0b => break, // end
             0x41 => {
                 _ = try r.readVarI32();
-                try push(&stack, &sp, .i32);
+                try push(gpa, &stack, &sp, .i32);
             },
             0x42 => {
                 _ = try r.readVarI64();
-                try push(&stack, &sp, .i64);
+                try push(gpa, &stack, &sp, .i64);
             },
             0x43 => {
                 _ = try r.readBytes(4);
-                try push(&stack, &sp, .f32);
+                try push(gpa, &stack, &sp, .f32);
             },
             0x44 => {
                 _ = try r.readBytes(8);
-                try push(&stack, &sp, .f64);
+                try push(gpa, &stack, &sp, .f64);
             },
             0xfd => { // SIMD prefix — `v128.const` (sub 0x0c) is a constant expression
                 // §3.3.7 lists `v128.const` among the constant instructions, but
@@ -490,13 +497,13 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                 const sub = try r.readVarU32();
                 if (sub != 0x0c) return error.ConstantExpressionRequired;
                 _ = try r.readBytes(16); // the 16 immediate lane bytes
-                try push(&stack, &sp, .v128);
+                try push(gpa, &stack, &sp, .v128);
             },
             0x23 => { // global.get x — only a prior, immutable global
                 const gi = try r.readVarU32();
                 if (gi >= self_index) return error.UndefinedGlobal;
                 if (module.globals[gi].mutable) return error.ConstantExpressionRequired;
-                try push(&stack, &sp, module.globals[gi].content);
+                try push(gpa, &stack, &sp, module.globals[gi].content);
             },
             0xd0 => { // ref.null <heaptype>
                 // Exactness-aware, like the body decoder's `.ref_type` immediate.
@@ -505,7 +512,7 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                 // — a reject-VALID on `(global (ref null (exact 0)) (ref.null
                 // (exact $t)))`, which is `exact.wast`'s FIRST module.
                 const ht = opcode.readHeapTypeExact(&r) catch return error.ConstantExpressionRequired;
-                try push(&stack, &sp, try refTypeValType(module, .{ .nullable = true, .heap = ht.heap, .exact = ht.exact }));
+                try push(gpa, &stack, &sp, try refTypeValType(module, .{ .nullable = true, .heap = ht.heap, .exact = ht.exact }));
             },
             0xd2 => { // ref.func x
                 const fi = try r.readVarU32();
@@ -515,24 +522,24 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                 if (refs) |set| if (fi < set.bit_length) set.set(fi);
                 // Concrete `(ref $ftype)` for a defined func; abstract for imports.
                 if (module.funcTypeIndex(fi)) |ti|
-                    try push(&stack, &sp, V.concreteRef(false, .func, ti))
+                    try push(gpa, &stack, &sp, V.concreteRef(false, .func, ti))
                 else
-                    try push(&stack, &sp, .funcref_nn);
+                    try push(gpa, &stack, &sp, .funcref_nn);
             },
             0x6a, 0x6b, 0x6c => { // i32 add/sub/mul (extended-const)
-                if (sp < 2 or stack[sp - 1] != .i32 or stack[sp - 2] != .i32) return error.TypeMismatch;
+                if (sp < 2 or stack.items[sp - 1] != .i32 or stack.items[sp - 2] != .i32) return error.TypeMismatch;
                 sp -= 1;
             },
             0x7c, 0x7d, 0x7e => { // i64 add/sub/mul (extended-const)
-                if (sp < 2 or stack[sp - 1] != .i64 or stack[sp - 2] != .i64) return error.TypeMismatch;
+                if (sp < 2 or stack.items[sp - 1] != .i64 or stack.items[sp - 2] != .i64) return error.TypeMismatch;
                 sp -= 1;
             },
             0xfb => { // GC constant instructions (§3.3.7 + GC proposal)
                 const sub = try r.readVarU32();
                 switch (sub) {
                     0x1c => { // ref.i31
-                        if (sp < 1 or stack[sp - 1] != .i32) return error.TypeMismatch;
-                        stack[sp - 1] = .i31ref_nn;
+                        if (sp < 1 or stack.items[sp - 1] != .i32) return error.TypeMismatch;
+                        stack.items[sp - 1] = .i31ref_nn;
                     },
                     // struct.new / struct.new_default / struct.new_desc / struct.new_default_desc.
                     //
@@ -553,7 +560,7 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                         if (with_desc) { // the descriptor is the LAST operand
                             if (sp < 1) return error.TypeMismatch;
                             sp -= 1;
-                            if (!subtypeOf(module, stack[sp], V.concreteRefEx(true, .@"struct", desc.?, true)))
+                            if (!subtypeOf(module, stack.items[sp], V.concreteRefEx(true, .@"struct", desc.?, true)))
                                 return error.TypeMismatch;
                         }
                         if (defaulted) {
@@ -564,25 +571,25 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                             while (i > 0) {
                                 i -= 1;
                                 sp -= 1;
-                                if (!subtypeOf(module, stack[sp], fields[i].storage.unpacked())) return error.TypeMismatch;
+                                if (!subtypeOf(module, stack.items[sp], fields[i].storage.unpacked())) return error.TypeMismatch;
                             }
                         }
-                        try push(&stack, &sp, V.concreteRefEx(false, .@"struct", ti, true));
+                        try push(gpa, &stack, &sp, V.concreteRefEx(false, .@"struct", ti, true));
                     },
                     0x06 => { // array.new $t — operands (elem, size); size on top
                         const ti = try r.readVarU32();
                         const f = module.arrayField(ti) orelse return error.UndefinedType;
-                        if (sp < 2 or stack[sp - 1] != .i32) return error.TypeMismatch;
+                        if (sp < 2 or stack.items[sp - 1] != .i32) return error.TypeMismatch;
                         sp -= 1;
-                        if (!subtypeOf(module, stack[sp - 1], f.storage.unpacked())) return error.TypeMismatch;
-                        stack[sp - 1] = V.concreteRefEx(false, .array, ti, true);
+                        if (!subtypeOf(module, stack.items[sp - 1], f.storage.unpacked())) return error.TypeMismatch;
+                        stack.items[sp - 1] = V.concreteRefEx(false, .array, ti, true);
                     },
                     0x07 => { // array.new_default $t — element must be defaultable
                         const ti = try r.readVarU32();
                         const f = module.arrayField(ti) orelse return error.UndefinedType;
                         if (f.storage.unpacked().isNonNullRef()) return error.TypeMismatch;
-                        if (sp < 1 or stack[sp - 1] != .i32) return error.TypeMismatch;
-                        stack[sp - 1] = V.concreteRefEx(false, .array, ti, true);
+                        if (sp < 1 or stack.items[sp - 1] != .i32) return error.TypeMismatch;
+                        stack.items[sp - 1] = V.concreteRefEx(false, .array, ti, true);
                     },
                     0x08 => { // array.new_fixed $t N — pop N elements (reverse)
                         const ti = try r.readVarU32();
@@ -593,9 +600,9 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                         while (k > 0) {
                             k -= 1;
                             sp -= 1;
-                            if (!subtypeOf(module, stack[sp], f.storage.unpacked())) return error.TypeMismatch;
+                            if (!subtypeOf(module, stack.items[sp], f.storage.unpacked())) return error.TypeMismatch;
                         }
-                        try push(&stack, &sp, V.concreteRefEx(false, .array, ti, true));
+                        try push(gpa, &stack, &sp, V.concreteRefEx(false, .array, ti, true));
                     },
                     // ⚠️ **This switch is a FOURTH copy of the GC sub-opcode map, and it reads the
                     // WIRE BYTE directly instead of going through `opcode.zig`** — so when the
@@ -604,12 +611,12 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
                     // sites and not this one turned `extern.wast` red, which is how it was found.
                     // 🎓 *A mapping kept in four places is a mapping that will be right in three.*
                     0x1a => { // any.convert_extern : (ref null? extern) → (ref null? any)
-                        if (sp < 1 or !stack[sp - 1].isRef()) return error.TypeMismatch;
-                        stack[sp - 1] = if (stack[sp - 1].isNonNullRef()) .anyref_nn else .anyref;
+                        if (sp < 1 or !stack.items[sp - 1].isRef()) return error.TypeMismatch;
+                        stack.items[sp - 1] = if (stack.items[sp - 1].isNonNullRef()) .anyref_nn else .anyref;
                     },
                     0x1b => { // extern.convert_any : (ref null? any) → (ref null? extern)
-                        if (sp < 1 or !stack[sp - 1].isRef()) return error.TypeMismatch;
-                        stack[sp - 1] = if (stack[sp - 1].isNonNullRef()) .externref_nn else .externref;
+                        if (sp < 1 or !stack.items[sp - 1].isRef()) return error.TypeMismatch;
+                        stack.items[sp - 1] = if (stack.items[sp - 1].isNonNullRef()) .externref_nn else .externref;
                     },
                     else => return error.ConstantExpressionRequired,
                 }
@@ -617,7 +624,7 @@ fn validateConstExpr(module: *const Module, expr: []const u8, expected: V, self_
             else => return error.ConstantExpressionRequired,
         }
     }
-    if (sp != 1 or !subtypeOf(module, stack[0], expected)) return error.TypeMismatch;
+    if (sp != 1 or !subtypeOf(module, stack.items[0], expected)) return error.TypeMismatch;
 }
 
 fn validateFunction(a: std.mem.Allocator, module: *const Module, ft: Module.FuncType, code: Module.Code, widths: ?[]u8, refs: ?*const std.DynamicBitSetUnmanaged, era: features.Set) Error!void {
@@ -2635,6 +2642,39 @@ test "validator: memory-touching ops require an in-range memory" {
         } else {
             try std.testing.expectError(error.MissingMemory, validate(gpa, &m));
         }
+    }
+}
+
+test "validator: a constant expression is not limited to 8 operands" {
+    // 🚨 The const-expr stack was a fixed `[8]V`: a VALID initializer needing a 9th operand was
+    // refused as `ConstantExpressionRequired` (wasmrt's differential fuzz; re-measured on 4.0.0,
+    // `cmem/probes/constexpr-elemflags.ts`). Three shapes reach past 8: an extended-const sum,
+    // `struct.new` with 9 fields and `array.new_fixed` of 9 elements.
+    const gpa = std.testing.allocator;
+    const wat = @import("wat.zig");
+    var arena_state = std.heap.ArenaAllocator.init(gpa);
+    defer arena_state.deinit();
+    const a = arena_state.allocator();
+    for ([_]usize{ 8, 9, 64, 200 }) |n| {
+        var src: std.ArrayList(u8) = .empty;
+        try src.appendSlice(a, "(module (global i32 ");
+        for (0..n) |_| try src.appendSlice(a, "(i32.const 1) ");
+        for (1..n) |_| try src.appendSlice(a, "(i32.add) ");
+        try src.appendSlice(a, "))");
+        const bin = try wat.assemble(a, src.items);
+        var m = try Module.decode(gpa, bin);
+        defer m.deinit();
+        try validate(gpa, &m);
+    }
+    const nine = "(i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4) (i32.const 5) (i32.const 6) (i32.const 7) (i32.const 8) (i32.const 9)";
+    for ([_][]const u8{
+        "(module (type $s (struct (field i32) (field i32) (field i32) (field i32) (field i32) (field i32) (field i32) (field i32) (field i32))) (global (ref $s) (struct.new $s " ++ nine ++ ")))",
+        "(module (type $a (array i32)) (global (ref $a) (array.new_fixed $a 9 " ++ nine ++ ")))",
+    }) |s| {
+        const bin = try wat.assemble(a, s);
+        var m = try Module.decode(gpa, bin);
+        defer m.deinit();
+        try validate(gpa, &m);
     }
 }
 

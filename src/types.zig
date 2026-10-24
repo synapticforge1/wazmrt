@@ -406,7 +406,7 @@ pub const DecodeError = error{
     UnknownExternKind,
     /// A type/function/extern index referred outside the decoded space.
     IndexOutOfRange,
-    /// A single-byte flag (global mutability, limits flag) held a reserved value.
+    /// A flag (global mutability, limits flag, element-segment flags) held a reserved value.
     MalformedFlag,
     /// A value-type byte was not one of the defined value types.
     BadValType,

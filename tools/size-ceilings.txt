@@ -1223,6 +1223,11 @@
 # five rules as compile-time slices of feature groups, and the "any one of the group" loop, in
 # place of a switch that added single bits. The exe and dll absorbed it within their pages.
 
+# 2026-10-24 — two validator defects fixed (wasmrt's fuzz, re-measured on 4.0.0). **exe +0,
+# lib +482, dll +0.** Attributed by building HEAD `23b54ec` (exact) in this directory. What bought
+# the bytes: the const-expr operand stack is a growable list (append and free) instead of a fixed
+# `[8]V`; the element-flags check is one comparison. The exe and dll absorbed it within their pages.
+
 wazmrt.exe  1033216
-wazmrt.lib  1074614
+wazmrt.lib  1075096
 wazmrt.dll  922624

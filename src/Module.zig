@@ -1672,6 +1672,11 @@ fn decodeElementSection(d: *Decoder, r: *Reader) Error![]const Element {
     const list = try d.a.alloc(Element, count);
     for (list) |*e| {
         const flags = try r.readVarU32();
+        // 🚨 **Flags 0–7 only** (§5.5.12; 2026-10-24). The bits below were read and nothing above
+        // them was refused, so a segment was decoded as `flags & 7`: flags `8` with a valid flags-0
+        // tail VALIDATED where wasm-tools, wasmrt and binaryang refuse it. Found by wasmrt's
+        // differential fuzz (`0x41`, `0x4b`, `0x0d`, which only failed later, on their layouts).
+        if (flags > 7) return error.MalformedFlag;
         e.table_index = 0;
         e.offset_expr = &.{};
         e.funcs = no_funcs;
@@ -1802,6 +1807,33 @@ test "names must be valid UTF-8 (§5.2.4)" {
 test "rejects a bad magic" {
     const bytes = [_]u8{ 'n', 'o', 'p', 'e', 0x01, 0x00, 0x00, 0x00 };
     try std.testing.expectError(error.BadMagic, Module.decode(std.testing.allocator, &bytes));
+}
+
+test "element-segment flags above 7 are malformed, whatever follows them" {
+    // 🚨 The decoder read bits 0–2 and refused nothing above, so flags `8` with a valid flags-0
+    // tail decoded as flags 0 (wasmrt's differential fuzz; re-measured on 4.0.0). Each case below
+    // carries flags-0's layout — an offset and one function index — so a refusal can come only
+    // from the flags. Flags 0 is the control.
+    const S = struct {
+        fn module(flags: u8) [39]u8 {
+            return types.magic ++ [_]u8{ 0x01, 0x00, 0x00, 0x00 } ++ [_]u8{
+                0x01, 0x04, 0x01, 0x60, 0x00, 0x00, // type: [] -> []
+                0x03, 0x02, 0x01, 0x00, // one function
+                0x04, 0x04, 0x01, 0x70, 0x00, 0x01, // one funcref table, min 1
+                0x09, 0x07, 0x01, flags, 0x41, 0x00, 0x0b, 0x01, 0x00, // elem: flags, (i32.const 0), [0]
+                0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b, // the body
+            };
+        }
+    };
+    {
+        const ok = S.module(0);
+        var m = try Module.decode(std.testing.allocator, &ok);
+        m.deinit();
+    }
+    for ([_]u8{ 8, 0x0d, 0x41, 0x4b, 0x7f }) |f| {
+        const bad = S.module(f);
+        try std.testing.expectError(error.MalformedFlag, Module.decode(std.testing.allocator, &bad));
+    }
 }
 
 test "rejects an unsupported version" {

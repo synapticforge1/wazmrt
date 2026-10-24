@@ -205,8 +205,9 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
       - depth ≥ 9 is refused (`var stack: [8]V`);
       - element flags 8 with a valid tail is accepted (flags > 7 never rejected).
 
-      Recorded in `known-issues.md` (top) with cause and fix. ⏳ **Fix, owner's call** — the first
-      refuses-valid, the second accepts-invalid; each would be a test plus a small change.
+      Recorded in `known-issues.md` (top) with cause and fix. ✅ **FIXED 2026-10-24** (owner: "fix
+      the issues"), each with an inverted test. The probe now agrees on all four tools. Unreleased
+      on `main`: the gate says patch (+0 −0).
 
     The letter as sent:
 

@@ -13,7 +13,22 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
-## 🔴 OPEN 2026-10-24 — two validator defects, re-measured on 4.0.0 (first reported by wasmrt's fuzz)
+## ✅ FIXED 2026-10-24 — two validator defects, re-measured on 4.0.0 (first reported by wasmrt's fuzz)
+
+**The fixes** (owner: "fix the issues"):
+1. The const-expr operand stack is a growable list, so depth is bounded only by the expression's
+   bytes.
+2. The element decoder refuses `flags > 7` as `MalformedFlag` before reading any bit.
+
+Each has a test that fails with its defect put back:
+- the const-expr test covers depths 8, 9, 64 and 200, plus a 9-field `struct.new` and a 9-element
+  `array.new_fixed`, both of which the old stack also refused;
+- the flags test covers flags 8, 0x0d, 0x41, 0x4b and 0x7f, each with a VALID flags-0 tail.
+
+**Re-run on four tools** (`probes/constexpr-elemflags.ts`): every row now agrees with wasmrt 1.0.0,
+wasm-tools 1.262 and binaryang 2.2.0. The surface gate is +0 −0 (no S1 or `run` line moved), and
+conformance is unchanged. This is a wrong verdict made right, so a patch. The original entry
+follows.
 
 wasmrt's differential fuzz of wazmrt's 2026-09-21 build reported both (wasmrt's
 `cmem/shared-definitions.md`). Re-measured on **4.0.0** with `cmem/probes/constexpr-elemflags.ts`,
