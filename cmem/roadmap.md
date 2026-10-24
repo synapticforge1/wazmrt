@@ -9,6 +9,7 @@ names its commits and the file that now holds the substance; the full text as it
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
+| 2026-10-23 | 🔖 **Release `1.0.4`** (owner): two wrong-trap fixes, the first release under SemVer and the compatibility gate (patch floor); the full checklist ran | the release commit | `releasing.md` |
 | 2026-10-23 | **H6's rule 3 MET as behaviour carried forward** (owner): S1 (accepted modules, as `beh` surface lines, on `test`) and S2 (a release's per-file conformance, pinned by content), each equal to `v1.0.3` and inverted; S3 is `probes/carry-forward.ts`; the stages run in order. The `--features` parser moved into the library for it. Letter H23 to wasmrt | `90dd74e`, `e5ecf91`, `e991b33`, `2fa6b2c`, `03d2de1` | `releasing.md` → "Rule 3 as behaviour carried forward" |
 | 2026-10-23 | 🏷️ **Releases tagged** `v1.0.1`, `v1.0.2`, `v1.0.3` (owner); no `v1.0.0`, because no commit ever carried it | `4508169`, `90dd74e` | `open-work.md`, `releasing.md` |
 | 2026-10-23 | 🔒 Owner: `--features` aligns with binaryang's D2, not wasm-tools (deprecated aliases; the C enum appends; after binaryang FL1); contract v32 record-only | (this memory update) | `interop.md` v32, `open-work.md` |

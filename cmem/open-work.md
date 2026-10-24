@@ -6,24 +6,18 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-23
 
-**`1.0.3` is the released version** (2026-09-21; tagged `v1.0.3` on `synapticforge1/wazmrt`,
-with `v1.0.1` and `v1.0.2`).
-⚠️ **UNRELEASED on `main`: two bug fixes**: out-of-range truncation now traps "integer overflow",
-and `ref.get_desc` on null traps "null reference" (`a65c677`). With them come the class-checked
-`.wast` runner, the compatibility gate with S1/S2, and today's tooling. The public surface,
-behaviour included, is unchanged since `1.0.3`, so `zig build surface`'s floor for the next number
-is a **patch, `1.0.4`**. Whether to ship it is an owner call below. Contract: `interop.md`
-**v32**; wasmrt's copy is at 10. Every gate is green at `2fa6b2c` (2026-10-23); `03d2de1` added
-S2 to the conformance step and ran it. The counts are in [`testing.md`](testing.md) and the sizes
-in `tools/size-ceilings.txt`, one place each; what landed is in [`roadmap.md`](roadmap.md)'s
-milestone table.
+**`1.0.4` is released** (2026-10-23, owner: "release 1.0.4"), the first release under SemVer and
+the compatibility gate. Its number is the gate's patch floor, and it carries the two wrong-trap
+fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
+`synapticforge1/wazmrt`. Contract: `interop.md` **v32**; wasmrt's copy is at 10. The counts are in
+[`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
+is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## 🗓️ Owner calls
 
-- **Release the two unreleased fixes as `1.0.4`** (the gate's floor), or hold them for Track O.
-- **Track O / Track S numbering.** It was a reading of "release 1.0.3 now", never a decision. Under
-  SemVer the gate sets each number from the surface (`releasing.md`), so all that is left to
-  confirm is the ORDER.
+- **Tracks O and S: REVISE them when we get there** (owner, 2026-10-23: "revise Track O and S when
+  we get there"). Their scope and order are reviewed at the start of each, not now. Their numbers
+  come from the gate.
 - ✅ **Tagged 2026-10-23** (owner: "yes lets tag those commits properly"): annotated `v1.0.2` →
   `c7a7588` and `v1.0.3` → `67d82e7`, each verified to carry its version in `root.zig`,
   `build.zig.zon` and the header, with the noreply tagger. ✅ `v1.0.1` → `9acdcb4` (Track H, the

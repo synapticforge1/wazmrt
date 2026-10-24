@@ -6,7 +6,20 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `1.0.3` — released 2026-09-21 (`1.0.2` the same day; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `1.0.4` — released 2026-10-23 (`1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`1.0.4` — owner, 2026-10-23: *"release 1.0.4 and revise Track O and S when we get there."***
+> The **first release under SemVer and the compatibility gate** (letter H6). Its number is the
+> gate's floor: the public surface, behaviour included (S1), is unchanged since `1.0.3`, so a
+> patch. It carries **two wrong-trap fixes**, found when `assert_trap` began checking binaryang's
+> D3 trap classes. An out-of-range float→int truncation now traps "integer overflow" (it said
+> "invalid conversion to integer", which is for NaN). `ref.get_desc` on a null object now traps
+> "null reference" (it said "null descriptor reference"). Both turn wrong output into right
+> output, so neither is breaking (kind 4 does not apply), and there is no Breaking Changes row.
+> Also: the class-checked `.wast` runner, the generated copy of binaryang's definitions with the
+> opcode tables held to it (H10), the compatibility gate with behaviour carried forward (S1, S2;
+> S3 local), every committed script on Bun (H15), and the history purged of personal information
+> (H19). The full checklist record is the release commit's follow-up (step 9a).
 
 > 🔒 **`1.0.3` — owner, 2026-09-21: *"yes release 1.0.3 now."*** It carries **fixes for four defects
 > that shipped in `1.0.2`** (a plain `funcref` table refused under `--features mvp`; function locals
@@ -269,8 +282,9 @@ increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 | **`1.0.1`** | ✅ **Track H** — hardening (shipped 2026-08-19) |
 | **`1.0.2`** | ✅ **Track B** — bug hunt + code hygiene (shipped 2026-09-21, with the `--dir` grammar, the POSIX resolver fix and letter H13) |
 | **`1.0.3`** | ✅ **fixes for four `1.0.2` defects + legacy EH + wasm-tools' feature vocabulary** (shipped 2026-09-21, owner: "release 1.0.3 now") — the number Track O had reserved |
-| next | **Track O** — optimization review *(was `1.0.4` on the old ladder, itself moved down one by `1.0.3` — a reading, to confirm)*. Under SemVer the number is whatever `zig build surface`'s floor says: `1.0.4` if Track O changes no surface, `1.1.0` if it adds some |
-| after | **Track S** — security review *(likewise)*. ⚠️ A tightening it finds is kind 4 (accepting less), so expect a MAJOR unless the owner scopes it otherwise |
+| **`1.0.4`** | ✅ **two wrong-trap fixes, the first release under SemVer and the compatibility gate** (shipped 2026-10-23, owner: "release 1.0.4"). Its number is the gate's patch floor |
+| next | **Track O** — optimization review. 🔒 **Revised when we get there** (owner, 2026-10-23). The number is whatever `zig build surface`'s floor says: `1.0.5` if Track O changes no surface, `1.1.0` if it adds some |
+| after | **Track S** — security review, likewise **revised when we get there**. ⚠️ A tightening it finds is kind 4 (accepting less), so expect a MAJOR unless the owner scopes it otherwise |
 
 ### What counts as BREAKING — the only thing that takes the next major
 
