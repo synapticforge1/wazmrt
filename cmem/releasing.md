@@ -17,6 +17,21 @@ what earns it.
 > (`4aa4e15`), so the gate saw the fix as it is: S1 −30 since `4.0.1`, MAJOR. One README Breaking
 > Changes row. The D2 matrix on 49 modules is 2,401 / 0 differ against binaryang 2.2.0 and against
 > wasmrt 1.0.0; spec conformance is unchanged per file.
+>
+> ✅ **Checklist run 2026-10-24 on the release commit `70b4bd4`, every gate:**
+> - `test` 836/840 from `D:`, **840/840 from NTFS**; `test-safe` and `test-shipped` 834/838;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `4.0.1`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; `definitions` ✅ (binaryang 2.2.0); size EXACT (exe 1,033,728
+>   / lib 1,075,298 / dll 922,624);
+> - the gate accepted `4.0.1` → `5.0.0` as meeting the MAJOR floor;
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 5.0.0 (abi 2)` and runs a WASI
+>   module. A table initializer is refused under `wasm2` (rc 1) and admitted under `wasm3` (rc 0).
+> - the exe and the dll import only `KERNEL32` and `ntdll`; the old version string is gone from
+>   all four places.
+>
+> Step 9a recorded `5.0.0` as the baselines: the surface record lost exactly the 30 pairs, and the
+> conformance record changed only its header.
 
 > 🔒 **`4.0.1` — owner, 2026-10-24: *"fix the issues"*, then "yes" to pushing and cutting 4.0.1.**
 > Two validator defects, found by wasmrt's differential fuzz and re-measured on `4.0.0`
