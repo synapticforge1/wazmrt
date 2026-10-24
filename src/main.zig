@@ -1602,14 +1602,16 @@ fn verifyGate(
 
     const pins_flag = if (root_enforce) null else flagValue(rest, "--pins");
     const db_path = pins_flag orelse default_path;
+    // 🔒 A DB NAMED by `--pins` that cannot be read is an error, `FileNotFound` included (contract
+    // v35, owner 2026-10-24). It was read as "no DB", so a typo in the path disarmed verification
+    // and the module ran unverified with no word said: fail-OPEN, in the one flag whose whole job
+    // is to arm the gate. The DEFAULT paths keep "missing = unmanaged" (`resolvePinDb`), because
+    // there nobody asked for a DB.
     const db_text: ?[]const u8 = if (pins_flag) |p|
-        (Io.Dir.cwd().readFileAlloc(io, p, arena, .limited(1 << 20)) catch |e| switch (e) {
-            error.FileNotFound => null,
-            else => {
-                try out.print("error: cannot read pin DB '{s}': {s}\n", .{ p, @errorName(e) });
-                return false;
-            },
-        })
+        Io.Dir.cwd().readFileAlloc(io, p, arena, .limited(1 << 20)) catch |e| {
+            try out.print("error: cannot read pin DB '{s}': {s}\n", .{ p, @errorName(e) });
+            return false;
+        }
     else
         default_text;
 
@@ -2260,6 +2262,29 @@ test "the pin DB lookup prefers the SHARED path and never disarms in silence" {
     try S.eq(false, false, true, .none, true);
     // Genuinely no pin policy anywhere: unarmed, and silent, because that is a real configuration.
     try S.eq(false, false, false, .none, false);
+}
+
+test "a --pins DB that does not exist REFUSES, in every mode — a typo never disarms the gate" {
+    // 🔒 Contract v35 (owner, 2026-10-24). Before it, each of these ran the module unverified and
+    // silently (rc 0) except under `enforce`. Robust to a root DB on the test machine: a root
+    // enforce ignores `--pins` and refuses these unpinned bytes anyway.
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var buf: [512]u8 = undefined;
+    const missing = "wazmrt-test-no-such-pin-db.txt";
+    const bytes = "\x00asm\x01\x00\x00\x00";
+    const cases = [_][]const []const u8{
+        &.{ "--pins", missing },
+        &.{ "--pins", missing, "--verify", "off", "--yes" },
+        &.{ "--pins", missing, "--verify", "warn", "--yes" },
+        &.{ "--pins", missing, "--verify", "enforce" },
+        &.{ "--pins", missing, "--no-verify" },
+    };
+    for (cases) |rest| {
+        var out: Io.Writer = .fixed(&buf);
+        try std.testing.expect(!try verifyGate(arena, std.testing.io, &out, bytes, "m.wasm", rest));
+    }
 }
 
 test "--dir splits host from guest, and a DRIVE LETTER is not a separator" {

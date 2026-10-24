@@ -1193,6 +1193,12 @@
 # `features.firstViolation` that requires `memory64` for an `is64` table. The exe and the dll absorb
 # it within their section granularity.
 
-wazmrt.exe  1032192
+# 2026-10-24 — a `--pins` DB that cannot be read refuses (contract v35). **exe +512, lib +0,
+# dll +0.** Attributed by BUILDING, in one directory and one environment: HEAD `c6681a8` is exact
+# on all three, and the fix is +512 on the exe only. What bought the bytes: the explicit `--pins`
+# read in `verifyGate` now reports `FileNotFound` instead of mapping it to "no DB", which crossed
+# one 512-byte PE boundary. The CLI is not in the lib or the dll.
+
+wazmrt.exe  1032704
 wazmrt.lib  1076076
 wazmrt.dll  923648

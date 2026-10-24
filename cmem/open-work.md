@@ -4,13 +4,18 @@
 status narrative exists once"). Only open items; each points at its record. Done work leaves this file
 and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
-## 🏁 Status — 2026-10-23
+## 🏁 Status — 2026-10-24
+
+**Unreleased on `main`: a `--pins` DB that cannot be read now REFUSES** (contract v35, §5 #14).
+🔒 Owner, 2026-10-24: it ships as a **PATCH**, as a security fix (closing a fail-open), with a
+README Breaking Changes row anyway. Expect the gate to accept a patch: the CLI behaviour is not in
+S1's surface.
 
 **`2.0.0` is released** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v34** (v33 ended lockstep; v34 is record-only, the wasmrt ids after its second history rewrite); wasmrt's copy is byte-identical at v34 (2026-10-24). The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v35** (v33 ended lockstep; v34 is record-only; v35 refreshed the stale wasmrt cells and adds §5 #13/#14); wasmrt's copy is byte-identical at v34 (2026-10-24), and v35 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -52,8 +57,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     §2.2m. ✅ **Folded verbatim in v33** (2026-10-23), and the copies were byte-identical at the
     fold. v33 also ends lockstep (owner) and carries the meanings answer below. ✅ **wasmrt
     mirrored v33 and v34** (wasmrt `37f0187`, 2026-10-24): the two copies are byte-identical,
-    checked with `cmp`. Still for wazmrt as pen holder: refresh the stale wasmrt cells §2.2m lists, after
-    re-running them. §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    checked with `cmp`. ✅ **The stale wasmrt cells §2.2m lists were REFRESHED in v35**
+    (2026-10-24), each re-run on both binaries; all agree but two, decided by the owner the same
+    day. ⏳ **wasmrt to mirror v35, and to stop inheriting the host environment** (§5 #13: a
+    guest sees only `--env`; it must invert its `cli_review_regressions.rs` inherit test). §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
