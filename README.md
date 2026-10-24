@@ -68,6 +68,7 @@ on wazmrt; from now on the version number itself signals a break. Each row says 
 
 | Version | What changed | How to migrate |
 | --- | --- | --- |
+| _next release_ | a 64-bit TABLE (`(table i64 …)`) is refused unless `memory64` is enabled. It was accepted under every `--features` list, including `-all` and `mvp`; table64 is part of the memory64 proposal | add `memory64` to an explicit `--features` list (presets `wasm3` and `all` already include it) |
 | `1.0.3` | `--features mvp` refuses a module that exports a mutable global (wasm-tools' meaning of `mvp`) | use `--features wasm1`, which is `mvp` + `mutable-global` |
 | `1.0.3` | `externref` needs the `gc-types` feature when you pass an explicit `--features` list | add `gc-types` to the list (presets such as `wasm2` and `all` already include it) |
 | `1.0.3` | the twenty unassigned `0xFD` sub-opcodes are refused | nothing: such modules were malformed and other runtimes refuse them too |

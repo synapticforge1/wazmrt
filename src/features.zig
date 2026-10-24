@@ -808,6 +808,14 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
     for (module.tables) |t| if (t.element != .funcref) {
         requireValType(fs, t.element, &found) catch return found;
     };
+    // 🚨 **A 64-bit TABLE is memory64 too** (table64 is part of the memory64 proposal), and until
+    // 2026-10-23 `(table i64 1 funcref)` was ACCEPTED under every configuration, `-all` and `mvp`
+    // included. Only memories were checked for `is64`. Reported by wasmrt from wazmrt's 1.0.2
+    // build (its §2.2m annex), still true on 1.0.4, and invisible to S1 until `table64.wat` joined
+    // its corpus. The whole index space again, so an imported 64-bit table is gated as well.
+    for (module.tables) |t| if (t.limits.is64) {
+        require(fs, .memory64, &found) catch return found;
+    };
     for (module.globals) |g| requireValType(fs, g.content, &found) catch return found;
 
     // --- tags ----------------------------------------------------------------------------
@@ -1080,6 +1088,25 @@ test "gating: custom_page_sizes — the proposal that shipped with no switch at 
             return e;
         };
     }
+}
+
+test "gating: a 64-bit TABLE needs memory64, defined or imported" {
+    // Regression test for the 2026-10-23 fix: a 64-bit table was accepted under EVERY
+    // configuration, because only memories were checked for `is64`.
+    const off = setWithout(&.{.memory64});
+    const all: Set = .{};
+    for ([_][]const u8{
+        "(module (table i64 1 funcref))",
+        "(module (table (import \"m\" \"t\") i64 1 funcref))",
+    }) |src| {
+        std.testing.expectEqual(@as(?Feature, .memory64), try needs(src, off)) catch |e| {
+            std.debug.print("not gated: {s}\n", .{src});
+            return e;
+        };
+        try std.testing.expectEqual(@as(?Feature, null), try needs(src, all));
+    }
+    // No false positive: a 32-bit table is untouched by memory64.
+    try std.testing.expectEqual(@as(?Feature, null), try needs("(module (table 1 funcref))", off));
 }
 
 test "gating: wide_arithmetic, and its multi_value layering" {

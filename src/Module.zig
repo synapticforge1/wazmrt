@@ -79,9 +79,11 @@ pub const CompType = union(enum) {
 };
 
 /// Resizable-range limits shared by tables and memories (§5.3.7). `shared`
-/// (threads proposal) and `is64` (memory64 proposal) apply only to memories —
-/// `shared` backs atomic `wait`/`notify`; `is64` makes the memory's addresses
-/// (and `memory.size`/`grow`) i64. Both are always false for tables.
+/// (threads proposal) applies only to memories and backs atomic `wait`/`notify`.
+/// `is64` (memory64 proposal) makes a memory's addresses (and `memory.size`/`grow`)
+/// i64, and a TABLE's indices i64 (table64, part of the same proposal).
+/// ⚠️ Corrected 2026-10-23: this comment said both were "always false for tables",
+/// and `features.zig` trusted it, so a 64-bit table was never gated on memory64.
 ///
 /// `min`/`max` are PAGE counts. A 64-bit memory may declare up to 2^48 pages, so
 /// the counts are kept as u64 (a 32-bit memory still fits ≤ 2^16).

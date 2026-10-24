@@ -13,19 +13,30 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
-## 🆕 `--features all,-memory64` still ADMITS a 64-bit TABLE (found by wasmrt, re-measured 2026-10-23)
+## ✅ FIXED 2026-10-23 — a 64-bit TABLE was accepted under EVERY `--features` list (found by wasmrt)
 
-**What:** `(module (table i64 1 funcref))` validates under `--features all,-memory64` on wazmrt
-1.0.4, where wasm-tools refuses it. The 64-bit table index type belongs to the memory64 proposal
-(table64), so `-memory64` should refuse it: a feature switch letting through what it was told to
-refuse. wasmrt reported it from wazmrt's 1.0.2 build in its §2.2m annex (letter H8 measurements),
-and it still holds on the current build.
+**What it was:** `(module (table i64 1 funcref))` validated under `--features all,-memory64`, where
+wasm-tools refuses it. S1 showed it was worse than that: it was accepted under ALL 32 configs, `-all`
+and `mvp` included. The 64-bit table index type (table64) is part of the memory64 proposal, but
+`features.zig` checked `is64` on memories only, trusting a `Module.zig` comment that said `is64` was
+"always false for tables". wasmrt reported it from wazmrt's 1.0.2 build (its §2.2m annex), and it
+still held on 1.0.4.
 
-**Why not fixed on sight:** the fix makes wazmrt REFUSE a module it accepts today. That is kind 4,
-"accepting less", which `releasing.md` calls breaking even when correct, so the S1 surface gate
-would demand a major. It belongs with the binaryang D2 migration's release (names AND meanings,
-v32/v33), where gating per instruction and per type is redone anyway. That is the owner's release
-call. ⏳ When it is fixed, add `(table i64 …)` to `tests/behaviour/` so S1 watches it.
+**The fix** (owner: "fix the 64-bit table issue now"): the tables loop requires `memory64` for an
+`is64` table, imported or defined, and the comment is corrected. A unit test covers both, plus a
+32-bit table as the no-false-positive check.
+
+**Done in an order the gate can see** (`f57e68b`, then the fix):
+1. `tests/behaviour/table64.wat` joined S1's corpus at 1.0.4 behaviour, src unchanged since the
+   tag. That also exposed an S1 wiring bug: the build cache served stale verdicts for a NEW corpus
+   file, and the behaviour run now always re-judges.
+2. The fix then REMOVED 29 accepted pairs: still accepted only where `memory64` is on (`all`,
+   `wasm3`, `-all,memory64`). S1 reports "since 1.0.4: −29, so the next bump is at least
+   MAJOR".
+
+⚠️ **That is kind 4, "accepting less", breaking even though correct.** The next release is
+`2.0.0`, or a patch by the owner's explicit call, as for `1.0.2` / `1.0.3`. The README carries a
+`_next release_` Breaking Changes row.
 
 ## 🆕 `wazmrt.lib`'s size depends on the Zig CACHE PATH: the static library embeds it (found 2026-10-23)
 
