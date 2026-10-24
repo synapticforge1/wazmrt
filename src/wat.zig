@@ -3904,69 +3904,38 @@ const SimdOp = struct { sub: u32, imm: SimdImm };
 
 const SimdEntry = struct { n: []const u8, s: u32, i: SimdImm };
 
-/// Every `0xFD` mnemonic the assembler knows, with its sub-opcode. File-level (it was local to
-/// `lookupSimd`) so tests can walk it, the H10 agreement with binaryang's D1 among them.
-const simd_table = [_]SimdEntry{
-        .{ .n = "v128.load", .s = 0x00, .i = .mem },       .{ .n = "v128.store", .s = 0x0b, .i = .mem },
-        .{ .n = "v128.load8x8_s", .s = 0x01, .i = .mem },  .{ .n = "v128.load8x8_u", .s = 0x02, .i = .mem },
-        .{ .n = "v128.load16x4_s", .s = 0x03, .i = .mem }, .{ .n = "v128.load16x4_u", .s = 0x04, .i = .mem },
-        .{ .n = "v128.load32x2_s", .s = 0x05, .i = .mem }, .{ .n = "v128.load32x2_u", .s = 0x06, .i = .mem },
-        .{ .n = "v128.load8_splat", .s = 0x07, .i = .mem }, .{ .n = "v128.load16_splat", .s = 0x08, .i = .mem },
-        .{ .n = "v128.load32_splat", .s = 0x09, .i = .mem }, .{ .n = "v128.load64_splat", .s = 0x0a, .i = .mem },
-        .{ .n = "v128.load32_zero", .s = 0x5c, .i = .mem }, .{ .n = "v128.load64_zero", .s = 0x5d, .i = .mem },
-        .{ .n = "v128.load8_lane", .s = 0x54, .i = .mem_lane }, .{ .n = "v128.load16_lane", .s = 0x55, .i = .mem_lane },
-        .{ .n = "v128.load32_lane", .s = 0x56, .i = .mem_lane }, .{ .n = "v128.load64_lane", .s = 0x57, .i = .mem_lane },
-        .{ .n = "v128.store8_lane", .s = 0x58, .i = .mem_lane }, .{ .n = "v128.store16_lane", .s = 0x59, .i = .mem_lane },
-        .{ .n = "v128.store32_lane", .s = 0x5a, .i = .mem_lane }, .{ .n = "v128.store64_lane", .s = 0x5b, .i = .mem_lane },
-        .{ .n = "v128.const", .s = 0x0c, .i = .const_ },    .{ .n = "i8x16.shuffle", .s = 0x0d, .i = .shuffle },
-        .{ .n = "i8x16.swizzle", .s = 0x0e, .i = .none },
-        .{ .n = "i8x16.splat", .s = 0x0f, .i = .none },     .{ .n = "i16x8.splat", .s = 0x10, .i = .none },
-        .{ .n = "i32x4.splat", .s = 0x11, .i = .none },     .{ .n = "i64x2.splat", .s = 0x12, .i = .none },
-        .{ .n = "f32x4.splat", .s = 0x13, .i = .none },     .{ .n = "f64x2.splat", .s = 0x14, .i = .none },
-        .{ .n = "i8x16.extract_lane_s", .s = 0x15, .i = .lane }, .{ .n = "i8x16.extract_lane_u", .s = 0x16, .i = .lane },
-        .{ .n = "i8x16.replace_lane", .s = 0x17, .i = .lane },   .{ .n = "i16x8.extract_lane_s", .s = 0x18, .i = .lane },
-        .{ .n = "i16x8.extract_lane_u", .s = 0x19, .i = .lane }, .{ .n = "i16x8.replace_lane", .s = 0x1a, .i = .lane },
-        .{ .n = "i32x4.extract_lane", .s = 0x1b, .i = .lane },   .{ .n = "i32x4.replace_lane", .s = 0x1c, .i = .lane },
-        .{ .n = "i64x2.extract_lane", .s = 0x1d, .i = .lane },   .{ .n = "i64x2.replace_lane", .s = 0x1e, .i = .lane },
-        .{ .n = "f32x4.extract_lane", .s = 0x1f, .i = .lane },   .{ .n = "f32x4.replace_lane", .s = 0x20, .i = .lane },
-        .{ .n = "f64x2.extract_lane", .s = 0x21, .i = .lane },   .{ .n = "f64x2.replace_lane", .s = 0x22, .i = .lane },
-        .{ .n = "i8x16.eq", .s = 0x23, .i = .none }, .{ .n = "i8x16.ne", .s = 0x24, .i = .none }, .{ .n = "i8x16.lt_s", .s = 0x25, .i = .none }, .{ .n = "i8x16.lt_u", .s = 0x26, .i = .none }, .{ .n = "i8x16.gt_s", .s = 0x27, .i = .none }, .{ .n = "i8x16.gt_u", .s = 0x28, .i = .none }, .{ .n = "i8x16.le_s", .s = 0x29, .i = .none }, .{ .n = "i8x16.le_u", .s = 0x2a, .i = .none }, .{ .n = "i8x16.ge_s", .s = 0x2b, .i = .none }, .{ .n = "i8x16.ge_u", .s = 0x2c, .i = .none },
-        .{ .n = "i16x8.eq", .s = 0x2d, .i = .none }, .{ .n = "i16x8.ne", .s = 0x2e, .i = .none }, .{ .n = "i16x8.lt_s", .s = 0x2f, .i = .none }, .{ .n = "i16x8.lt_u", .s = 0x30, .i = .none }, .{ .n = "i16x8.gt_s", .s = 0x31, .i = .none }, .{ .n = "i16x8.gt_u", .s = 0x32, .i = .none }, .{ .n = "i16x8.le_s", .s = 0x33, .i = .none }, .{ .n = "i16x8.le_u", .s = 0x34, .i = .none }, .{ .n = "i16x8.ge_s", .s = 0x35, .i = .none }, .{ .n = "i16x8.ge_u", .s = 0x36, .i = .none },
-        .{ .n = "i32x4.eq", .s = 0x37, .i = .none }, .{ .n = "i32x4.ne", .s = 0x38, .i = .none }, .{ .n = "i32x4.lt_s", .s = 0x39, .i = .none }, .{ .n = "i32x4.lt_u", .s = 0x3a, .i = .none }, .{ .n = "i32x4.gt_s", .s = 0x3b, .i = .none }, .{ .n = "i32x4.gt_u", .s = 0x3c, .i = .none }, .{ .n = "i32x4.le_s", .s = 0x3d, .i = .none }, .{ .n = "i32x4.le_u", .s = 0x3e, .i = .none }, .{ .n = "i32x4.ge_s", .s = 0x3f, .i = .none }, .{ .n = "i32x4.ge_u", .s = 0x40, .i = .none },
-        .{ .n = "f32x4.eq", .s = 0x41, .i = .none }, .{ .n = "f32x4.ne", .s = 0x42, .i = .none }, .{ .n = "f32x4.lt", .s = 0x43, .i = .none }, .{ .n = "f32x4.gt", .s = 0x44, .i = .none }, .{ .n = "f32x4.le", .s = 0x45, .i = .none }, .{ .n = "f32x4.ge", .s = 0x46, .i = .none },
-        .{ .n = "f64x2.eq", .s = 0x47, .i = .none }, .{ .n = "f64x2.ne", .s = 0x48, .i = .none }, .{ .n = "f64x2.lt", .s = 0x49, .i = .none }, .{ .n = "f64x2.gt", .s = 0x4a, .i = .none }, .{ .n = "f64x2.le", .s = 0x4b, .i = .none }, .{ .n = "f64x2.ge", .s = 0x4c, .i = .none },
-        .{ .n = "v128.not", .s = 0x4d, .i = .none }, .{ .n = "v128.and", .s = 0x4e, .i = .none }, .{ .n = "v128.andnot", .s = 0x4f, .i = .none }, .{ .n = "v128.or", .s = 0x50, .i = .none }, .{ .n = "v128.xor", .s = 0x51, .i = .none }, .{ .n = "v128.bitselect", .s = 0x52, .i = .none }, .{ .n = "v128.any_true", .s = 0x53, .i = .none },
-        .{ .n = "i8x16.abs", .s = 0x60, .i = .none }, .{ .n = "i8x16.neg", .s = 0x61, .i = .none }, .{ .n = "i8x16.popcnt", .s = 0x62, .i = .none }, .{ .n = "i8x16.all_true", .s = 0x63, .i = .none }, .{ .n = "i8x16.bitmask", .s = 0x64, .i = .none }, .{ .n = "i8x16.narrow_i16x8_s", .s = 0x65, .i = .none }, .{ .n = "i8x16.narrow_i16x8_u", .s = 0x66, .i = .none }, .{ .n = "i8x16.shl", .s = 0x6b, .i = .none }, .{ .n = "i8x16.shr_s", .s = 0x6c, .i = .none }, .{ .n = "i8x16.shr_u", .s = 0x6d, .i = .none }, .{ .n = "i8x16.add", .s = 0x6e, .i = .none }, .{ .n = "i8x16.add_sat_s", .s = 0x6f, .i = .none }, .{ .n = "i8x16.add_sat_u", .s = 0x70, .i = .none }, .{ .n = "i8x16.sub", .s = 0x71, .i = .none }, .{ .n = "i8x16.sub_sat_s", .s = 0x72, .i = .none }, .{ .n = "i8x16.sub_sat_u", .s = 0x73, .i = .none }, .{ .n = "i8x16.min_s", .s = 0x76, .i = .none }, .{ .n = "i8x16.min_u", .s = 0x77, .i = .none }, .{ .n = "i8x16.max_s", .s = 0x78, .i = .none }, .{ .n = "i8x16.max_u", .s = 0x79, .i = .none }, .{ .n = "i8x16.avgr_u", .s = 0x7b, .i = .none },
-        .{ .n = "i16x8.extadd_pairwise_i8x16_s", .s = 0x7c, .i = .none }, .{ .n = "i16x8.extadd_pairwise_i8x16_u", .s = 0x7d, .i = .none },
-        .{ .n = "i32x4.extadd_pairwise_i16x8_s", .s = 0x7e, .i = .none }, .{ .n = "i32x4.extadd_pairwise_i16x8_u", .s = 0x7f, .i = .none },
-        .{ .n = "i16x8.q15mulr_sat_s", .s = 0x82, .i = .none }, .{ .n = "i32x4.dot_i16x8_s", .s = 0xba, .i = .none },
-        .{ .n = "i16x8.extmul_low_i8x16_s", .s = 0x9c, .i = .none }, .{ .n = "i16x8.extmul_high_i8x16_s", .s = 0x9d, .i = .none },
-        .{ .n = "i16x8.extmul_low_i8x16_u", .s = 0x9e, .i = .none }, .{ .n = "i16x8.extmul_high_i8x16_u", .s = 0x9f, .i = .none },
-        .{ .n = "i32x4.extmul_low_i16x8_s", .s = 0xbc, .i = .none }, .{ .n = "i32x4.extmul_high_i16x8_s", .s = 0xbd, .i = .none },
-        .{ .n = "i32x4.extmul_low_i16x8_u", .s = 0xbe, .i = .none }, .{ .n = "i32x4.extmul_high_i16x8_u", .s = 0xbf, .i = .none },
-        .{ .n = "i64x2.extmul_low_i32x4_s", .s = 0xdc, .i = .none }, .{ .n = "i64x2.extmul_high_i32x4_s", .s = 0xdd, .i = .none },
-        .{ .n = "i64x2.extmul_low_i32x4_u", .s = 0xde, .i = .none }, .{ .n = "i64x2.extmul_high_i32x4_u", .s = 0xdf, .i = .none },
-        .{ .n = "i64x2.eq", .s = 0xd6, .i = .none }, .{ .n = "i64x2.ne", .s = 0xd7, .i = .none }, .{ .n = "i64x2.lt_s", .s = 0xd8, .i = .none }, .{ .n = "i64x2.gt_s", .s = 0xd9, .i = .none }, .{ .n = "i64x2.le_s", .s = 0xda, .i = .none }, .{ .n = "i64x2.ge_s", .s = 0xdb, .i = .none },
-        .{ .n = "i16x8.abs", .s = 0x80, .i = .none }, .{ .n = "i16x8.neg", .s = 0x81, .i = .none }, .{ .n = "i16x8.all_true", .s = 0x83, .i = .none }, .{ .n = "i16x8.bitmask", .s = 0x84, .i = .none }, .{ .n = "i16x8.narrow_i32x4_s", .s = 0x85, .i = .none }, .{ .n = "i16x8.narrow_i32x4_u", .s = 0x86, .i = .none }, .{ .n = "i16x8.extend_low_i8x16_s", .s = 0x87, .i = .none }, .{ .n = "i16x8.extend_high_i8x16_s", .s = 0x88, .i = .none }, .{ .n = "i16x8.extend_low_i8x16_u", .s = 0x89, .i = .none }, .{ .n = "i16x8.extend_high_i8x16_u", .s = 0x8a, .i = .none }, .{ .n = "i16x8.shl", .s = 0x8b, .i = .none }, .{ .n = "i16x8.shr_s", .s = 0x8c, .i = .none }, .{ .n = "i16x8.shr_u", .s = 0x8d, .i = .none }, .{ .n = "i16x8.add", .s = 0x8e, .i = .none }, .{ .n = "i16x8.add_sat_s", .s = 0x8f, .i = .none }, .{ .n = "i16x8.add_sat_u", .s = 0x90, .i = .none }, .{ .n = "i16x8.sub", .s = 0x91, .i = .none }, .{ .n = "i16x8.sub_sat_s", .s = 0x92, .i = .none }, .{ .n = "i16x8.sub_sat_u", .s = 0x93, .i = .none }, .{ .n = "i16x8.mul", .s = 0x95, .i = .none }, .{ .n = "i16x8.min_s", .s = 0x96, .i = .none }, .{ .n = "i16x8.min_u", .s = 0x97, .i = .none }, .{ .n = "i16x8.max_s", .s = 0x98, .i = .none }, .{ .n = "i16x8.max_u", .s = 0x99, .i = .none }, .{ .n = "i16x8.avgr_u", .s = 0x9b, .i = .none },
-        .{ .n = "i32x4.abs", .s = 0xa0, .i = .none }, .{ .n = "i32x4.neg", .s = 0xa1, .i = .none }, .{ .n = "i32x4.all_true", .s = 0xa3, .i = .none }, .{ .n = "i32x4.bitmask", .s = 0xa4, .i = .none }, .{ .n = "i32x4.extend_low_i16x8_s", .s = 0xa7, .i = .none }, .{ .n = "i32x4.extend_high_i16x8_s", .s = 0xa8, .i = .none }, .{ .n = "i32x4.extend_low_i16x8_u", .s = 0xa9, .i = .none }, .{ .n = "i32x4.extend_high_i16x8_u", .s = 0xaa, .i = .none }, .{ .n = "i32x4.shl", .s = 0xab, .i = .none }, .{ .n = "i32x4.shr_s", .s = 0xac, .i = .none }, .{ .n = "i32x4.shr_u", .s = 0xad, .i = .none }, .{ .n = "i32x4.add", .s = 0xae, .i = .none }, .{ .n = "i32x4.sub", .s = 0xb1, .i = .none }, .{ .n = "i32x4.mul", .s = 0xb5, .i = .none }, .{ .n = "i32x4.min_s", .s = 0xb6, .i = .none }, .{ .n = "i32x4.min_u", .s = 0xb7, .i = .none }, .{ .n = "i32x4.max_s", .s = 0xb8, .i = .none }, .{ .n = "i32x4.max_u", .s = 0xb9, .i = .none },
-        .{ .n = "i64x2.abs", .s = 0xc0, .i = .none }, .{ .n = "i64x2.neg", .s = 0xc1, .i = .none }, .{ .n = "i64x2.all_true", .s = 0xc3, .i = .none }, .{ .n = "i64x2.bitmask", .s = 0xc4, .i = .none }, .{ .n = "i64x2.extend_low_i32x4_s", .s = 0xc7, .i = .none }, .{ .n = "i64x2.extend_high_i32x4_s", .s = 0xc8, .i = .none }, .{ .n = "i64x2.extend_low_i32x4_u", .s = 0xc9, .i = .none }, .{ .n = "i64x2.extend_high_i32x4_u", .s = 0xca, .i = .none }, .{ .n = "i64x2.shl", .s = 0xcb, .i = .none }, .{ .n = "i64x2.shr_s", .s = 0xcc, .i = .none }, .{ .n = "i64x2.shr_u", .s = 0xcd, .i = .none }, .{ .n = "i64x2.add", .s = 0xce, .i = .none }, .{ .n = "i64x2.sub", .s = 0xd1, .i = .none }, .{ .n = "i64x2.mul", .s = 0xd5, .i = .none },
-        .{ .n = "f32x4.ceil", .s = 0x67, .i = .none }, .{ .n = "f32x4.floor", .s = 0x68, .i = .none }, .{ .n = "f32x4.trunc", .s = 0x69, .i = .none }, .{ .n = "f32x4.nearest", .s = 0x6a, .i = .none }, .{ .n = "f32x4.abs", .s = 0xe0, .i = .none }, .{ .n = "f32x4.neg", .s = 0xe1, .i = .none }, .{ .n = "f32x4.sqrt", .s = 0xe3, .i = .none }, .{ .n = "f32x4.add", .s = 0xe4, .i = .none }, .{ .n = "f32x4.sub", .s = 0xe5, .i = .none }, .{ .n = "f32x4.mul", .s = 0xe6, .i = .none }, .{ .n = "f32x4.div", .s = 0xe7, .i = .none }, .{ .n = "f32x4.min", .s = 0xe8, .i = .none }, .{ .n = "f32x4.max", .s = 0xe9, .i = .none }, .{ .n = "f32x4.pmin", .s = 0xea, .i = .none }, .{ .n = "f32x4.pmax", .s = 0xeb, .i = .none }, .{ .n = "f32x4.convert_i32x4_s", .s = 0xfa, .i = .none }, .{ .n = "f32x4.convert_i32x4_u", .s = 0xfb, .i = .none }, .{ .n = "f32x4.demote_f64x2_zero", .s = 0x5e, .i = .none },
-        .{ .n = "f64x2.ceil", .s = 0x74, .i = .none }, .{ .n = "f64x2.floor", .s = 0x75, .i = .none }, .{ .n = "f64x2.trunc", .s = 0x7a, .i = .none }, .{ .n = "f64x2.nearest", .s = 0x94, .i = .none }, .{ .n = "f64x2.abs", .s = 0xec, .i = .none }, .{ .n = "f64x2.neg", .s = 0xed, .i = .none }, .{ .n = "f64x2.sqrt", .s = 0xef, .i = .none }, .{ .n = "f64x2.add", .s = 0xf0, .i = .none }, .{ .n = "f64x2.sub", .s = 0xf1, .i = .none }, .{ .n = "f64x2.mul", .s = 0xf2, .i = .none }, .{ .n = "f64x2.div", .s = 0xf3, .i = .none }, .{ .n = "f64x2.min", .s = 0xf4, .i = .none }, .{ .n = "f64x2.max", .s = 0xf5, .i = .none }, .{ .n = "f64x2.pmin", .s = 0xf6, .i = .none }, .{ .n = "f64x2.pmax", .s = 0xf7, .i = .none }, .{ .n = "f64x2.promote_low_f32x4", .s = 0x5f, .i = .none }, .{ .n = "f64x2.convert_low_i32x4_s", .s = 0xfe, .i = .none }, .{ .n = "f64x2.convert_low_i32x4_u", .s = 0xff, .i = .none },
-        .{ .n = "i32x4.trunc_sat_f32x4_s", .s = 0xf8, .i = .none }, .{ .n = "i32x4.trunc_sat_f32x4_u", .s = 0xf9, .i = .none }, .{ .n = "i32x4.trunc_sat_f64x2_s_zero", .s = 0xfc, .i = .none }, .{ .n = "i32x4.trunc_sat_f64x2_u_zero", .s = 0xfd, .i = .none },
-        // relaxed SIMD (sub-opcodes >= 0x100)
-        .{ .n = "i8x16.relaxed_swizzle", .s = 0x100, .i = .none },
-        .{ .n = "i32x4.relaxed_trunc_f32x4_s", .s = 0x101, .i = .none }, .{ .n = "i32x4.relaxed_trunc_f32x4_u", .s = 0x102, .i = .none },
-        .{ .n = "i32x4.relaxed_trunc_f64x2_s_zero", .s = 0x103, .i = .none }, .{ .n = "i32x4.relaxed_trunc_f64x2_u_zero", .s = 0x104, .i = .none },
-        .{ .n = "f32x4.relaxed_madd", .s = 0x105, .i = .none }, .{ .n = "f32x4.relaxed_nmadd", .s = 0x106, .i = .none },
-        .{ .n = "f64x2.relaxed_madd", .s = 0x107, .i = .none }, .{ .n = "f64x2.relaxed_nmadd", .s = 0x108, .i = .none },
-        .{ .n = "i8x16.relaxed_laneselect", .s = 0x109, .i = .none }, .{ .n = "i16x8.relaxed_laneselect", .s = 0x10a, .i = .none },
-        .{ .n = "i32x4.relaxed_laneselect", .s = 0x10b, .i = .none }, .{ .n = "i64x2.relaxed_laneselect", .s = 0x10c, .i = .none },
-        .{ .n = "f32x4.relaxed_min", .s = 0x10d, .i = .none }, .{ .n = "f32x4.relaxed_max", .s = 0x10e, .i = .none },
-        .{ .n = "f64x2.relaxed_min", .s = 0x10f, .i = .none }, .{ .n = "f64x2.relaxed_max", .s = 0x110, .i = .none },
-        .{ .n = "i16x8.relaxed_q15mulr_s", .s = 0x111, .i = .none },
-        .{ .n = "i16x8.relaxed_dot_i8x16_i7x16_s", .s = 0x112, .i = .none },
-        .{ .n = "i32x4.relaxed_dot_i8x16_i7x16_add_s", .s = 0x113, .i = .none },
+/// Every `0xFD` mnemonic the assembler knows, with its sub-opcode and immediate shape.
+/// 🔒 **Stage B of letter H10 (2026-10-24): GENERATED from D1 at compile time**, the generated copy
+/// of binaryang's shared definitions, instead of hand-kept. The shape is D1's `immediates`, one to
+/// one: none → none, `memarg` → mem, `memarg laneidx` → mem_lane, `laneidx` → lane, `v128` →
+/// const_, `lane16` → shuffle; any other vocabulary is a compile error, so a new D1 shape cannot be
+/// assembled silently wrong.
+const simd_table = blk: {
+    @setEvalBranchQuota(200_000);
+    const defs = @import("definitions.zig");
+    var n: usize = 0;
+    for (defs.opcodes) |e| if (e.prefix == 0xfd) {
+        n += 1;
+    };
+    var t: [n]SimdEntry = undefined;
+    var i: usize = 0;
+    for (defs.opcodes) |e| if (e.prefix == 0xfd) {
+        t[i] = .{ .n = e.name, .s = e.opcode, .i = simdShape(e.immediates) };
+        i += 1;
+    };
+    break :blk t;
 };
+
+fn simdShape(comptime imm: []const []const u8) SimdImm {
+    const eq = std.mem.eql;
+    if (imm.len == 0) return .none;
+    if (imm.len == 1 and eq(u8, imm[0], "memarg")) return .mem;
+    if (imm.len == 2 and eq(u8, imm[0], "memarg") and eq(u8, imm[1], "laneidx")) return .mem_lane;
+    if (imm.len == 1 and eq(u8, imm[0], "laneidx")) return .lane;
+    if (imm.len == 1 and eq(u8, imm[0], "v128")) return .const_;
+    if (imm.len == 1 and eq(u8, imm[0], "lane16")) return .shuffle;
+    @compileError("a D1 SIMD immediate shape the assembler does not know: " ++ imm[0]);
+}
 
 fn lookupSimd(name: []const u8) ?SimdOp {
     for (simd_table) |e| if (std.mem.eql(u8, e.n, name)) return .{ .sub = e.s, .imm = e.i };
