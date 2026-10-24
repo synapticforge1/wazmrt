@@ -18,6 +18,22 @@ what earns it.
 > The gate set the number: S1 lost exactly 20 accepted pairs since `3.0.0` and gained none, so the
 > floor is MAJOR. No `run` line moved, and spec conformance is unchanged per file. wazmrt and
 > binaryang 2.2.0 now agree on all 2,352 judgements of `probes/d2-matrix.ts` (22 differed).
+>
+> ✅ **Checklist run 2026-10-24 on the release commit `cf751c8`, every gate:**
+> - `test` 830/834 from `D:`, **834/834 from NTFS**; `test-safe` and `test-shipped` 828/832;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `3.0.0`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; `definitions` ✅ (binaryang 2.2.0); size EXACT (exe 1,033,216
+>   / lib 1,074,614 / dll 922,624);
+> - the gate accepted `3.0.0` → `4.0.0` as meeting the MAJOR floor;
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 4.0.0 (abi 2)` and runs a WASI
+>   module. `(ref any)` is refused under `all,-reference-types` and admitted under `all`. `(ref func)`
+>   is refused under `all,-function-references`.
+> - the exe and the dll import only `KERNEL32` and `ntdll`; the old version string is gone from
+>   all four places.
+>
+> Step 9a recorded `4.0.0` as the baselines: the surface record lost exactly the 20 pairs, and the
+> conformance record changed only its header.
 
 > 🔒 **`3.0.0` — owner, 2026-10-24: *"keep D2's wasm3"*, then *"cut the 3.0.0 after the H23 id
 > clash is fixed"*.** The second major the gate set. **`--features` takes binaryang D2's names AND
