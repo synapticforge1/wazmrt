@@ -28,6 +28,7 @@ shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the 
 | `pin-parity.ts` | `.wat` PIN parity: full-file equality (= equal pins) vs wasmrt's built binary, or vs `wasm-tools` | `bun pin-parity.ts <wazmrt> <wasmrt.exe \| wasm-tools> <corpus dir> <out dir>` |
 | `type-order.ts` | one file's TYPE SECTION from wazmrt and wasm-tools side by side, differing indices marked | `bun type-order.ts <wazmrt> <file.wat> <out dir>` |
 | `i14-interleave.wat` | the two-function module that separates "function by function" from "all signatures first" interning | with `type-order.ts` |
+| `d2-matrix.ts` | wazmrt vs binaryang's `wasm-validate`, validate-only, over `tests/behaviour` × D2's presets, `-all,<f>`, `all,-<f>` and `-all` (binaryang asked for every difference, 2026-10-24) | `bun d2-matrix.ts <wazmrt> <binaryang checkout> <tests/behaviour> <work dir>` |
 | `h13-fixtures/` | the three minimal modules whose wasm-tools bytes the H13 unit test asserts | `body-parity.ts` on the dir: 3/3 same |
 | `h13-invert.ts` | undoes each H13 fix in turn; each must fail the unit test AND bring back its own corpus files. Restores `src/wat.zig` byte-for-byte | `bun h13-invert.ts <repo root> <corpus dir> <out dir>` |
 | `four-assemblers.ts` | letter H8: one or more `.wat` through wasm-tools, wazmrt, wasmrt and binaryang; exit, custom-section list, equality with wasm-tools | `bun four-assemblers.ts <wazmrt> <wasmrt.exe> <binaryang dir> <out dir> <file.wat>...` |

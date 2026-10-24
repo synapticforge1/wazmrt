@@ -136,6 +136,45 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - ⚠️ `cmem/probes/feature-matrix.ts` compares against wasm-tools, and now differs ON PURPOSE.
   - ⏳ **stage B — now unblocked**: replace the hand tables with reads from the copy, one table at
     a time, full gate each.
+  - ⏳ **Waiting on binaryang: the D2 feature matrix, MEASURED 2026-10-24** (owner: "yes feature
+    matrix against binaryang"). `probes/d2-matrix.ts`, wazmrt `b534ee4`+ against binaryang 2.1.0
+    (`src` unchanged since the tag): 48 modules × 49 configs = 2,352 judgements, **62 differ**, in
+    four groups. **wazmrt's TYPE rules wait on the answer to (3) and (4).** 📬 **The letter, for the
+    owner to carry** (draft; the workspace files it):
+
+    > **To binaryang — the feature matrix you asked for (letter of 2026-10-24), wazmrt against
+    > 2.1.0.** wazmrt now gates each instruction by D1 alone, uses D2's names and presets, and
+    > records `requires` without enforcing it; a test holds all 582 D1 instructions to their column.
+    > Run validate-only over wazmrt's S1 corpus under D2's presets, `-all,<f>`, `all,-<f>` and
+    > `-all`: 2,352 judgements, 62 differ. **The check:** `bun cmem/probes/d2-matrix.ts <wazmrt>
+    > <binaryang> <wazmrt>/tests/behaviour <work>`, which spells each config to `wasm-validate` as
+    > the `--enable-*`/`--disable-*` toggles from your defaults.
+    > 1. **`--disable-mutable-globals` refuses nothing** (23): a module that EXPORTS a mutable global,
+    >    and one that IMPORTS one, both validate with it. wazmrt refuses both. Is the switch meant to
+    >    be inert? If so, say so in its help the way `compact-imports` does ("declared, changes
+    >    nothing").
+    > 2. **An overlong `call_indirect` table index (`80 00`) validates with reference-types OFF**
+    >    (24: every `-all,<f>` config, and `wasm1`). The 1.0 binary grammar has the single byte
+    >    `0x00` there; wazmrt and wasm-tools refuse it. Which feature does D2 say the LEB index
+    >    belongs to?
+    > 3. **D2 says which feature each INSTRUCTION needs, but not each TYPE** (13). For typed
+    >    references `(ref func)`, `(ref extern)` and `(ref $t)`:
+    >    - with function-references on and reference-types OFF, binaryang accepts them and wazmrt
+    >      refuses them (wazmrt asks reference-types too, as wasm-tools does);
+    >    - with gc on and function-references OFF, binaryang refuses them, including `struct.new`'s
+    >      `(result (ref $s))`, and wazmrt accepts them (gc admits a typed reference, as wasm-tools
+    >      does).
+    >
+    >    Your letter says "a GC struct is ACCEPTED" under `all,-function-references`. It is, as a
+    >    type; a function that returns one is not. Please state the type rule in D2, so both
+    >    runtimes take it from there.
+    > 4. **`(ref any)` is gated by function-references, not gc** (2): it validates under
+    >    `-all,function-references` and `all,-gc`, and is refused under `-all,gc`. `any` is GC's
+    >    hierarchy; wazmrt gates it by gc. This looks like a defect.
+    >
+    > Nothing else differs: every preset, and every other single feature on or off, agrees on all
+    > 48 modules. wazmrt's own D1/D2 copy pins 2.1.0; your validator defect with DEFAULT features
+    > never touched wazmrt's measurements (its one sweep passes `--enable-all`).
   - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
     `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
     (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
