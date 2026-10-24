@@ -1213,6 +1213,11 @@
 # whole opcode space (256 + 384 + 79 bytes) they cost the exe and the dll a 512-byte page each;
 # sized to one past each space's highest memarg opcode (`alignTableLen`), nothing.
 
+# 2026-10-24 — stage B, tables 2-4: the SIMD and atomics mnemonic tables and `simdIsMemoryOp`
+# generated from D1. **exe +0, lib +38, dll +0.** Tables 2 and 3 moved no byte (the same strings
+# and numbers, generated); the +38 is `simdIsMemoryOp`, a four-line switch become a compile-time
+# 94-bit set and its lookup. ⚠️ As a `bool` array it cost +110.
+
 wazmrt.exe  1033216
-wazmrt.lib  1074262
+wazmrt.lib  1074300
 wazmrt.dll  922624

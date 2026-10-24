@@ -1020,15 +1020,21 @@ pub fn simdNaturalAlignLog2(sub: u32) u32 {
 
 /// Does this `0xFD` sub-opcode carry a memarg (i.e. touch linear memory)?
 /// The `Simd` immediate always has a `mem` field (defaulted), so its presence
-/// cannot distinguish these — kept beside `decodeSimd`, whose switch is the
-/// authority, so the two can't drift.
+/// cannot distinguish these.
 pub fn simdIsMemoryOp(sub: u32) bool {
-    return switch (sub) {
-        0x00...0x0b, 0x5c, 0x5d => true, // v128.load* / store / load{32,64}_zero
-        0x54...0x5b => true, // v128.load/store lane
-        else => false,
-    };
+    // From D1 (stage B): a SIMD op touches memory exactly when D1 gives it a memarg width. A
+    // BIT set, built at compile time (a `bool` array cost the lib +110 B, measured 2026-10-24).
+    return sub < simd_mem_len and simd_mem.isSet(sub);
 }
+
+const simd_mem_len = alignTableLen(0xfd);
+const simd_mem = blk: {
+    @setEvalBranchQuota(100_000);
+    var t = std.StaticBitSet(simd_mem_len).initEmpty();
+    for (defs.opcodes) |e| if (e.prefix == 0xfd and e.natural_align != null) t.set(e.opcode);
+    break :blk t;
+};
+
 
 /// Highest `0xFE` atomic sub-opcode wazmrt knows (`i64.atomic.rmw32.cmpxchg_u`).
 pub const max_atomic_sub: u32 = 0x4e;
