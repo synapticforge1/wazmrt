@@ -483,6 +483,245 @@ fn requireConstExprFeatures(gpa: std.mem.Allocator, fs: Set, expr: []const u8, f
     }
 }
 
+// ---- The `--features` list parser (moved from `main.zig` 2026-10-23) -------------------------
+// It lived in the CLI, so nothing but the CLI could judge a module the way a user's `--features`
+// does. S1 of the behaviour carry-forward (`cmem/releasing.md`) needs exactly that judgement
+// in-process, so the parser is the library's now and the CLI aliases it: ONE parser, two callers.
+// Moved verbatim apart from the renames the new home needs; proven by the CLI's own tests and by
+// `cmem/probes/feature-matrix.ts` producing byte-identical output before and after.
+
+/// One item of a `--features` list: a proposal and whether it is being added or removed. `null`
+/// for an `all` / `mvp` / `none` SEED, which replaces the whole set rather than editing it.
+/// One `--features` item: a SEED (a whole starting set, first position only) or a list of BITS
+/// to switch on/off. A name maps to a LIST because wasm-tools' group names switch several bits —
+/// `bulk-memory` is bulk-memory + bulk-memory-opt — and a name for a proposal wazmrt does not
+/// implement maps to NO bits (see `name_only_features`).
+const FeatureItem = struct {
+    seed: ?Set = null,
+    bits: []const Feature = &.{},
+    on: bool = true,
+};
+
+const Feat = Feature;
+
+/// The presets, MEASURED from wasm-tools 1.259 (`cmem/probes/feature-matrix.ts`, "membership":
+/// a name is in a preset iff the preset admits that name's module and `preset,-name` does not).
+/// ⚠️ `mvp` and `wasm1` DIFFER — wasm-tools' `--help` says they select the same thing; measured,
+/// only `wasm1` admits a mutable-global export.
+pub fn presetSeed(name: []const u8) ?Set {
+    const mvp = [_]Feat{.floats};
+    const wasm1 = mvp ++ [_]Feat{.mutable_global};
+    const wasm2 = wasm1 ++ [_]Feat{
+        .sign_extension, .saturating_float_to_int, .multi_value,       .reference_types,
+        .multi_table,    .call_indirect_overlong,  .gc_types,          .bulk_memory,
+        .bulk_memory_opt, .simd,
+    };
+    const wasm3 = wasm2 ++ [_]Feat{
+        .relaxed_simd, .threads,        .tail_call,           .multi_memory, .exceptions,
+        .memory64,     .extended_const, .function_references, .gc,
+    };
+    const lime1 = [_]Feat{
+        .mutable_global,  .floats,         .sign_extension,         .saturating_float_to_int, .multi_value,
+        .bulk_memory_opt, .extended_const, .call_indirect_overlong,
+    };
+    const on: []const Feat= if (std.mem.eql(u8, name, "mvp") or std.mem.eql(u8, name, "none")) &mvp else if (std.mem.eql(u8, name, "wasm1")) &wasm1 else if (std.mem.eql(u8, name, "wasm2")) &wasm2 else if (std.mem.eql(u8, name, "wasm3")) &wasm3 else if (std.mem.eql(u8, name, "lime1")) &lime1 else if (std.mem.eql(u8, name, "-all")) &.{} else if (std.mem.eql(u8, name, "all")) return .{} else return null;
+    var s = noFeatures();
+    for (on) |f| s.set(f, true);
+    return s;
+}
+
+/// wasm-tools feature names for proposals wazmrt does NOT implement — accepted, switching nothing
+/// (owner, 2026-09-21: every wat/wasm name, component-model included, for the broadest
+/// compatibility). ⚠️ **Honest because `--features` can only NARROW**: allowing an unimplemented
+/// proposal adds nothing, and a module that uses one is refused whatever the list says; refusing
+/// it is already the state. Read from `wasm-tools validate --features <unknown>`, 1.259.0.
+pub const name_only_features = [_][]const u8{
+    "shared_everything_threads", "stack_switching", "memory_control",   "compact_imports",
+    "component_model",           "cm_values",       "cm_nested_names",  "cm_async",
+    "cm_async_stackful",         "cm_more_async_builtins", "cm_threading", "cm_error_context",
+    "cm_fixed_length_lists",     "cm_gc",           "cm_map",           "cm64",
+    "cm_implements",             "cm_canon_names",
+};
+
+/// The BITS one name switches, or null if the name is unknown.
+pub fn featureBits(name: []const u8) ?[]const Feat{
+    var buf: [64]u8 = undefined;
+    if (name.len > buf.len) return null;
+    for (name, 0..) |c, i| buf[i] = if (c == '-') '_' else c;
+    const n = buf[0..name.len];
+    // 🔬 Group names, both directions (measured: `all,-bulk-memory` refuses `memory.copy`, and
+    // `all,-reference-types` refuses an overlong `call_indirect`). `reference-types` also carries
+    // wazmrt's own `multi_table` split: wasm-tools has no separate name, and its reference-types
+    // admits several tables.
+    if (std.mem.eql(u8, n, "bulk_memory") or std.mem.eql(u8, n, "bulk_memory_operations"))
+        return &.{ .bulk_memory, .bulk_memory_opt };
+    if (std.mem.eql(u8, n, "reference_types"))
+        return &.{ .reference_types, .call_indirect_overlong, .multi_table };
+    for (name_only_features) |no| if (std.mem.eql(u8, n, no)) return &.{};
+    const f = featureFromSpelling(name) orelse return null;
+    return switch (f) {
+        inline else => |t| &[_]Feat{t},
+    };
+}
+
+/// Resolve one proposal name, in **either vocabulary**.
+///
+/// 🤝 `interop.md` §2.2 (v20): wasmrt accepts both spellings and wazmrt accepted only its own, so
+/// `--features bulk-memory-operations` was an `unknown proposal` error here while the identical
+/// command line worked on the sibling. **A shared CLI whose flag VALUES are not shared is not
+/// swappable**, so this is a contract row, not a nicety.
+///
+/// Three passes, most specific first:
+///   1. this enum's own name (`bulk_memory`) — unchanged, and still what wazmrt prints;
+///   2. the same name with **hyphens**;
+///   3. three longer proposal-repository spellings that carry no shorter form here.
+///
+/// 🔎 **Pass 2 covers wasm-tools' ENTIRE vocabulary, and that was measured, not assumed.**
+/// `wasm-tools validate --features <unknown>` prints its valid list, and every name in it that
+/// wazmrt models is this enum's name with `_` written `-`: `bulk-memory`, `sign-extension`,
+/// `saturating-float-to-int`, `exceptions`, `reference-types`, `tail-call`, `custom-page-sizes`,
+/// `custom-descriptors`, `wide-arithmetic`, `function-references`, `multi-memory`, `multi-value`,
+/// `extended-const`, `relaxed-simd`, `memory64`, `gc`, `simd`, `threads`.
+/// ⚠️ **A first draft of this function hard-coded four "spec names" — `bulk-memory-operations`,
+/// `sign-extension-ops`, `nontrapping-float-to-int-conversions`, `exception-handling` — as though
+/// wasm-tools used them. It does not.** Three of the four turned out to be real anyway, as aliases
+/// *wasmrt* carries, which is why they are here; but the justification was invented and one branch
+/// would have been dead. 🎓 *Being right for a reason you did not check is not being right.*
+///
+/// Pass 3 is therefore scoped to what was **verified by running the sibling**: each name below was
+/// fed to `wasmrt --features` and accepted. `mutable-global` and `tail-calls` were rejected by it
+/// and are deliberately absent.
+///
+/// ⚠️ **An unrecognised name stays an ERROR** (see the caller). Widening the vocabulary must not
+/// widen it to "anything we failed to parse": `--features mvp,sim` silently meaning `mvp` is the
+/// security-control-that-drops-what-it-was-told failure this file already refuses.
+pub fn featureFromSpelling(name: []const u8) ?Feature {
+    if (std.meta.stringToEnum(Feature, name)) |f| return f;
+    var buf: [64]u8 = undefined;
+    if (name.len > buf.len) return null;
+    for (name, 0..) |c, i| buf[i] = if (c == '-') '_' else c;
+    const n = buf[0..name.len];
+    if (std.meta.stringToEnum(Feature, n)) |f| return f;
+    // Longer proposal-repository spellings, each verified accepted by wasmrt (2026-09-19).
+    if (std.mem.eql(u8, n, "bulk_memory_operations")) return .bulk_memory;
+    if (std.mem.eql(u8, n, "sign_extension_ops")) return .sign_extension;
+    if (std.mem.eql(u8, n, "nontrapping_float_to_int_conversions")) return .saturating_float_to_int;
+    if (std.mem.eql(u8, n, "exception_handling")) return .exceptions;
+    return null;
+}
+
+/// Classify one already-trimmed item, or report why it is not one.
+///
+/// ⚠️ **An unrecognised name is an ERROR, never a skip.** Ignoring it would leave the user
+/// believing they had restricted something: `--features mvp,sim` would silently be `mvp`, and
+/// `--features -simd2` would silently be `all`. A security control that quietly drops what it was
+/// told is worse than no control.
+fn parseFeatureItem(item: []const u8, first: bool, out: *std.Io.Writer) !FeatureItem {
+    if (item.len == 0) {
+        try out.print("error: --features: empty item\n", .{});
+        return error.BadFeatures;
+    }
+    // Seeds are positional — only the first item can replace the set, because "everything, then
+    // nothing, then gc" is not a list anyone means. `none` stays an alias of `mvp` (both name the
+    // WebAssembly 1.0 core). `-all` is checked HERE, before the sign, because it is a seed.
+    if (first) if (presetSeed(item)) |s| return .{ .seed = s };
+
+    const on = item[0] != '-';
+    const name = if (item[0] == '-' or item[0] == '+') item[1..] else item;
+    if (name.len == 0) {
+        try out.print("error: --features: '{s}' names no proposal\n", .{item});
+        return error.BadFeatures;
+    }
+    const bits = featureBits(name) orelse {
+        try out.print("error: --features: unknown proposal '{s}'\n", .{name});
+        try out.print("  presets (first item only): all, -all, mvp, wasm1, wasm2, wasm3, lime1\n  known:", .{});
+        for (0..count) |i| {
+            const known: Feature = @enumFromInt(@as(u8, @intCast(i)));
+            try out.print(" {s}", .{known.name()});
+        }
+        try out.print("\n  also accepted, switching nothing (not implemented):", .{});
+        for (name_only_features) |no| try out.print(" {s}", .{no});
+        try out.print("\n", .{});
+        return error.BadFeatures;
+    };
+    return .{ .bits = bits, .on = on };
+}
+
+/// Every proposal off, `floats` included — the `-all` seed. `mvp` is this plus floats.
+pub fn noFeatures() Set {
+    var s: Set = .{};
+    for (0..count) |i| s.set(@enumFromInt(@as(u8, @intCast(i))), false);
+    return s;
+}
+
+/// Parse one `--features` list onto `base`, or report why it cannot be parsed.
+///
+/// Grammar: comma-separated items, each a proposal name, optionally signed `+name` / `-name`.
+/// Two seeds may lead the list: `all` (everything on) and `mvp` / `none` (everything off).
+///
+/// 🔑 **THE SEED IS EXPLICIT OR IT IS INFERRED FROM ONE UNAMBIGUOUS SHAPE, AND MIXING IS AN
+/// ERROR.** `--features simd,gc` means "these and nothing else"; `--features -simd` means
+/// "everything but this". Both readings are obvious in isolation and neither is obvious for
+/// `--features gc,-simd`, so that spelling is refused rather than resolved by a precedence rule
+/// nobody asked for — *a defaulted policy is a policy nobody reviewed*. Say `mvp,gc` or
+/// `all,-simd` and the question does not arise.
+///
+/// ⚠️ **The names come from `@tagName`, not from a list written here.** The C ABI's copy of this
+/// enum drifted from the engine's once and shipped a switch that silently did nothing; the CLI
+/// would have been the FOURTH hand-written spelling of the same list. Deriving it means the build
+/// cannot produce a CLI that offers a different set of proposals than it enforces.
+///
+/// 🔒 **TWO PASSES OVER THE STRING, AND NO BUFFER — THIS IS A FIXED BUG, NOT A STYLE CHOICE.**
+/// The first version read the items into a `[count * 2]` array so the seed could be applied before
+/// them, and never bounded `n`: every item has to be a VALID proposal name to be stored, but
+/// nothing stops a caller repeating one, so `--features simd,simd,…` past 36 entries wrote off the
+/// end of a stack array. Under `zig build test` that is a panic; in the SHIPPED ReleaseSmall CLI
+/// it is a stack smash reachable from the command line. Re-splitting the string costs nothing and
+/// removes the bound entirely. **A buffer sized from a type is not sized from the input.**
+pub fn parseFeatures(spec: []const u8, base: Set, out: *std.Io.Writer) !Set {
+    // --- pass 1: validate every item, and decide the seed ---------------------------------
+    var set = base;
+    var seeded = false;
+    var saw_add = false;
+    var saw_sub = false;
+    var n: usize = 0;
+    var scan = std.mem.splitScalar(u8, spec, ',');
+    while (scan.next()) |raw| {
+        const item = try parseFeatureItem(std.mem.trim(u8, raw, " \t"), n == 0, out);
+        n += 1;
+        if (item.seed) |s| {
+            set = s;
+            seeded = true;
+            continue;
+        }
+        if (item.on) saw_add = true else saw_sub = true;
+    }
+    if (n == 0) {
+        try out.print("error: --features: empty list\n", .{});
+        return error.BadFeatures;
+    }
+    if (!seeded and saw_add and saw_sub) {
+        try out.print(
+            "error: --features: '{s}' both adds and removes with no seed — say 'mvp,<added>' or 'all,-<removed>'\n",
+            .{spec},
+        );
+        return error.BadFeatures;
+    }
+    // An unseeded list takes the only seed its shape can mean: bare names are the language asked
+    // for on top of the WebAssembly 1.0 core (`mvp` — which has floats); `-name` items describe
+    // subtractions from the default.
+    if (!seeded and saw_add) set = presetSeed("mvp").?;
+
+    // --- pass 2: apply, now that the seed underneath them is settled -----------------------
+    var apply = std.mem.splitScalar(u8, spec, ',');
+    var i: usize = 0;
+    while (apply.next()) |raw| : (i += 1) {
+        const item = try parseFeatureItem(std.mem.trim(u8, raw, " \t"), i == 0, out);
+        if (item.seed == null) for (item.bits) |f| set.set(f, item.on);
+    }
+    return set;
+}
+
 pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?Feature {
     if (fs.all()) return null; // nothing restricted: skip the whole pass
     var found: ?Feature = null;
