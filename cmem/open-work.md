@@ -18,8 +18,10 @@ are refused. A patch by the gate (+0 −0; `known-issues.md`).
 value types follow binaryang D2 2.2.0's `typeRules`, read from the definitions copy (`interop.md`
 v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 agree on all 2,352
 judgements of the D2 matrix. wasmrt made the same change (`cee7bd1`) and released its own `1.0.0`
-(`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ⏳ The v39 and v40
-mirrors. wasmrt's copy was still v38 when re-checked 2026-10-24.
+(`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ✅ **wasmrt
+mirrored v39** (`e843c7e`), byte-identical to wazmrt's v39 (`4aa4e15`, checked with `cmp`).
+⏳ **The v40 mirror** (wasmrt's `1f1e43a` records that wazmrt is fixing the table-initializer gap;
+the fix shipped in 5.0.0).
 
 **`3.0.0`** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
 `--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1
