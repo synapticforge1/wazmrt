@@ -9,7 +9,8 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 **`4.0.0` is released** (2026-10-24, owner: "update the project memory files, bump then push"):
 value types follow binaryang D2 2.2.0's `typeRules`, read from the definitions copy (`interop.md`
 v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 agree on all 2,352
-judgements of the D2 matrix. ⏳ wasmrt's matching change and the v39 mirror.
+judgements of the D2 matrix. wasmrt made the same change (`cee7bd1`) and released its own `1.0.0`
+(`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ⏳ The v39 mirror.
 
 **`3.0.0`** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
 `--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1
@@ -195,8 +196,11 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - `valTypeNeeds` reads the rules from the copy, with a compile error if a rule or a feature
       name stops matching;
     - matrix vs binaryang 2.2.0: **2,352 / 0 differ**; three new pins, inverted.
-    - S1 −20, so the floor is MAJOR: **released as `4.0.0`**. Contract v39. ⏳ **wasmrt's
-      matching change and the v39 mirror.**
+    - S1 −20, so the floor is MAJOR: **released as `4.0.0`**. Contract v39.
+    - ✅ wasmrt adopted the same rule (`cee7bd1`). Re-run on wasmrt `1.0.0` (`d0cb616`): 2,352 / 0
+      differ, CLI corpus identical. ⏳ **The v39 mirror.**
+    - ⚠️ wasmrt also notes const-expr depth > 8 and the element flags were not re-measured on
+      wazmrt since its 2026-09-21 build, which is still open.
 
     The letter as sent:
 
