@@ -50,9 +50,13 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   - ✅ **Contract mirrored to v32** (`28f2982`, `6c06f5d`). Its copy is wazmrt's v32 verbatim PLUS
     two wasmrt annexes, §2.2f (2026-09-20) and §2.2m (the mirror's verification). That makes 62
     lines in which the copies are not identical. ⏳ **wazmrt, as pen holder, folds them** with a
-    version bump (as v13 did for §2.3m). §2.2m asks a real question for the owner: does v32
-    reverse v30's MEANINGS too (no configuration refused; dependencies checked on the module), or
-    only the vocabulary?
+    version bump (as v13 did for §2.3m). §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
+    meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
+    instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
+    wasm-tools' `bulk-memory-opt`), and the preset / dependency rules come from binaryang, not
+    from wasm-tools' measured ones. ⏳ The fold (v33) carries this answer, so the two copies say it
+    once.
   - ✅ **Letter H13 done and VERIFIED** (`97d2d55`): over wasmtk's 609 `.wat`, wazmrt and wasmrt
     agree on 607, differ on 0, and both equal `wasm-tools parse` on all 607. The other 2
     (`ArtOfWebAssembly_tests/Chapter3/table_export.wat` and `table_test.wat`) are refused by all
@@ -90,6 +94,8 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - `interop.md` v30's `--features` row, which binds wasmrt too.
 
     🔒 **Shape DECIDED (owner, 2026-10-23), three answers:**
+    0. 🔒 **Names AND meanings** (owner, 2026-10-23: "aligning with binaryang means its meanings
+       also"): gating per instruction follows D1's `feature` column, and the rules follow D2.
     1. **D2's names become canonical, and the wasm-tools-only names stay as deprecated ALIASES**
        for one minor release, then go in a major (`floats`, `gc-types`, `legacy-exceptions`,
        `bulk-memory-opt`, `call-indirect-overlong`, `mutable-global`). Deprecate before removing;
