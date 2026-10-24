@@ -6,7 +6,18 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `3.0.0` — released 2026-10-24 (`2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `4.0.0` — released 2026-10-24 (`3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`4.0.0` — owner, 2026-10-24: *"update the project memory files, bump then push"*.** The
+> third major the gate set. **Value types follow binaryang D2 2.2.0's `typeRules`** (wasm-tools
+> 1.262's rule; owner: "wasm-tools' rule"), read from the definitions copy (`ee71a70`, `701730f`;
+> `interop.md` v39). What a consumer can feel, one README Breaking Changes row:
+> - the GC types and `exnref` need `reference-types` as well as `gc` / `exceptions`;
+> - `(ref func)` / `(ref extern)` need `function-references` even with `gc` on.
+>
+> The gate set the number: S1 lost exactly 20 accepted pairs since `3.0.0` and gained none, so the
+> floor is MAJOR. No `run` line moved, and spec conformance is unchanged per file. wazmrt and
+> binaryang 2.2.0 now agree on all 2,352 judgements of `probes/d2-matrix.ts` (22 differed).
 
 > 🔒 **`3.0.0` — owner, 2026-10-24: *"keep D2's wasm3"*, then *"cut the 3.0.0 after the H23 id
 > clash is fixed"*.** The second major the gate set. **`--features` takes binaryang D2's names AND

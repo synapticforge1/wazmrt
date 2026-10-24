@@ -1819,6 +1819,37 @@ The size gate caught +9 KiB. The guess (`@tagName` shipping opcode names) led to
 jump, stub the suspect and rebuild; a guess about a compiler's output is still a guess.** —
 2026-09-21, `tools/size-ceilings.txt`
 
+### 🎓 An exit code that carries a count must not share values with the host's refusal
+
+A probe guest that exited with its environment-variable count made "1 variable" and "refused, rc 1"
+the same answer. A v35 contract cell said `--env A` was refused by both runtimes, when wazmrt in fact
+handed the guest a malformed entry. 🔒 **Offset a guest's answer past every host exit code
+(`10 + count`), so a refusal can never read as a result.** The CLI corpus (`tests/cli/`) is built
+on it. — 2026-10-24, `interop.md` §2.2 `--env`
+
+### 🎓 Data read from a shared table belongs in the binary at COMPILE time, sized to what is used
+
+Three times in one day, a table read from binaryang's definitions copy cost bytes nobody asked
+for:
+- printing D2's names by walking the table at run time pulled the whole table into the exe
+  (+4,096 B);
+- alignment arrays sized to each whole opcode space cost the exe and the dll a 512-byte page
+  each;
+- a `bool` array for "does this SIMD op touch memory" cost the lib +110 B where a bit set cost
+  +38 B.
+
+🔒 **Generate shared data at compile time, as the smallest shape that answers the question:
+one joined string, an array that stops at the last used index, a bit set.** — 2026-10-24,
+`tools/size-ceilings.txt`
+
+### 🎓 A gate that does not see the CLI passes a CLI break as a patch
+
+`2.0.1` refused command lines `2.0.0` ran. The surface gate called it a patch, because its `cli`
+lines were the help text's SYNTAX and its `beh` lines judged modules, not command lines. 🔒 **A
+compatibility gate covers each way a consumer depends on you: names, modules accepted, AND the
+command lines that run.** The `run` lines (`tests/cli/cases.txt` against the built exe) close it.
+Replaying `v2.0.0` through them shows exactly the five removals. — 2026-10-24, `releasing.md`
+
 ---
 
 ## 7. ★ The workspace's convergent rules — ADOPTED 2026-10-23 (letter H6)

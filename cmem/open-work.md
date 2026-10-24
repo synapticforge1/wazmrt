@@ -6,7 +6,12 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
-**`3.0.0` is released** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
+**`4.0.0` is released** (2026-10-24, owner: "update the project memory files, bump then push"):
+value types follow binaryang D2 2.2.0's `typeRules`, read from the definitions copy (`interop.md`
+v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 agree on all 2,352
+judgements of the D2 matrix. ⏳ wasmrt's matching change and the v39 mirror.
+
+**`3.0.0`** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
 `--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1
 −2 since `2.0.1` (`wasm3` without threads, kept by the owner; `lime1` without the overlong
 `call_indirect`). README Breaking Changes has the four rows (`releasing.md`).
@@ -19,8 +24,8 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 **`2.0.0`** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
-fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v3.0.0` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v38** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both and corrects the ladder line); wasmrt's copy is byte-identical at v38 (`f88a9ab`). The counts are in
+fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v4.0.0` is tagged on
+`synapticforge1/wazmrt`. Contract: `interop.md` **v39** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule); wasmrt's copy was byte-identical at v38 (`f88a9ab`), and v39 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -190,7 +195,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - `valTypeNeeds` reads the rules from the copy, with a compile error if a rule or a feature
       name stops matching;
     - matrix vs binaryang 2.2.0: **2,352 / 0 differ**; three new pins, inverted.
-    - S1 −20, so the floor is MAJOR (**4.0.0**, not yet cut). Contract v39. ⏳ **wasmrt's
+    - S1 −20, so the floor is MAJOR: **released as `4.0.0`**. Contract v39. ⏳ **wasmrt's
       matching change and the v39 mirror.**
 
     The letter as sent:
@@ -252,8 +257,8 @@ milestone table. Two remnants:
 
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
   is DONE on wazmrt's side: D2 2.2.0's `typeRules` closed the 22-case type-rule gap (contract v39;
-  4.0.0 by the gate, not yet cut). The D3 shared-memory request is closed (declined).
-- **H6's rule 3**: every release from `v1.0.1` to `v3.0.0` is tagged, and S1 / S2 / S3 carry
+  released as `4.0.0`). The D3 shared-memory request is closed (declined).
+- **H6's rule 3**: every release from `v1.0.1` to `v4.0.0` is tagged, and S1 / S2 / S3 carry
   behaviour forward from them. It waits only for a consumer's own suite (none depends on wazmrt
   yet).
 
