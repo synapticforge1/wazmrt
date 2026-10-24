@@ -10,7 +10,7 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v33** (lockstep ended); wasmrt's copy is at v32 + the folded annexes. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v34** (v33 ended lockstep; v34 is record-only, the wasmrt ids after its second history rewrite); wasmrt's copy is at v32 + the folded annexes. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
