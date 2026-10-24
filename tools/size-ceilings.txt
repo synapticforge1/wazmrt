@@ -1187,6 +1187,12 @@
 # The dll carries no `.wast` runner, so it does not move. ⚠️ Measured with the machine's own
 # `ZIG_LOCAL_CACHE_DIR`; the lib embeds the cache path (`cmem/known-issues.md`).
 
+# 2026-10-23 — a 64-bit table needs memory64 (`a580d1b`). **lib +82, exe +0, dll +0.** Attributed
+# by BUILDING, in one directory and one environment: the parent `f57e68b` is exact on all three,
+# and the fix is +82 on the lib only. What bought the bytes: the tables loop in
+# `features.firstViolation` that requires `memory64` for an `is64` table. The exe and the dll absorb
+# it within their section granularity.
+
 wazmrt.exe  1032192
-wazmrt.lib  1075994
+wazmrt.lib  1076076
 wazmrt.dll  923648
