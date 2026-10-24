@@ -22,7 +22,8 @@ what earns it.
 > `1.0.2` and `1.0.3` had, with README Breaking Changes rows. The gate did not need the exception:
 > S1 records modules × feature configs, not CLI flags, so the surface is `+0 -0` since `2.0.0` and
 > the floor is a patch. 🎓 *That is the gate's blind spot, stated: a CLI behaviour change passes it
-> silently, and only the checklist's judgement and this record catch the break.*
+> silently, and only the checklist's judgement and this record catch the break.* ✅ **Closed the
+> same day by the `run` lines** (owner: "the gate should cover the CLI"), see the gate section.
 >
 > ✅ **Checklist run 2026-10-24 on the release commit `bb1c13f`, every gate:**
 > - `test` 829/833 from `D:`, **833/833 from NTFS**; `test-safe` and `test-shipped` 827/831;
@@ -193,6 +194,21 @@ the sources, never by hand:
 | `c` | `include/wazmrt.h` | prototype, typedef, `#define` (incl. `WAZMRT_ABI_VERSION`); enum MEMBER with its ordinal, since C integers are frozen |
 | `zig` | `src/root.zig` | `pub` declaration (signature, not body) |
 | `cli` | `wazmrt --help`, run by the build | usage shape, flag definition, subcommand shape (descriptions excluded; `argv[0]` → `wazmrt`) |
+| `beh` | `tools/behaviour.zig` over `tests/behaviour/` (S1) | module ACCEPTED under one `--features` config |
+| `run` | `tools/cli_behaviour.zig`: the built exe over `tests/cli/cases.txt` (2026-10-24) | command line ACCEPTED, with its exit code (host exit 1–9 = refused = no line) |
+
+🔒 **`run` — the gate covers the CLI's BEHAVIOUR** (owner, 2026-10-24: *"the gate should cover the
+CLI"*). `2.0.1` refused `--pins missing.txt` and `--env A`, which `2.0.0` ran, and the gate said
+patch: `cli` saw only the help text's syntax. Now each case of `tests/cli/cases.txt` (56 command
+lines over the run modes, subcommands, positions, `--env`, `--dir`, the ceilings, `--features` and
+verification) is run against the built exe; an accepted one is a line with its exit code, so
+accepted → refused or a changed exit code is a MAJOR. ✅ **Inverted by replay:** `v2.0.0` built in
+a worktree and run through the corpus differs from `2.0.1` by exactly five lines, all removals or
+changes (`--env =x`, `--env A`, `--env A=1 --env A=2`, and the two missing-`--pins` cases), so the
+floor would have been major. `2.0.1`'s `released.txt` gained its 34 `run` lines by the BOOTSTRAP
+path, honest because `src`, `include` and `build.zig.zon` are unchanged since the `v2.0.1` tag.
+🎁 The same corpus run against wasmrt (`cfeee31`) gives identical verdicts on all 56, so it is a
+swappability check too.
 
 Two committed snapshots in `tools/surface/`, and three rules:
 
@@ -214,8 +230,9 @@ their own reason; re-indenting the header and rewording a help description do no
   bumping classifies it against the list below, and the Breaking Changes row is mandatory.
 - **A change INSIDE a re-exported Zig module** (`root.zig` re-exports whole files); only the
   declarations in `root.zig` itself are diffed.
-- **Exit codes and parseable output** beyond `--help`'s syntax lines; the `interop.md` contract rows
-  carry those for the runtimes.
+- **Parseable output text.** Exit codes are seen for the command lines in `tests/cli/cases.txt`
+  (`run`, 2026-10-24), and only for those: a flag or a case the corpus lacks is not watched. What a
+  command PRINTS is not recorded; the `interop.md` contract rows carry output text for the runtimes.
 - **Rule 3, "the previous tag's tests pass against the new `src/`"**: the tags exist since
   2026-10-23 (`v1.0.1`–`v1.0.3`), but the rule does not apply AS WRITTEN. wazmrt's tests are Zig
   inline `test` blocks INSIDE `src/`, so a tag's tests cannot run against another commit's code.

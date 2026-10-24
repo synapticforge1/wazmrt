@@ -1,0 +1,4 @@
+# The pin DB the `--pins` cases name. ok.wat is pinned; mem.wat is not. The digest is of the
+# ASSEMBLED module (`wazmrt pin ok.wat`), so it moves if the assembler's output for ok.wat does —
+# which would itself be a behaviour change worth a red build.
+87799c1b578e1ef444797b90bd09efe88f1af0b1810d578f9ccf03df9b1de499  ok.wat

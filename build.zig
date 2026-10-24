@@ -425,6 +425,19 @@ pub fn build(b: *std.Build) void {
         // a widened corpus silently ignored. The judgement takes about a second.
         run_behaviour.has_side_effects = true;
         run_surface.addFileArg(run_behaviour.addOutputFileArg("behaviour.txt"));
+        // S1 for the CLI (owner, 2026-10-24: "the gate should cover the CLI"): the BUILT exe run
+        // over `tests/cli/cases.txt`, each accepted command line a `run` surface line with its exit
+        // code. `2.0.1` refused command lines `2.0.0` ran and the gate said patch; this sees it.
+        const cli_tool = b.addExecutable(.{ .name = "cli_behaviour", .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/cli_behaviour.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+        }) });
+        const run_cli = b.addRunArtifact(cli_tool);
+        run_cli.addArtifactArg(exe);
+        run_cli.addDirectoryArg(b.path("tests/cli"));
+        run_cli.has_side_effects = true; // the same cache lesson as `run_behaviour`
+        run_surface.addFileArg(run_cli.addOutputFileArg("cli.txt"));
         // The snapshots are read by path, not as file args, so the verdict must never be cached.
         run_surface.has_side_effects = true;
         const surface_step = b.step("surface", "Public-surface gate: snapshot current, bump >= floor (-Dsurface=update|release to re-baseline)");

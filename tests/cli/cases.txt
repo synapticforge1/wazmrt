@@ -1,0 +1,74 @@
+# S1 for the CLI: one wazmrt command line per line, run from this directory with stdin closed
+# (no TTY). `tools/cli_behaviour.zig` records each ACCEPTED one with its exit code; a refused
+# one (host exit 1-9) records nothing. See README.md. Arguments are split on spaces; `#` starts
+# a comment line.
+
+# ---- the run modes and subcommands (interop §2.1) ----
+ok.wat
+wasi ok.wat
+run export.wat add 2 3
+export.wat add 2 3
+export.wat nosuch
+wat ok.wat
+pin ok.wat
+wast script.wast
+script.wast
+nosuch.wat
+-v
+--version
+-h
+--help
+
+# ---- unknown flags and positions (§2.4a, v11, v26/v28) ----
+ok.wat --bogus
+--bogus ok.wat
+args.wat
+args.wat x y
+args.wat -la
+args.wat -- --yes x
+args.wat install --yes
+args.wat install -- --yes
+
+# ---- --env (§5 #13): only these variables, KEY=VALUE, a repeated KEY replaces ----
+env.wat
+env.wat --env A=1
+env.wat --env A=1 --env A=2
+env.wat --env A=1 --env B=2
+env.wat --env A=
+env.wat --env A
+env.wat --env =x
+
+# ---- --dir / --ro-dir grammar (v27) and --allow-symlink ----
+ok.wat --dir .:/m
+ok.wat --dir ./:/m
+ok.wat --dir .::/m
+ok.wat --ro-dir .:/r
+ok.wat --dir data:/m
+ok.wat --dir C:
+ok.wat --allow-symlink
+
+# ---- the ceilings ----
+mem.wat --max-memory 1M
+mem.wat --max-memory 4M
+mem.wat --max-memory lots
+table.wat --max-table-elems 10
+table.wat --max-table-elems 1000
+loop.wat --max-iterations 1000
+
+# ---- --features and its position (§2.4b) ----
+--features mvp simd.wat
+--features all simd.wat
+--features=mvp simd.wat
+--features=all simd.wat
+simd.wat --features all
+
+# ---- verification (§3; §5 #14) ----
+ok.wat --pins pins.txt --verify enforce
+mem.wat --pins pins.txt --verify enforce
+mem.wat --pins pins.txt --verify enforce --yes
+mem.wat --pins pins.txt --verify warn
+mem.wat --pins pins.txt --verify warn --yes
+mem.wat --pins pins.txt --no-verify
+ok.wat --pins missing.txt
+ok.wat --pins missing.txt --verify off --yes
+ok.wat --verify enforc
