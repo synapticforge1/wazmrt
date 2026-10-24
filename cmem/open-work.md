@@ -134,8 +134,21 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
       owner's "one minor release of aliases" therefore lands in a major unless the owner calls it
       otherwise.
     - ⚠️ `cmem/probes/feature-matrix.ts` compares against wasm-tools, and now differs ON PURPOSE.
-  - ⏳ **stage B — now unblocked**: replace the hand tables with reads from the copy, one table at
-    a time, full gate each.
+  - ✅ **stage B — DONE 2026-10-24** (owner: "proceed with stage B"), one table per commit,
+    full gate each.
+    - Every hand-kept DATA table is generated from D1 at compile time: the three alignment tables
+      (`f0d1246`), the SIMD mnemonic table with its immediate shapes (`693f8c8`), the atomics
+      mnemonic table (`06b4601`) and `simdIsMemoryOp` (`405431a`).
+    - Each was proven equal to the hand table by a temporary test before the hand copy was
+      deleted.
+    - Conformance unchanged throughout. Size: exe +0, lib −480, dll +0 net.
+    - 🔒 **What stays hand-kept, on purpose:** the `Op` enum, the decoder's switches and
+      `opFeature`. `Op` gives prefixed instructions internal tags (`struct_new` = 0xf3), not their
+      encodings, and the interpreter and validator name it everywhere, so generating it means
+      generating the decoder. Both are HELD to D1 by tests instead: the decoder knows exactly
+      D1's 582 opcodes, both directions; every instruction is gated by exactly its D1 feature.
+  - 🔒 **Owner, 2026-10-24: "keep D2's wasm3"** (no `threads`). The next release is therefore a
+    MAJOR, `3.0.0`, by the gate: S1 −2 since `2.0.1`.
   - ⏳ **Waiting on binaryang: the D2 feature matrix, MEASURED 2026-10-24** (owner: "yes feature
     matrix against binaryang"). `probes/d2-matrix.ts`, wazmrt `b534ee4`+ against binaryang 2.1.0
     (`src` unchanged since the tag): 48 modules × 49 configs = 2,352 judgements, **62 differ**, in
