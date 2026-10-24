@@ -1218,6 +1218,11 @@
 # and numbers, generated); the +38 is `simdIsMemoryOp`, a four-line switch become a compile-time
 # 94-bit set and its lookup. ⚠️ As a `bool` array it cost +110.
 
+# 2026-10-24 — the value-type rules are READ FROM D2 2.2.0's `typeRules`. **exe +0, lib +314,
+# dll +0.** Attributed by building HEAD `ee71a70` (exact) in this directory. What bought the bytes:
+# five rules as compile-time slices of feature groups, and the "any one of the group" loop, in
+# place of a switch that added single bits. The exe and dll absorbed it within their pages.
+
 wazmrt.exe  1033216
-wazmrt.lib  1074300
+wazmrt.lib  1074614
 wazmrt.dll  922624

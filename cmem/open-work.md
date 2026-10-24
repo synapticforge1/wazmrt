@@ -184,6 +184,14 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     re-run `probes/d2-matrix.ts` to 0. It is accepting less, so the gate sets **4.0.0**. The
     contract's `--features` row changes for both runtimes: wasmrt applies the same rules (its
     matrix matched wazmrt's), so it migrates at the same time.
+    ✅ **DONE 2026-10-24, once binaryang 2.2.0 shipped** (owner: "binaryang release 2.2.0 is live"):
+    - re-pinned to 2.2.0, with the generator rendering `typeRules` / `encodingRules` / `presets`
+      / `requires` (`ee71a70`);
+    - `valTypeNeeds` reads the rules from the copy, with a compile error if a rule or a feature
+      name stops matching;
+    - matrix vs binaryang 2.2.0: **2,352 / 0 differ**; three new pins, inverted.
+    - S1 −20, so the floor is MAJOR (**4.0.0**, not yet cut). Contract v39. ⏳ **wasmrt's
+      matching change and the v39 mirror.**
 
     The letter as sent:
 
@@ -243,8 +251,8 @@ block re-copied, `462e0e8`). The summaries, with their commits, are in [`roadmap
 milestone table. Two remnants:
 
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
-  waits on binaryang's next release: D2's `typeRules`, which close the 22-case type-rule gap (owner:
-  fix after it ships; 4.0.0 by the gate). The D3 shared-memory request is closed (declined).
+  is DONE on wazmrt's side: D2 2.2.0's `typeRules` closed the 22-case type-rule gap (contract v39;
+  4.0.0 by the gate, not yet cut). The D3 shared-memory request is closed (declined).
 - **H6's rule 3**: every release from `v1.0.1` to `v3.0.0` is tagged, and S1 / S2 / S3 carry
   behaviour forward from them. It waits only for a consumer's own suite (none depends on wazmrt
   yet).

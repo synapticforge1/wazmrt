@@ -290,45 +290,59 @@ fn instrNeeds(instr: opcode.Instr) Needs {
     return req;
 }
 
+/// One D2 type rule as wazmrt's bits: GROUPS, every one satisfied by ANY of its features.
+const TypeNeeds = []const []const Feature;
+
+/// The D2 `typeRules` entry whose `type` text starts with `key`, as wazmrt's bits. 🔒 **READ FROM
+/// D2 2.2.0** (`definitions.zig` `type_rules`; owner, 2026-10-24: "wasm-tools' rule"). The rules
+/// name their types in prose, so each of wazmrt's type families is tied to one rule by the start of
+/// that text; a key that matches no rule, or a feature name wazmrt has no bit for, is a COMPILE
+/// error — the copy moving under us fails the build rather than silently admitting a type.
+fn d2TypeRule(comptime key: []const u8) TypeNeeds {
+    comptime {
+        for (d2.type_rules) |r| if (std.mem.startsWith(u8, r.type, key)) {
+            const rule = r.needs orelse @compileError("D2 type rule '" ++ key ++ "' admits nothing");
+            var groups: [rule.len][]const Feature = undefined;
+            for (rule, 0..) |g, gi| {
+                var fs: [g.len]Feature = undefined;
+                for (g, 0..) |name, fi| fs[fi] = fromD2(name) orelse @compileError("D2 type rule names '" ++ name ++ "', which wazmrt has no bit for");
+                const frozen = fs;
+                groups[gi] = &frozen;
+            }
+            const out = groups;
+            return &out;
+        };
+        @compileError("no D2 type rule starts with '" ++ key ++ "'");
+    }
+}
+
+const rule_func_extern = d2TypeRule("funcref, externref");
+const rule_func_extern_nn = d2TypeRule("(ref func), (ref extern)");
+const rule_concrete = d2TypeRule("(ref $t)");
+const rule_exn = d2TypeRule("exnref, nullexnref");
+const rule_gc = d2TypeRule("anyref, eqref");
+/// `v128` is not a reference type, so `typeRules` does not cover it: it is simd's (D1 gates every
+/// SIMD instruction by simd, and a `v128` value exists only for them).
+const rule_v128: TypeNeeds = &.{&.{.simd}};
+
 /// Every proposal a value type needs. Catches a module that never executes a gated instruction
-/// but still *declares* a gated type — a `v128` parameter, an `f32` local, an `externref` global.
+/// but still *declares* a gated type — a `v128` parameter, an `externref` global, a local.
 ///
-/// 🔬 **Measured one type at a time against wasm-tools (2026-09-21)**: `gc-types` is needed by
-/// every abstract reference type EXCEPT `func` and `exn` — `externref`, `nullfuncref` and
-/// `(ref extern)` included — and NOT by `funcref`, `exnref` or `(ref func)`.
-fn valTypeNeeds(vt: types.ValType) Needs {
-    var req: Needs = .{};
-    // A concrete `(ref $t)`: typed references. A struct/array `$t` needs gc + gc-types through its
-    // own TYPE DEFINITION (the composite-type pass), so the reference itself asks only this —
-    // which `require` also grants to `gc` (measured: gc admits `(ref $t)` with
-    // function-references off).
-    // 🔬 Typed references ALSO need reference-types: measured, `-all,function-references` alone
-    // refuses `(param (ref $t))`, and so does `-all,gc`; `reference-types` + either admits it.
-    if (vt.isConcrete()) {
-        req.add(.reference_types);
-        req.add(.function_references);
-        return req;
-    }
-    // 🔒 D2's meanings (2026-10-24): `f32`/`f64` are 1.0 core, and `externref` is reference-types
-    // (it is in D2's `wasm2`). wasm-tools' `floats` and `gc-types` layers are deprecated aliases.
-    switch (vt) {
-        .i32, .i64, .f32, .f64 => {},
-        .v128 => req.add(.simd),
-        .funcref, .externref => req.add(.reference_types),
-        .funcref_nn, .externref_nn => {
-            req.add(.reference_types);
-            req.add(.function_references);
-        },
-        .exnref, .nullexnref => req.add(.exceptions),
-        .exnref_nn => {
-            req.add(.exceptions);
-            req.add(.reference_types);
-            req.add(.function_references);
-        },
-        // The `any` hierarchy, its bottoms, the other bottoms, and their non-null forms: GC types.
-        else => req.add(.gc),
-    }
-    return req;
+/// 🔒 **D2's `typeRules` since 2026-10-24** (above). Until then this was hand-kept, and binaryang's
+/// matrix found it short in three places, 22 judgements over S1's corpus: the GC types and
+/// `exnref` also need reference-types, and gc stands in for function-references only for a
+/// concrete `(ref $t)`, not for `(ref func)` / `(ref extern)`.
+fn valTypeNeeds(vt: types.ValType) TypeNeeds {
+    if (vt.isConcrete()) return rule_concrete;
+    return switch (vt) {
+        .i32, .i64, .f32, .f64 => &.{},
+        .v128 => rule_v128,
+        .funcref, .externref => rule_func_extern,
+        .funcref_nn, .externref_nn => rule_func_extern_nn,
+        .exnref, .nullexnref, .exnref_nn => rule_exn,
+        // The `any` hierarchy, its bottoms, the other bottoms, and their non-null forms.
+        else => rule_gc,
+    };
 }
 
 fn require(fs: Set, f: ?Feature, found: *?Feature) Error!void {
@@ -342,16 +356,18 @@ fn requireEach(fs: Set, req: Needs, found: *?Feature) Error!void {
     for (req.slice()) |f| try require(fs, f, found);
 }
 
-/// `requireEach` for a VALUE TYPE, with the one either/or rule types have: gc SATISFIES the
-/// typed-reference check (measured: wasm-tools admits `(param (ref $t))` under
-/// `all,-function-references` while gc is on, and so does the guide: "a GC struct is accepted").
-/// ⚠️ **Types only.** Until 2026-10-24 the grant sat in `require` and so reached INSTRUCTIONS too:
-/// `call_ref` ran under `all,-function-references` with gc on, where D1 gates it by
-/// function-references alone (interop §2.2m; the guide: "`call_ref` is refused").
-fn requireTypeNeeds(fs: Set, req: Needs, found: *?Feature) Error!void {
-    for (req.slice()) |need| {
-        if (need == .function_references and fs.has(.gc)) continue;
-        try require(fs, need, found);
+/// A type rule: every group needs ANY one of its features on. The first feature of a failing
+/// group is the one reported. ⚠️ **Types only**: instructions are gated by D1's column alone, so
+/// gc standing in for function-references (the `(ref $t)` rule) cannot reach `call_ref`.
+fn requireTypeNeeds(fs: Set, groups: TypeNeeds, found: *?Feature) Error!void {
+    for (groups) |g| {
+        const ok = for (g) |f| {
+            if (fs.has(f)) break true;
+        } else false;
+        if (!ok) {
+            found.* = g[0];
+            return error.DisabledProposal;
+        }
     }
 }
 
@@ -1211,6 +1227,17 @@ test "gating: D2's meanings (2026-10-24) — the wasm-tools-only bits gate nothi
     const no_fr = setWithout(&.{.function_references});
     try std.testing.expectEqual(@as(?Feature, null), try needs("(module (type $s (struct)) (func (param (ref $s))))", no_fr));
     try std.testing.expectEqual(@as(?Feature, .function_references), try needs("(module (type $f (func)) (func (param (ref $f)) local.get 0 call_ref $f))", no_fr));
+
+    // 🔒 D2 2.2.0 `typeRules` (wasm-tools' rule; binaryang's matrix found all three short here):
+    // gc stands in for function-references only for a CONCRETE `(ref $t)`, not `(ref func)`…
+    try std.testing.expectEqual(@as(?Feature, .function_references), try needs("(module (func (param (ref func))))", no_fr));
+    try std.testing.expectEqual(@as(?Feature, .function_references), try needs("(module (func (param (ref extern))))", no_fr));
+    // …and the GC types and exnref need reference-types as well as their own proposal.
+    const no_rt = setWithout(&.{.reference_types});
+    try std.testing.expectEqual(@as(?Feature, .reference_types), try needs("(module (func (param (ref any))))", no_rt));
+    try std.testing.expectEqual(@as(?Feature, .reference_types), try needs("(module (func (param i31ref)))", no_rt));
+    try std.testing.expectEqual(@as(?Feature, .reference_types), try needs("(module (func (param exnref)))", no_rt));
+    try std.testing.expectEqual(@as(?Feature, .gc), try needs("(module (func (param (ref any))))", setWithout(&.{.gc})));
 
     // Typed references need reference-types too (measured: function-references alone refuses).
     try T.refused(.reference_types, "(module (func (param (ref func))))");
