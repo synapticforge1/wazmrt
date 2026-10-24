@@ -4,13 +4,13 @@
 //! and diffs; `src/definitions_agreement.zig` and the tests beside each hand-kept table fail when
 //! wazmrt's tables disagree with what is below.
 //!
-//! Source: @jrmarcum/binaryang 2.0.0, `src/definitions/`. Each line below is that file's
+//! Source: @jrmarcum/binaryang 2.1.0, `src/definitions/`. Each line below is that file's
 //! stated SHA-256 over its canonical content, recomputed and matched by the generator.
 
 /// The source, as the generator found and verified it.
 pub const source = .{
     .package = "@jrmarcum/binaryang",
-    .version = "2.0.0",
+    .version = "2.1.0",
     .d1 = .{ .data_version = "1.0.1", .sha256 = "7552497df510ee2117d87e54f71081390e6ad80f27d6f0a6bcd4f705dcfb3cdc", .entries = 582 },
     .d2 = .{ .data_version = "2.1.0", .sha256 = "81bc142b27ec9de4a9cd87644c4bbc405ad6cc4d1aa1ce0cef7712e1184a5ad9", .entries = 22 },
     .d3 = .{ .data_version = "1.0.0", .sha256 = "db956f7d590bf50c83e5062e4f636b99e14d0780ca50589d787e0edb93114a2a", .entries = 20 },

@@ -139,9 +139,13 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
     `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
     (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
-  - ⚠️ **The copy is binaryang's MAIN, not a release** (the guide: D1 1.0.1 / D2 2.1.0 ship in
-    binaryang's next release). When that release is cut, regenerate from it: the hashes must not
-    move, and the header's version will read the release's.
+  - ✅ **The copy pins binaryang 2.1.0** (published 2026-10-24, JSR and npm). Regenerated from the
+    release: D1, D2 and D3 hashes identical to the `main` copy of `ef74a0a`, only the header's
+    version moved. binaryang's letter of 2026-10-24 confirms the rules wazmrt implemented (v37):
+    `return_call_ref` is function-references; `requires` recorded, not enforced; `call_ref` refused
+    under `all,-function-references`. FL1: `sat-float-to-int` is GONE in 2.0.0 and D2 has no
+    `cliAliases`, so binaryang's own open-work item 33 ("kept as a deprecated alias") is the stale
+    text, not a disagreement in the data.
 - **The macOS pass** of the POSIX path fix — when the owner has the machine. Checklist and every probe
   it needs: [`probes/README.md`](probes/README.md) → "Open: the macOS pass".
 
