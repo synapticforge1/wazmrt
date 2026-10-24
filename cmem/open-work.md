@@ -167,7 +167,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - D2 gains `typeRules`, wasm-tools 1.262's type rule (owner: "wasm-tools' rule"), and
       `encodingRules`;
     - `(ref any)` is gc's.
-    - The D3 shared-memory class is the owner's decision, not yet made.
+    - The D3 shared-memory class: **DECLINED** (binaryang, 2026-10-24). See the D3 bullet below.
 
     ⏳ **wazmrt's side, re-measured against binaryang `main` `4a829d216`: 22 of 2,352 differ, all
     wazmrt ACCEPTING what D2's `typeRules` refuse.** Three gaps in `valTypeNeeds` and the gc
@@ -222,7 +222,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     > never touched wazmrt's measurements (its one sweep passes `--enable-all`).
   - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
     `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
-    (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
+    (`known-issues.md`). ✅ The request for a D3 class "expected shared memory" was **DECLINED by
+    binaryang** (2026-10-24): D3 holds only messages the spec testsuite writes, and the threads
+    suite never asserts that trap. wazmrt keeps its own check, `error.ExpectedSharedMemory`
+    (`interp.zig`, an `atomic.wait` on an unshared memory), outside D3. Closed.
   - ✅ **The copy pins binaryang 2.1.0** (published 2026-10-24, JSR and npm). Regenerated from the
     release: D1, D2 and D3 hashes identical to the `main` copy of `ef74a0a`, only the header's
     version moved. binaryang's letter of 2026-10-24 confirms the rules wazmrt implemented (v37):
@@ -240,8 +243,8 @@ block re-copied, `462e0e8`). The summaries, with their commits, are in [`roadmap
 milestone table. Two remnants:
 
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
-  waits on binaryang (above): its answer to the D2 matrix letter on the TYPE rules, and the D3
-  class for "expected shared memory".
+  waits on binaryang's next release: D2's `typeRules`, which close the 22-case type-rule gap (owner:
+  fix after it ships; 4.0.0 by the gate). The D3 shared-memory request is closed (declined).
 - **H6's rule 3**: every release from `v1.0.1` to `v3.0.0` is tagged, and S1 / S2 / S3 carry
   behaviour forward from them. It waits only for a consumer's own suite (none depends on wazmrt
   yet).
