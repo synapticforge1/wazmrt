@@ -1842,6 +1842,16 @@ for:
 one joined string, an array that stops at the last used index, a bit set.** — 2026-10-24,
 `tools/size-ceilings.txt`
 
+### 🎓 A comparison that reads 0 has proved its corpus, not the rule
+
+The D2 matrix read 2,352 / 0 against binaryang and wasmrt, and contract v39 wrote that wazmrt
+"already met" D2's encoding rules. wasmrt then found `(table 1 funcref (ref.null func))` accepted
+under every configuration: no module in S1's corpus had a table initializer. 🔒 **Before writing
+"meets the rule" from an agreement count, map each RULE to a corpus module that exercises it. A
+rule with no module is unmeasured, not agreed.** And add the missing module at the RELEASED
+behaviour first, so the gate sees the fix as the break it is (S1 −30 here, not the +2 that adding
+both at once would have shown). — 2026-10-24, `known-issues.md`, `interop.md` v40
+
 ### 🎓 A gate that does not see the CLI passes a CLI break as a patch
 
 `2.0.1` refused command lines `2.0.0` ran. The surface gate called it a patch, because its `cli`

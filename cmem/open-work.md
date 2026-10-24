@@ -6,9 +6,9 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
-**Unreleased on `main`: a table INITIALIZER needs function-references** (found by wasmrt while
-mirroring v39; contract v40, `known-issues.md`). It was accepted under every config; S1 −30, so the
-gate's floor is MAJOR (`5.0.0`, owner's call). README has a _next release_ row.
+**`5.0.0` is released** (2026-10-24, owner: "bump to 5.0.0 and push"): a table INITIALIZER needs
+function-references (found by wasmrt while mirroring v39; contract v40, `known-issues.md`). It was
+accepted under every config. S1 −30, so the gate's floor is MAJOR. README has the row.
 
 **`4.0.1` is released** (2026-10-24, owner: "fix the issues", then "yes"): two validator defects
 from wasmrt's fuzz fixed. Deep constant expressions are no longer refused, and element flags > 7
@@ -34,7 +34,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 **`2.0.0`** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
-fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v4.0.1` is tagged on
+fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v5.0.0` is tagged on
 `synapticforge1/wazmrt`. Contract: `interop.md` **v39** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule); wasmrt's copy was byte-identical at v38 (`f88a9ab`), and v39 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.

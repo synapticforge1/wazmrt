@@ -6,7 +6,17 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `4.0.1` — released 2026-10-24 (`4.0.0`, `3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `5.0.0` — released 2026-10-24 (`4.0.1`, `4.0.0`, `3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`5.0.0` — owner, 2026-10-24: *"yes and update the project memory files, then bump to 5.0.0
+> and push"*.** The fourth major the gate set. **A table initializer (`0x40 0x00 tt e`) needs
+> function-references** (binaryang D2 2.2.0's `encodingRules`), and its expression is feature-gated
+> like any constant expression (`bd97ae2`; `interop.md` v40, `known-issues.md`). Found by wasmrt
+> while mirroring v39: wazmrt accepted it under every configuration, and the D2 matrix had read 0
+> only because S1 had no such module. `table-init.wat` joined S1 at 4.0.1's behaviour FIRST
+> (`4aa4e15`), so the gate saw the fix as it is: S1 −30 since `4.0.1`, MAJOR. One README Breaking
+> Changes row. The D2 matrix on 49 modules is 2,401 / 0 differ against binaryang 2.2.0 and against
+> wasmrt 1.0.0; spec conformance is unchanged per file.
 
 > 🔒 **`4.0.1` — owner, 2026-10-24: *"fix the issues"*, then "yes" to pushing and cutting 4.0.1.**
 > Two validator defects, found by wasmrt's differential fuzz and re-measured on `4.0.0`
