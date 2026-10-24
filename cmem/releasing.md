@@ -18,6 +18,21 @@ what earns it.
 > Both turn a wrong verdict into the spec's, so the number is the gate's patch floor (surface +0
 > −0, no S1 or `run` line moved) and there is no Breaking Changes row: the modules the second fix
 > refuses were never valid. Spec conformance is unchanged per file.
+>
+> ✅ **Checklist run 2026-10-24 on the release commit `17f9a6d`, every gate:**
+> - `test` 834/838 from `D:`, **838/838 from NTFS**; `test-safe` and `test-shipped` 832/836;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `4.0.0`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; `definitions` ✅ (binaryang 2.2.0); size EXACT (exe 1,033,216
+>   / lib 1,075,096 / dll 922,624);
+> - the gate accepted `4.0.0` → `4.0.1` as meeting the floor (patch);
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 4.0.1 (abi 2)` and runs a WASI
+>   module. A depth-9 constant expression is admitted (rc 0); element flags `8` are refused (rc 1).
+> - the exe and the dll import only `KERNEL32` and `ntdll`; the old version string is gone from
+>   all four places.
+>
+> Step 9a recorded `4.0.1` as the baselines: only the `released-as` line moved in either file, as a
+> patch requires.
 
 > 🔒 **`4.0.0` — owner, 2026-10-24: *"update the project memory files, bump then push"*.** The
 > third major the gate set. **Value types follow binaryang D2 2.2.0's `typeRules`** (wasm-tools
