@@ -199,8 +199,14 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - S1 −20, so the floor is MAJOR: **released as `4.0.0`**. Contract v39.
     - ✅ wasmrt adopted the same rule (`cee7bd1`). Re-run on wasmrt `1.0.0` (`d0cb616`): 2,352 / 0
       differ, CLI corpus identical. ⏳ **The v39 mirror.**
-    - ⚠️ wasmrt also notes const-expr depth > 8 and the element flags were not re-measured on
-      wazmrt since its 2026-09-21 build, which is still open.
+    - ✅ **Re-measured 2026-10-24 on 4.0.0** (wasmrt's ask: const-expr depth > 8 and the element
+      flags, unmeasured since the 2026-09-21 build), with `probes/constexpr-elemflags.ts` on four
+      tools. **Both are still wazmrt defects**, and wazmrt alone differs:
+      - depth ≥ 9 is refused (`var stack: [8]V`);
+      - element flags 8 with a valid tail is accepted (flags > 7 never rejected).
+
+      Recorded in `known-issues.md` (top) with cause and fix. ⏳ **Fix, owner's call** — the first
+      refuses-valid, the second accepts-invalid; each would be a test plus a small change.
 
     The letter as sent:
 

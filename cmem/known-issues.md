@@ -13,6 +13,35 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔴 OPEN 2026-10-24 — two validator defects, re-measured on 4.0.0 (first reported by wasmrt's fuzz)
+
+wasmrt's differential fuzz of wazmrt's 2026-09-21 build reported both (wasmrt's
+`cmem/shared-definitions.md`). Re-measured on **4.0.0** with `cmem/probes/constexpr-elemflags.ts`,
+the same `.wasm` bytes through wazmrt, wasmrt 1.0.0, wasm-tools 1.262 and binaryang 2.2.0, every
+feature on. wazmrt is the only one that differs, in both.
+
+1. **REFUSE-VALID: a constant expression deeper than 8 operands.** A global initializer pushing N
+   `i32.const` and adding them (extended-const) is VALID at every depth measured (1, 8, 9, 16, 64,
+   65, 128) on the other three. wazmrt accepts 1 and 8 and refuses 9 and up with
+   `ConstantExpressionRequired`, a wrong verdict *and* a wrong reason.
+   - **Cause:** the const-expr validator's operand stack is a fixed `var stack: [8]V`
+     (`validate.zig`, the const-expr walker), and a push past it returns that error.
+   - **Fix:** a growable stack, or a bound no real module reaches with a distinct error. Add depths 9
+     and 64 to a test, both inverted.
+2. **ACCEPT-INVALID: element-segment flags above 7.** The spec defines flags 0–7. Flags `8`
+   followed by flags-0's layout (an offset and a vector of function indices) VALIDATES on wazmrt;
+   the other three refuse it. The fuzz's `0x0d`, `0x41` and `0x4b` are now refused, but only
+   because their low three bits select a layout the following bytes do not match.
+   - **Cause:** the element-section decoder (`Module.zig`, after `const flags = try
+     r.readVarU32()`) tests bits 0–2 and never rejects the rest, so `flags & 7` is what it decodes.
+   - **Fix:** refuse `flags > 7` as malformed before the bits are read. Test flags 8, 0x0d, 0x41
+     and 0x4b with a VALID tail each, so the refusal comes from the flags and not from the layout.
+
+**Surfaces when:** any producer that emits deeper initializers (a compiler folding constants with
+extended-const), and any fuzzer or conformance sweep comparing wazmrt against another validator.
+
+---
+
 ## ✅ FIXED 2026-10-23 — a 64-bit TABLE was accepted under EVERY `--features` list (found by wasmrt)
 
 **What it was:** `(module (table i64 1 funcref))` validated under `--features all,-memory64`, where
