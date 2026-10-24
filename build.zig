@@ -420,6 +420,10 @@ pub fn build(b: *std.Build) void {
         }) });
         const run_behaviour = b.addRunArtifact(behaviour_tool);
         run_behaviour.addDirectoryArg(b.path("tests/behaviour"));
+        // ⚠️ ALWAYS re-judge. The build cache did not treat a NEW file in `tests/behaviour/` as a
+        // change, and served the old verdicts without it (found 2026-10-23, adding `table64.wat`):
+        // a widened corpus silently ignored. The judgement takes about a second.
+        run_behaviour.has_side_effects = true;
         run_surface.addFileArg(run_behaviour.addOutputFileArg("behaviour.txt"));
         // The snapshots are read by path, not as file args, so the verdict must never be cached.
         run_surface.has_side_effects = true;
