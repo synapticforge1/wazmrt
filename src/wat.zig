@@ -4044,59 +4044,31 @@ fn simdLaneByte(s: Sexpr) Error!u8 {
     return std.math.cast(u8, v) orelse error.BadImmediate;
 }
 
-/// Map an atomic (`0xFE`) mnemonic to its sub-opcode, or null. The rmw/cmpxchg
-/// families are laid out in groups of 7 from 0x1e (add), then sub/and/or/xor/
-/// xchg/cmpxchg, each `[i32.full, i64.full, i32.8, i32.16, i64.8, i64.16,
-/// i64.32]`.
+/// Map an atomic (`0xFE`) mnemonic to its sub-opcode, or null.
+/// 🔒 **Stage B of letter H10 (2026-10-24): the table is GENERATED from D1's `0xFE` entries** at
+/// compile time, as `simd_table` is, instead of hand-kept.
 fn lookupAtomic(name: []const u8) ?u32 {
-    const E = struct { n: []const u8, s: u32 };
-    const tbl = [_]E{
-        .{ .n = "memory.atomic.notify", .s = 0x00 }, .{ .n = "memory.atomic.wait32", .s = 0x01 },
-        .{ .n = "memory.atomic.wait64", .s = 0x02 }, .{ .n = "atomic.fence", .s = 0x03 },
-        // loads
-        .{ .n = "i32.atomic.load", .s = 0x10 },      .{ .n = "i64.atomic.load", .s = 0x11 },
-        .{ .n = "i32.atomic.load8_u", .s = 0x12 },   .{ .n = "i32.atomic.load16_u", .s = 0x13 },
-        .{ .n = "i64.atomic.load8_u", .s = 0x14 },   .{ .n = "i64.atomic.load16_u", .s = 0x15 },
-        .{ .n = "i64.atomic.load32_u", .s = 0x16 },
-        // stores
-        .{ .n = "i32.atomic.store", .s = 0x17 },     .{ .n = "i64.atomic.store", .s = 0x18 },
-        .{ .n = "i32.atomic.store8", .s = 0x19 },    .{ .n = "i32.atomic.store16", .s = 0x1a },
-        .{ .n = "i64.atomic.store8", .s = 0x1b },    .{ .n = "i64.atomic.store16", .s = 0x1c },
-        .{ .n = "i64.atomic.store32", .s = 0x1d },
-        // rmw add (0x1e), sub (0x25), and (0x2c), or (0x33), xor (0x3a), xchg (0x41)
-        .{ .n = "i32.atomic.rmw.add", .s = 0x1e },      .{ .n = "i64.atomic.rmw.add", .s = 0x1f },
-        .{ .n = "i32.atomic.rmw8.add_u", .s = 0x20 },   .{ .n = "i32.atomic.rmw16.add_u", .s = 0x21 },
-        .{ .n = "i64.atomic.rmw8.add_u", .s = 0x22 },   .{ .n = "i64.atomic.rmw16.add_u", .s = 0x23 },
-        .{ .n = "i64.atomic.rmw32.add_u", .s = 0x24 },
-        .{ .n = "i32.atomic.rmw.sub", .s = 0x25 },      .{ .n = "i64.atomic.rmw.sub", .s = 0x26 },
-        .{ .n = "i32.atomic.rmw8.sub_u", .s = 0x27 },   .{ .n = "i32.atomic.rmw16.sub_u", .s = 0x28 },
-        .{ .n = "i64.atomic.rmw8.sub_u", .s = 0x29 },   .{ .n = "i64.atomic.rmw16.sub_u", .s = 0x2a },
-        .{ .n = "i64.atomic.rmw32.sub_u", .s = 0x2b },
-        .{ .n = "i32.atomic.rmw.and", .s = 0x2c },      .{ .n = "i64.atomic.rmw.and", .s = 0x2d },
-        .{ .n = "i32.atomic.rmw8.and_u", .s = 0x2e },   .{ .n = "i32.atomic.rmw16.and_u", .s = 0x2f },
-        .{ .n = "i64.atomic.rmw8.and_u", .s = 0x30 },   .{ .n = "i64.atomic.rmw16.and_u", .s = 0x31 },
-        .{ .n = "i64.atomic.rmw32.and_u", .s = 0x32 },
-        .{ .n = "i32.atomic.rmw.or", .s = 0x33 },       .{ .n = "i64.atomic.rmw.or", .s = 0x34 },
-        .{ .n = "i32.atomic.rmw8.or_u", .s = 0x35 },    .{ .n = "i32.atomic.rmw16.or_u", .s = 0x36 },
-        .{ .n = "i64.atomic.rmw8.or_u", .s = 0x37 },    .{ .n = "i64.atomic.rmw16.or_u", .s = 0x38 },
-        .{ .n = "i64.atomic.rmw32.or_u", .s = 0x39 },
-        .{ .n = "i32.atomic.rmw.xor", .s = 0x3a },      .{ .n = "i64.atomic.rmw.xor", .s = 0x3b },
-        .{ .n = "i32.atomic.rmw8.xor_u", .s = 0x3c },   .{ .n = "i32.atomic.rmw16.xor_u", .s = 0x3d },
-        .{ .n = "i64.atomic.rmw8.xor_u", .s = 0x3e },   .{ .n = "i64.atomic.rmw16.xor_u", .s = 0x3f },
-        .{ .n = "i64.atomic.rmw32.xor_u", .s = 0x40 },
-        .{ .n = "i32.atomic.rmw.xchg", .s = 0x41 },     .{ .n = "i64.atomic.rmw.xchg", .s = 0x42 },
-        .{ .n = "i32.atomic.rmw8.xchg_u", .s = 0x43 },  .{ .n = "i32.atomic.rmw16.xchg_u", .s = 0x44 },
-        .{ .n = "i64.atomic.rmw8.xchg_u", .s = 0x45 },  .{ .n = "i64.atomic.rmw16.xchg_u", .s = 0x46 },
-        .{ .n = "i64.atomic.rmw32.xchg_u", .s = 0x47 },
-        // cmpxchg (0x48)
-        .{ .n = "i32.atomic.rmw.cmpxchg", .s = 0x48 },     .{ .n = "i64.atomic.rmw.cmpxchg", .s = 0x49 },
-        .{ .n = "i32.atomic.rmw8.cmpxchg_u", .s = 0x4a },  .{ .n = "i32.atomic.rmw16.cmpxchg_u", .s = 0x4b },
-        .{ .n = "i64.atomic.rmw8.cmpxchg_u", .s = 0x4c },  .{ .n = "i64.atomic.rmw16.cmpxchg_u", .s = 0x4d },
-        .{ .n = "i64.atomic.rmw32.cmpxchg_u", .s = 0x4e },
-    };
-    inline for (tbl) |e| if (std.mem.eql(u8, name, e.n)) return e.s;
+    inline for (atomic_table) |e| if (std.mem.eql(u8, name, e.n)) return e.s;
     return null;
 }
+
+const AtomicEntry = struct { n: []const u8, s: u32 };
+const atomic_table = blk: {
+    @setEvalBranchQuota(200_000);
+    const defs = @import("definitions.zig");
+    var n: usize = 0;
+    for (defs.opcodes) |e| if (e.prefix == 0xfe) {
+        n += 1;
+    };
+    var t: [n]AtomicEntry = undefined;
+    var i: usize = 0;
+    for (defs.opcodes) |e| if (e.prefix == 0xfe) {
+        t[i] = .{ .n = e.name, .s = e.opcode };
+        i += 1;
+    };
+    break :blk t;
+};
+
 
 /// Emit a `0xFE` atomic op. `atomic.fence` (0x03) takes a reserved `0x00`;
 /// every other op takes a memarg (optional leading memory index, `offset=`,
