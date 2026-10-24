@@ -24,6 +24,22 @@ what earns it.
 > `run` line moved, and spec conformance is unchanged per file. Also in it: the CLI-behaviour
 > `run` lines in the gate, stage B of H10 (the data tables generated from D1), and the definitions
 > pinned to binaryang 2.1.0.
+>
+> ✅ **Checklist run 2026-10-24 on the release commit `3077634`, every gate:**
+> - `test` 830/834 from `D:`, **834/834 from NTFS**; `test-safe` and `test-shipped` 828/832;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `2.0.1`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; `definitions` ✅ (binaryang 2.1.0); size EXACT (exe 1,033,216
+>   / lib 1,074,300 / dll 922,624);
+> - the gate accepted `2.0.1` → `3.0.0` as meeting the MAJOR floor;
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 3.0.0 (abi 2)` and runs a WASI
+>   module. `--features wasm3` refuses `threads.wat` and `wasm3,threads` admits it.
+>   `all,-function-references` refuses `call_ref`. `all,-floats` warns once and runs.
+> - the exe and the dll import only `KERNEL32` and `ntdll`; the old version string is gone from
+>   all four places.
+>
+> Step 9a recorded `3.0.0` as the baselines. The surface record moved by exactly the measured
+> +62 −2 plus its header; the conformance record changed only its header.
 
 > 🔒 **`2.0.1` — owner, 2026-10-24: *"ship 2.0.1"*.** Two CLI fixes, found by running both
 > runtimes to refresh the contract's stale wasmrt cells (`interop.md` v35):
