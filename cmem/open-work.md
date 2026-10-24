@@ -33,7 +33,9 @@ milestone table.
   - S1 and S2 agreed, as complementary layers; S3 agreed for local testing;
   - the stages run in order and stop at the first issue until it is resolved (intended counts as
     resolved, by a deliberate re-baseline);
-  - ⏳ **building S1** (the accept verdicts as `beh` lines in the surface snapshot); S2 is next.
+  - ✅ **S1 built 2026-10-23**, on `zig build test`: 198 accepted pairs (47 modules × 32 configs),
+    equal to `v1.0.3`'s CLI, inverted both ways. ⏳ **S2 is next**, folded into the conformance step
+    (pin the wasmtk commit, keep per-file results per release).
   - 📬 Owner-directed: written up as workspace letter **H23** to wasmrt ("lets also make this a
     letter for wasmrt team on testing", 2026-10-23), `../../cmem/handoffs.md`, with the check
     (`probes/carry-forward.ts`), not the conclusion.

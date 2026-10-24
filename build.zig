@@ -403,6 +403,24 @@ pub fn build(b: *std.Build) void {
         run_surface.addFileArg(b.path("include/wazmrt.h"));
         run_surface.addFileArg(b.path("src/root.zig"));
         run_surface.addFileArg(help.captureStdOut(.{}));
+        // S1 of rule 3, behaviour carried forward (owner, 2026-10-23): which modules of
+        // `tests/behaviour/` this build ACCEPTS, under every preset and single feature. It is
+        // judged IN-PROCESS by the library (never run: the CLI runs a `_start` module), with the
+        // CLI's own `--features` parser, built for the host. The accepted pairs join the surface
+        // as `beh` lines, so accepting less is a removed line: a major.
+        const behaviour_tool = b.addExecutable(.{ .name = "behaviour", .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/behaviour.zig"),
+            .target = b.graph.host,
+            .optimize = .Debug,
+            .imports = &.{.{ .name = "wazmrt", .module = b.createModule(.{
+                .root_source_file = b.path("src/root.zig"),
+                .target = b.graph.host,
+                .imports = full_imports,
+            }) }},
+        }) });
+        const run_behaviour = b.addRunArtifact(behaviour_tool);
+        run_behaviour.addDirectoryArg(b.path("tests/behaviour"));
+        run_surface.addFileArg(run_behaviour.addOutputFileArg("behaviour.txt"));
         // The snapshots are read by path, not as file args, so the verdict must never be cached.
         run_surface.has_side_effects = true;
         const surface_step = b.step("surface", "Public-surface gate: snapshot current, bump >= floor (-Dsurface=update|release to re-baseline)");

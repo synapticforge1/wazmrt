@@ -212,11 +212,28 @@ Every module of wasmtk's corpus (1,189) was then judged under `default` / `mvp` 
   the owner's explicit call) and the Breaking Changes row it demands. Otherwise an intended break
   would block the later stages forever.
 
-**S1's design, chosen while building it:** the accept verdicts are a FOURTH kind of line in the
-surface snapshot, `beh <config> accepts <module>`, ACCEPTED modules only. Accepted → refused
+**✅ S1 BUILT 2026-10-23, on `zig build test`.** The accept verdicts are a FOURTH kind of line in
+the surface snapshot, `beh <config> accepts <module>`, ACCEPTED modules only. Accepted → refused
 removes a line, which the existing rule already reads as MAJOR; refused → accepted adds one, read
 as minor. So the snapshots, the re-baseline commands, the floor and the bump refusal are reused,
-not written a second time beside them. Effort, roughly: S1 is a day's
+not written a second time beside them.
+
+- **How it judges:** `tools/behaviour.zig` (a build step, Zig) links a host-built library and asks
+  decode + `validateWith` for each module of `tests/behaviour/` (47, from `feature-matrix.ts`)
+  under 32 configs: the 7 presets, plus `-all,<feature>` for each of the 25 features. That is
+  1,504 judgements, about 7 s including the build. It never runs anything. The CLI's
+  `--features` parser moved into `features.zig` so both judge with ONE parser. The move was proven
+  by `feature-matrix.ts` byte-identical on the CLI before and after, and nine malformed lists
+  identical in text and exit code.
+- **Proven equal to the CLI**, both ways: the tool's 198 accepted pairs equal what the `v1.0.3`
+  CLI and HEAD's CLI accept for the same 32 × 47. So `released.txt`'s `beh` lines ARE `v1.0.3`'s
+  behaviour, and HEAD has changed none of it (floor: patch).
+- **Inverted, both directions:**
+  - with `mutable_global` dropped from the `wasm1` preset (1.0.3's break class), the build goes
+    red naming the lost pairs; re-baselined, `1.0.4` is refused (major) and `2.0.0` accepted;
+  - with `mutable_global` added to `mvp`, `1.0.4` is refused (minor) and `1.1.0` accepted.
+- **Known limit:** it sees acceptance, not execution: that is S2's job. The corpus is what
+  `feature-matrix.ts` built; widening it is a deliberate re-baseline (`tests/behaviour/README.md`). Effort, roughly: S1 is a day's
 increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 
 ### The ladder from here
