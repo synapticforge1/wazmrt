@@ -1425,6 +1425,26 @@ fn validateHostPath(host: []const u8, plat: Platform) ?HostPathError {
     return .bare_relative;
 }
 
+/// Add one `--env KEY=VALUE` entry to the guest's environment. Returns false for a malformed entry
+/// (no `=`, or an empty KEY), so the caller refuses it rather than handing the guest a WASI environ
+/// entry no libc can read. 🔒 The guest sees ONLY these entries; nothing is inherited from the host
+/// (contract v35, §5 #13, owner 2026-10-24).
+///
+/// ⚠️ A repeated KEY REPLACES the earlier entry in place: two entries for one key is a shape no
+/// libc expects, and `getenv` would return whichever it found first. Last one wins, as in wasmrt.
+fn putEnv(arena: std.mem.Allocator, environ: *std.ArrayList([]const u8), entry: []const u8) !bool {
+    const eq = std.mem.indexOfScalar(u8, entry, '=') orelse return false;
+    if (eq == 0) return false;
+    const key_eq = entry[0 .. eq + 1];
+    const owned = try arena.dupe(u8, entry);
+    for (environ.items) |*e| if (std.mem.startsWith(u8, e.*, key_eq)) {
+        e.* = owned;
+        return true;
+    };
+    try environ.append(arena, owned);
+    return true;
+}
+
 /// Parse a `--max-memory` size: a decimal count of bytes with an optional
 /// `K`/`M`/`G` suffix (`512M`, `2G`, `1073741824`). Returns null if unparseable
 /// or if the multiplier overflows, so the caller can fail loudly rather than
@@ -1898,8 +1918,10 @@ fn runWasi(
             continue :flags;
         }
         if (std.mem.eql(u8, flag, "--env") and rest.len >= 2) {
-            // WASI environ entries are `KEY=VALUE`; pass through verbatim.
-            try environ.append(arena, try arena.dupe(u8, rest[1]));
+            if (!try putEnv(arena, &environ, rest[1])) {
+                try out.print("error: --env '{s}': expected KEY=VALUE with a non-empty KEY\n", .{rest[1]});
+                return 1;
+            }
             rest = rest[2..];
             continue :flags;
         }
@@ -2262,6 +2284,26 @@ test "the pin DB lookup prefers the SHARED path and never disarms in silence" {
     try S.eq(false, false, true, .none, true);
     // Genuinely no pin policy anywhere: unarmed, and silent, because that is a real configuration.
     try S.eq(false, false, false, .none, false);
+}
+
+test "--env takes KEY=VALUE only, and a repeated KEY replaces — never duplicates" {
+    // 🔒 Contract v35, §5 #13. Measured before the fix: `--env A` and `--env =x` reached the guest
+    // verbatim, and `--env A=1 --env A=2` gave it TWO entries for `A`.
+    var arena_state = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena_state.deinit();
+    const arena = arena_state.allocator();
+    var env: std.ArrayList([]const u8) = .empty;
+    try std.testing.expect(!try putEnv(arena, &env, "A"));
+    try std.testing.expect(!try putEnv(arena, &env, "=x"));
+    try std.testing.expect(try putEnv(arena, &env, "A=1"));
+    try std.testing.expect(try putEnv(arena, &env, "AB=3"));
+    try std.testing.expect(try putEnv(arena, &env, "A=2"));
+    try std.testing.expect(try putEnv(arena, &env, "B="));
+    // `AB=` is not `A=`: the KEY match includes the `=`, so a prefix key is a different variable.
+    try std.testing.expectEqual(@as(usize, 3), env.items.len);
+    try std.testing.expectEqualStrings("A=2", env.items[0]);
+    try std.testing.expectEqualStrings("AB=3", env.items[1]);
+    try std.testing.expectEqualStrings("B=", env.items[2]);
 }
 
 test "a --pins DB that does not exist REFUSES, in every mode — a typo never disarms the gate" {

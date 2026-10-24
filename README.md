@@ -66,11 +66,12 @@ wazmrt follows [Semantic Versioning 2.0.0](https://semver.org/): a breaking chan
 major version, as `2.0.0` does. The `1.0.2` and `1.0.3` rows shipped as PATCH releases on purpose,
 before any consumer depended on wazmrt; from `2.0.0` on, the version number itself signals a break,
 except for a security fix that closes a fail-open, which the owner may ship as a patch (the
-_next release_ row). Each row says how to migrate.
+_next release_ rows). Each row says how to migrate.
 
 | Version | What changed | How to migrate |
 | --- | --- | --- |
 | _next release_ (patch, security fix) | a `--pins` DB that cannot be read is an error in every mode. A path that did not exist was read as "no DB", so the module ran unverified, without a warning, unless `--verify enforce` | fix the path, or drop `--pins` to use the default DB |
+| _next release_ (patch) | `--env` takes `KEY=VALUE` with a non-empty KEY: `--env A` and `--env =x` are errors (they reached the guest as malformed entries). A repeated KEY now replaces the earlier one instead of giving the guest two | write `--env A=` for an empty value; pass each KEY once, or rely on the last one winning |
 | `2.0.0` | a 64-bit TABLE (`(table i64 …)`) is refused unless `memory64` is enabled. It was accepted under every `--features` list, including `-all` and `mvp`; table64 is part of the memory64 proposal | add `memory64` to an explicit `--features` list (presets `wasm3` and `all` already include it) |
 | `1.0.3` | `--features mvp` refuses a module that exports a mutable global (wasm-tools' meaning of `mvp`) | use `--features wasm1`, which is `mvp` + `mutable-global` |
 | `1.0.3` | `externref` needs the `gc-types` feature when you pass an explicit `--features` list | add `gc-types` to the list (presets such as `wasm2` and `all` already include it) |

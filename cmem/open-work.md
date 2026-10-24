@@ -6,9 +6,10 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
-**Unreleased on `main`: a `--pins` DB that cannot be read now REFUSES** (contract v35, §5 #14).
-🔒 Owner, 2026-10-24: it ships as a **PATCH**, as a security fix (closing a fail-open), with a
-README Breaking Changes row anyway. Expect the gate to accept a patch: the CLI behaviour is not in
+**Unreleased on `main`: a `--pins` DB that cannot be read now REFUSES** (contract v35, §5 #14),
+**and `--env` takes only well-formed `KEY=VALUE`, a repeated KEY replacing** (§5 #13).
+🔒 Owner, 2026-10-24: these ship as a **PATCH**, as security fixes, with README Breaking Changes
+rows anyway. Expect the gate to accept a patch: the CLI behaviour is not in
 S1's surface.
 
 **`2.0.0` is released** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
@@ -59,8 +60,24 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     mirrored v33 and v34** (wasmrt `37f0187`, 2026-10-24): the two copies are byte-identical,
     checked with `cmp`. ✅ **The stale wasmrt cells §2.2m lists were REFRESHED in v35**
     (2026-10-24), each re-run on both binaries; all agree but two, decided by the owner the same
-    day. ⏳ **wasmrt to mirror v35, and to stop inheriting the host environment** (§5 #13: a
-    guest sees only `--env`; it must invert its `cli_review_regressions.rs` inherit test). §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    day. ⏳ **wasmrt to mirror v35 and make §5 #13's change** — owner, 2026-10-24: by LETTER,
+    not by a write from here. 📬 **The letter, for the owner to carry** (draft; the workspace
+    files it):
+
+    > **To wasmrt — contract v35 §5 #13: a WASI guest sees ONLY `--env`.** Owner decision,
+    > 2026-10-24. Measured on your `37f0187`: with no `--env` the guest sees the whole host
+    > environment (111 variables here), and `--env =x` is accepted. Required: (1) the guest's
+    > environment is the `--env` entries alone, nothing from `std::env::vars()` (`merged_env` in
+    > `crates/wasmrt/src/main.rs`); keep its last-KEY-wins replace, which already matches the row;
+    > (2) refuse an empty KEY (`--env =x`), rc 1, as you already refuse `--env A`; (3) INVERT
+    > `env_flags_add_to_the_inherited_environment_rather_than_replacing_it` in
+    > `cli_review_regressions.rs`, so it asserts 0 inherited and fails on today's code — do not
+    > delete it. **The check, not the conclusion:** a guest that exits with
+    > `10 + environ_sizes_get`'s count (the +10 tells "1 variable" from "refused, rc 1"), run with
+    > no `--env` (expect 10), `--env A=1 --env A=2` (11), `--env A=1 --env B=2` (12), `--env A=` (11),
+    > `--env A` and `--env =x` (rc 1). wazmrt gives exactly those since v35.
+
+    §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
