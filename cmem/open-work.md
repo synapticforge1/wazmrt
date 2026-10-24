@@ -20,7 +20,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v3.0.0` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v37** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`); wasmrt's copy was byte-identical at v35 (2026-10-24), and v36 / v37 are PENDING MIRROR. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v38** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both and corrects the ladder line); wasmrt mirrored v36 + v37 (`5315faf`), and v38 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -65,8 +65,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     checked with `cmp`. ✅ **The stale wasmrt cells §2.2m lists were REFRESHED in v35**
     (2026-10-24), each re-run on both binaries; all agree but two, decided by the owner the same
     day. ✅ **wasmrt mirrored v35 and made §5 #13's change by letter** (`cfeee31`); re-verified by
-    running both, identical on six `--env` cases, recorded as v36. ⏳ **wasmrt to mirror v36**
-    (record-only). §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    running both, identical on six `--env` cases, recorded as v36. ✅ **wasmrt mirrored v36 + v37
+    and made the v37 `--features` change** (`5315faf`, `4162c52`, `daec1d6`); re-run on both
+    binaries: D2 matrix 2,352 / 0 differ, CLI corpus identical, recorded as v38. ⏳ **wasmrt to
+    mirror v38** (record-only). §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
@@ -157,8 +159,8 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   - ⏳ **Waiting on binaryang: the D2 feature matrix, MEASURED 2026-10-24** (owner: "yes feature
     matrix against binaryang"). `probes/d2-matrix.ts`, wazmrt `b534ee4`+ against binaryang 2.1.0
     (`src` unchanged since the tag): 48 modules × 49 configs = 2,352 judgements, **62 differ**, in
-    four groups. **wazmrt's TYPE rules wait on the answer to (3) and (4).** 📬 **The letter, for the
-    owner to carry** (draft; the workspace files it):
+    four groups. **wazmrt's TYPE rules wait on the answer to (3) and (4).** 📬 **SENT to binaryang
+    by the owner, 2026-10-24.** The letter as sent:
 
     > **To binaryang — the feature matrix you asked for (letter of 2026-10-24), wazmrt against
     > 2.1.0.** wazmrt now gates each instruction by D1 alone, uses D2's names and presets, and

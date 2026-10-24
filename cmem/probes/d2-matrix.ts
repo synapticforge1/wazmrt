@@ -7,12 +7,19 @@
 // set equal the config. `.wat` files are assembled by wazmrt first, so both read the same bytes.
 //
 //   bun d2-matrix.ts <wazmrt exe> <binaryang checkout> <corpus dir> <work dir>
+//   bun d2-matrix.ts <wazmrt exe> <binaryang checkout> <corpus dir> <work dir> --runtime <exe>
+//
+// With `--runtime`, the OTHER side is that runtime's `--features <cfg> <m.wasm>` instead of
+// binaryang's validator (wasmrt, for the contract's `--features` row; added 2026-10-24); binaryang
+// still supplies D2's configurations.
 
 import { copyFileSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { output } from "./run.ts";
 
-const [wazmrt, binaryang, corpus, work] = process.argv.slice(2);
+const [wazmrt, binaryang, corpus, work, flag, other] = process.argv.slice(2);
+const runtime = flag === "--runtime" ? other : undefined;
+const otherName = runtime ? "other" : "binaryang";
 mkdirSync(work, { recursive: true });
 const d2 = JSON.parse(readFileSync(join(binaryang, "src/definitions/features.json"), "utf8"));
 const feats: { name: string; cli: string; defaultOn: boolean }[] = d2.entries;
@@ -47,8 +54,10 @@ for (const c of cfgs) {
   for (const m of mods) {
     jobs.push(async () => {
       const a = (await output(wazmrt, { args: ["--features", c.label, join(work, m)] })).success;
-      const b = (await output("bun", { args: ["main.ts", "wasm-validate", ...binFlags(c.on), join(work, m)], cwd: binaryang })).success;
-      return a === b ? null : `${c.label.padEnd(30)} ${m.padEnd(36)} wazmrt ${a ? "ACCEPTS" : "refuses"}, binaryang ${b ? "ACCEPTS" : "refuses"}`;
+      const b = runtime
+        ? (await output(runtime, { args: ["--features", c.label, join(work, m)] })).success
+        : (await output("bun", { args: ["main.ts", "wasm-validate", ...binFlags(c.on), join(work, m)], cwd: binaryang })).success;
+      return a === b ? null : `${c.label.padEnd(30)} ${m.padEnd(36)} wazmrt ${a ? "ACCEPTS" : "refuses"}, ${otherName} ${b ? "ACCEPTS" : "refuses"}`;
     });
   }
 }
