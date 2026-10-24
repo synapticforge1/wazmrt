@@ -34,9 +34,8 @@ still held on 1.0.4.
    `wasm3`, `-all,memory64`). S1 reports "since 1.0.4: −29, so the next bump is at least
    MAJOR".
 
-⚠️ **That is kind 4, "accepting less", breaking even though correct.** The next release is
-`2.0.0`, or a patch by the owner's explicit call, as for `1.0.2` / `1.0.3`. The README carries a
-`_next release_` Breaking Changes row.
+⚠️ **That is kind 4, "accepting less", breaking even though correct.** 🔖 **Shipped in `2.0.0`**
+(owner: "2.0.0 is fine"), with the README's Breaking Changes row.
 
 ## 🆕 `wazmrt.lib`'s size depends on the Zig CACHE PATH: the static library embeds it (found 2026-10-23)
 

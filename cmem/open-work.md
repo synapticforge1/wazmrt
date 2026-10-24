@@ -6,11 +6,9 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-23
 
-**`1.0.4` is released** (2026-10-23, owner: "release 1.0.4"), the first release under SemVer and
-the compatibility gate. ⚠️ **UNRELEASED on `main` since: the 64-bit-table gating fix (accepting less,
-kind 4). `zig build surface` puts the next number's floor at MAJOR**. 🔒 **The owner accepts it:
-"2.0.0 is fine" (2026-10-23)**, so the next release is `2.0.0`, with no patch exception this time
-(`known-issues.md`, the README's `_next release_` row). ⏳ When to cut it is still open. Its number is the gate's patch floor, and it carries the two wrong-trap
+**`2.0.0` is released** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
+`memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
+(`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
 `synapticforge1/wazmrt`. Contract: `interop.md` **v33** (lockstep ended); wasmrt's copy is at v32 + the folded annexes. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed

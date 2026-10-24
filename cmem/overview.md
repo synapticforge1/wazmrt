@@ -29,7 +29,7 @@ no tags and publishes to no registry, so no published artifact names an old id.
 ```text
 wazmrt/
 ├── build.zig              # Build graph: CLI exe, C-ABI static lib, wasm target, tests
-├── build.zig.zon          # Package manifest (name .wazmrt, v1.0.4, min zig 0.16.0)
+├── build.zig.zon          # Package manifest (name .wazmrt, v2.0.0, min zig 0.16.0)
 ├── cmem/                  # Portable project memory (this folder)
 ├── include/
 │   └── wazmrt.h           # C ABI header — the contract for universalWasmLoader-*

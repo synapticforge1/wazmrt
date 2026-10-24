@@ -6,7 +6,17 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `1.0.4` — released 2026-10-23 (`1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `2.0.0` — released 2026-10-23 (`1.0.4` the same day; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`2.0.0` — owner, 2026-10-23: *"2.0.0 is fine"*, then "yes" to cutting it now.** The **first
+> MAJOR set by the gate, not by judgement.** It carries one change a consumer can feel: **a 64-bit
+> TABLE (`(table i64 …)`) is refused unless `memory64` is enabled**. Until now it was accepted under
+> every `--features` list, `-all` and `mvp` included, because only memories were checked for `is64`
+> (reported by wasmrt, `known-issues.md`). That refuses what `1.0.4` accepted: kind 4, accepting
+> less, breaking even though correct. S1 measured it (29 accepted pairs fewer than `1.0.4`) and
+> set the floor at major. The owner took the major, without the patch exception `1.0.2` and `1.0.3`
+> had. The README's Breaking Changes row says how to migrate. Nothing else changed in the surface,
+> and conformance is unchanged per file (S2). The checklist record follows in step 9a.
 
 > 🔒 **`1.0.4` — owner, 2026-10-23: *"release 1.0.4 and revise Track O and S when we get there."***
 > The **first release under SemVer and the compatibility gate** (letter H6). Its number is the
@@ -300,7 +310,8 @@ increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 | **`1.0.2`** | ✅ **Track B** — bug hunt + code hygiene (shipped 2026-09-21, with the `--dir` grammar, the POSIX resolver fix and letter H13) |
 | **`1.0.3`** | ✅ **fixes for four `1.0.2` defects + legacy EH + wasm-tools' feature vocabulary** (shipped 2026-09-21, owner: "release 1.0.3 now") — the number Track O had reserved |
 | **`1.0.4`** | ✅ **two wrong-trap fixes, the first release under SemVer and the compatibility gate** (shipped 2026-10-23, owner: "release 1.0.4"). Its number is the gate's patch floor |
-| next | **Track O** — optimization review. 🔒 **Revised when we get there** (owner, 2026-10-23). The number is whatever `zig build surface`'s floor says: `1.0.5` if Track O changes no surface, `1.1.0` if it adds some |
+| **`2.0.0`** | ✅ **a 64-bit table needs `memory64`**: accepting less, so the gate's MAJOR floor, taken by the owner ("2.0.0 is fine", shipped 2026-10-23) |
+| next | **Track O** — optimization review. 🔒 **Revised when we get there** (owner, 2026-10-23). The number is whatever `zig build surface`'s floor says: `2.0.1` if Track O changes no surface, `2.1.0` if it adds some |
 | after | **Track S** — security review, likewise **revised when we get there**. ⚠️ A tightening it finds is kind 4 (accepting less), so expect a MAJOR unless the owner scopes it otherwise |
 
 ### What counts as BREAKING — the only thing that takes the next major
