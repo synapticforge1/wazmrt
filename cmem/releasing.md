@@ -16,7 +16,20 @@ what earns it.
 > less, breaking even though correct. S1 measured it (29 accepted pairs fewer than `1.0.4`) and
 > set the floor at major. The owner took the major, without the patch exception `1.0.2` and `1.0.3`
 > had. The README's Breaking Changes row says how to migrate. Nothing else changed in the surface,
-> and conformance is unchanged per file (S2). The checklist record follows in step 9a.
+> and conformance is unchanged per file (S2).
+>
+> ✅ **Checklist run 2026-10-23 on the release commit `2b1e24c`, every gate:**
+> - `test` 827/831 from `D:`, **831/831 from NTFS**; `test-safe` and `test-shipped` 825/829;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `1.0.4`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; size EXACT (exe 1,032,192 / lib 1,076,076 / dll 923,648);
+> - the gate accepted `1.0.4` → `2.0.0` as meeting the MAJOR floor;
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 2.0.0 (abi 2)`, runs a WASI
+>   module, and refuses `(table i64 …)` under `all,-memory64` (rc 1); the exe and the dll import
+>   only `KERNEL32` and `ntdll`; the old version string is gone from all four places.
+>
+> Step 9a recorded `2.0.0` as the baselines. The surface record lost exactly the 29 `table64`
+> pairs plus its header; the conformance record changed only its header.
 
 > 🔒 **`1.0.4` — owner, 2026-10-23: *"release 1.0.4 and revise Track O and S when we get there."***
 > The **first release under SemVer and the compatibility gate** (letter H6). Its number is the
