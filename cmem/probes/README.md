@@ -43,6 +43,7 @@ shell, never Git Bash**: MSYS rewrites `./data:/m` into `.\data;M:\` before the 
 | `h3-sections.ts` | a Markdown file's headings with the BYTES under each — how the INDEX cut was planned | `bun h3-sections.ts <file.md>` |
 | `h3-build.ts` | letter H3: rebuilt INDEX.md and created working-rules.md by MOVING line ranges verbatim from a baseline commit, each range asserted to start at its expected heading | `bun h3-build.ts <repo root> <baseline>` (done once; kept as the record of what moved) |
 | `h3-check.ts` | letter H3's proof: every hash the old INDEX cited still resolves AND is still cited; every link resolves; every by-name section reference resolves. `--invert` must report the sabotage. Since the H19 purge the baseline cites pre-purge ids; each is translated through `../history-map-2026-10-23.md` (25/25, 2026-10-23) | `bun h3-check.ts <repo root> 3f1bfbc1d [--invert]` |
+| `carry-forward.ts` | H6 rule 3 scoping: builds each tag in a throwaway worktree and diffs consecutive binaries' accept/refuse verdicts over a corpus under four presets; flags ACCEPTING LESS. ⚠️ A verdict RUNS a `_start` module | `bun carry-forward.ts <repo> <corpus> <out dir> v1.0.2 v1.0.3 HEAD` |
 | `rename-track-h.ts` | ✅ applied one-off: `H1`–`H8` → `zH1`–`zH8` | ⚠️ **never `--apply` again**: a bare `H<n>` now means a workspace letter. Dry run = a census to READ (3 intended hits, 2026-09-21) |
 
 ## Recorded results (re-derive before quoting — a number is a claim with a date)

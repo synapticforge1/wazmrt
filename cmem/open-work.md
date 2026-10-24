@@ -24,11 +24,14 @@ milestone table.
   confirm is the ORDER.
 - ✅ **Tagged 2026-10-23** (owner: "yes lets tag those commits properly"): annotated `v1.0.2` →
   `c7a7588` and `v1.0.3` → `67d82e7`, each verified to carry its version in `root.zig`,
-  `build.zig.zon` and the header, with the noreply tagger. Still untagged, an offer: `1.0.1`, first
-  set in `9acdcb4` (Track H), and `1.0.0`, whose commit is not yet located. ⚠️ **H6's rule 3 does
-  not apply as written**: wazmrt's tests live INSIDE `src/` (Zig inline `test` blocks), so "the
-  previous tag's tests against the new `src/`" cannot separate the two. The equivalent would be
-  `.wast` fixtures or a script carried forward from a tag. Unscoped; an owner call.
+  `build.zig.zon` and the header, with the noreply tagger. ✅ `v1.0.1` → `9acdcb4` (Track H, the
+  commit that first set it) was tagged the same day at the owner's word. **There is no
+  `v1.0.0`: no commit ever carried it** (`0.1.0` went straight to `1.0.1` in `9acdcb4`), so a tag
+  would claim a version the tree does not state.
+- 🗓️ **H6's rule 3 as behaviour carried forward from a tag: SCOPED 2026-10-23**, three stages
+  with a measurement behind them (`releasing.md` → "Rule 3 as behaviour carried forward"). The
+  probe caught exactly `1.0.3`'s `mutable_global` refusals and nothing else. Owner calls: is S1
+  enough; does S2 join the checklist; is S3 worth it.
 - **GitHub Support request** to purge the cached pre-rewrite commits (letter H19; only the owner can
   file it).
 

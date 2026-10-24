@@ -134,11 +134,72 @@ their own reason; re-indenting the header and rewording a help description do no
 - **Exit codes and parseable output** beyond `--help`'s syntax lines; the `interop.md` contract rows
   carry those for the runtimes.
 - **Rule 3, "the previous tag's tests pass against the new `src/`"**: the tags exist since
-  2026-10-23 (`v1.0.2`, `v1.0.3`), but the rule does not apply AS WRITTEN. wazmrt's tests are Zig
-  inline `test` blocks INSIDE `src/`, so a tag's tests cannot run against another commit's code. The
-  workable equivalent is behaviour carried forward from a tag (its `.wast` fixtures, or a probe
-  run on both binaries). That is unscoped and an owner call (`open-work.md`). Consumers' suites wait
+  2026-10-23 (`v1.0.1`–`v1.0.3`), but the rule does not apply AS WRITTEN. wazmrt's tests are Zig
+  inline `test` blocks INSIDE `src/`, so a tag's tests cannot run against another commit's code.
+  The equivalent is **behaviour carried forward from the tag**, SCOPED below. Consumers' suites wait
   for a consumer: none depends on wazmrt yet (the `1.0.2` decision).
+
+### 🔁 Rule 3 as behaviour carried forward — SCOPED 2026-10-23 (owner: "scope the spec-test fixtures carrying forward")
+
+**The idea:** the surface gate diffs what a consumer can NAME; this diffs what a consumer can
+RELY ON. At each release, record the released binary's VERDICTS over a fixed corpus; before the
+next bump, the new binary's verdicts are diffed against them and the floor rises to match:
+
+| verdict change since the released snapshot | floor |
+| --- | --- |
+| refused → accepted (accepting more) | minor |
+| **accepted → refused (accepting LESS, kind 4)** | **major** |
+| ran → different exit code or output | classified by hand: a listed fix, or major |
+| no change | patch |
+
+**Measured on real history before proposing it** (a one-time probe, 2026-10-23): the three tags
+were rebuilt in throwaway worktrees, and each exe matched its recorded release size to the byte
+(`v1.0.2` 1,022,976, `v1.0.3` 1,027,584), so a snapshot can be taken from a tag after the fact.
+Every module of wasmtk's corpus (1,189) was then judged under `default` / `mvp` / `wasm1` /
+`wasm2`:
+
+- **`v1.0.2` → `v1.0.3`: 1,549 changed verdicts.**
+  - 1,522 were refused → accepted, as the new presets and fixes came in.
+  - **13 modules (24 rows with their `.wat`) were accepted → refused under `mvp`, every one for
+    `mutable_global`**: exactly the rule-4 change `1.0.3` shipped as a patch. The check would
+    have caught it, and it flagged nothing unexplained.
+  - 3 were an exit code 1 → 3.
+- **`v1.0.3` → HEAD: 0 changed verdicts**, consistent with the surface floor (patch). The two trap
+  fixes are runtime-only.
+- The spec corpus's per-file summaries did not move in either step.
+
+**What the probe also showed, which a design has to answer:**
+1. **`wazmrt <module>` RUNS a module that has `_start`** (511 of the corpus's 584 `.wasm`), so a
+   "verdict" mixed validation with execution. The exit-1→3 cases were a WASI program
+   (`18_DenoExitNonZero`) refused in `v1.0.2` for an unknown preset and RUN in `v1.0.3`, exiting
+   3 on purpose. A validation verdict needs a validate-only path.
+2. **The corpus is not ours to pin.** wasmtk's modules are 332 MB, and only 160 of the 1,189 are
+   tracked in wasmtk's git; the rest are its gitignored build output. Its spec corpus (288
+   `.wast`, 77 MB) is fully tracked, so it can be pinned by a wasmtk commit. wazmrt itself
+   tracks 10 fixtures.
+
+**The proposed stages** (each its own commit, inverted before trusted):
+
+- **S1: the in-repo snapshot, runnable on any clone.** A build-step tool (Zig, by the owner's
+  ruling) links the library and asks decode + validate, never run, under each preset and each
+  single feature. The corpus is the minimal per-feature modules that `probes/feature-matrix.ts`
+  already generates (one per feature, plus the minimal pairs and per-instruction cases; the matrix
+  that found `mvp` ≠ `wasm1`), plus the repo's own fixtures. `tools/behaviour/released.txt` holds
+  the snapshot, with `released-as`, beside the surface snapshot. Its floor joins
+  `zig build surface`'s (the higher wins), on `zig build test`. Bootstrapped from `v1.0.3` by
+  building the tag, and inverted by replaying `v1.0.2` → `v1.0.3`, which must report the
+  `mutable_global` refusals.
+- **S2: the spec corpus, pinned.** Per-file pass / fail / skip of `wazmrt wast` over wasmtk's
+  `testsuite-main` at a recorded wasmtk commit and file-list hash, compared on the intersection
+  when either side moves. It needs the sibling checkout, so it is a release-checklist step, not
+  part of `test`.
+- **S3, optional: wasmtk's module corpus by content hash.** Local only, because it cannot be
+  pinned. It is the widest net, and the one that ran today. Run outcomes (exit code, stdout hash)
+  for deterministic WASI programs only, with an explicit exclusion list for clocks and randomness.
+
+**Owner calls in this scope:** whether S1 is enough to call rule 3 met; whether S2 joins the
+binding checklist; and whether S3 is worth its local-only nature. Effort, roughly: S1 is a day's
+increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 
 ### The ladder from here
 
