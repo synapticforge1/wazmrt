@@ -23,6 +23,20 @@ what earns it.
 > S1 records modules × feature configs, not CLI flags, so the surface is `+0 -0` since `2.0.0` and
 > the floor is a patch. 🎓 *That is the gate's blind spot, stated: a CLI behaviour change passes it
 > silently, and only the checklist's judgement and this record catch the break.*
+>
+> ✅ **Checklist run 2026-10-24 on the release commit `bb1c13f`, every gate:**
+> - `test` 829/833 from `D:`, **833/833 from NTFS**; `test-safe` and `test-shipped` 827/831;
+>   `test-security` 3/3;
+> - conformance 288 / 64,092 / 0 / 0, class-checked; S2 vs `2.0.0`: 288 compared, 0 regressed;
+> - `features` 4/4; `capi-smoke` ✅; size EXACT (exe 1,032,704 / lib 1,076,076 / dll 923,648);
+> - the gate accepted `2.0.0` → `2.0.1` as meeting the floor (patch);
+> - standalone, `PATH` cut to the system dirs: prints `wazmrt 2.0.1 (abi 2)`, runs a WASI
+>   module, refuses a missing `--pins` DB and `--env A` (rc 1 each) and runs `--env A=1` (rc 0);
+>   the exe and the dll import only `KERNEL32` and `ntdll`; the old version string is gone from
+>   all four places.
+>
+> Step 9a recorded `2.0.1` as the baselines. Only the `released-as` line moved in either file, as
+> a patch requires.
 
 > 🔒 **`2.0.0` — owner, 2026-10-23: *"2.0.0 is fine"*, then "yes" to cutting it now.** The **first
 > MAJOR set by the gate, not by judgement.** It carries one change a consumer can feel: **a 64-bit
