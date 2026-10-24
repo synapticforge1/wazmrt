@@ -210,11 +210,16 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## 📬 Workspace letters
 
-**Every letter addressed to wazmrt is done on wazmrt's side** (2026-10-23). The summaries, with
-their commits, are in [`roadmap.md`](roadmap.md)'s milestone table. Two remnants:
+**Every letter addressed to wazmrt is done on wazmrt's side** (2026-10-24, H24 included: the ★
+block re-copied, `462e0e8`). The summaries, with their commits, are in [`roadmap.md`](roadmap.md)'s
+milestone table. Two remnants:
 
-- **H10** is open in its later stages, waiting on binaryang (above).
-- **H6's rule 3** waits for a tag (an owner call above) and for consumers (none yet).
+- **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
+  waits on binaryang (above): its answer to the D2 matrix letter on the TYPE rules, and the D3
+  class for "expected shared memory".
+- **H6's rule 3**: every release from `v1.0.1` to `v3.0.0` is tagged, and S1 / S2 / S3 carry
+  behaviour forward from them. It waits only for a consumer's own suite (none depends on wazmrt
+  yet).
 
 Old commit ids in the workspace's letters, in older trees and in GitHub's cache are pre-purge: look
 them up in [`history-map-2026-10-23.md`](history-map-2026-10-23.md).
