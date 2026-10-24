@@ -1058,6 +1058,31 @@ ceiling**, put there by two commits that had each grown the CLI without raising 
 commit, which the ceilings file's own header requires. The ceiling design (exact, no headroom) worked
 exactly as intended; the *scheduling* of the check is what failed. — Track B-e, `tools/size-ceilings.txt`
 
+**A CHECK THAT ACCEPTS ANY FAILURE HAS NOT CHECKED WHICH FAILURE: compare the CLASS, not the fact.**
+`assert_trap` passed on any runtime trap, so a trap of the wrong kind scored as a pass. The first
+run that compared each trap's class with the expected text's found **42 wrong-trap passes**: an
+out-of-range truncation reported as "invalid conversion" (35), and `ref.get_desc` on null reported
+as a descriptor null (7). Both were code defects, and a unit test had encoded the second misreading,
+agreeing with the code it was meant to check. — D3 adoption (letter H10), 2026-10-23, `known-issues.md`
+
+**PROVE A PROPOSED GATE ON REAL HISTORY BEFORE BUILDING IT: replay a release whose break is known,
+and require the check to fire on exactly that.** The behaviour carry-forward was measured before it
+was designed: rebuilt from their tags, `v1.0.2` → `v1.0.3` flagged exactly the 13 modules `1.0.3`
+began to refuse (`mutable_global` under `mvp`) and nothing else, and `v1.0.3` → HEAD flagged
+nothing. The built check was then inverted with the SAME break class. *A gate designed from
+imagined failures catches imagined failures.* — H6 rule 3, 2026-10-23, `releasing.md`
+
+**WHEN A TOOL MUST JUDGE AS THE PRODUCT JUDGES, MOVE THE DECISION INTO THE LIBRARY AND CALL IT FROM
+BOTH; never re-implement it in the tool.** S1 had to judge modules the way `--features` does, and the
+parser lived in the CLI. Re-implementing it would have been a second copy, free to drift; spawning
+the CLI cost 44 ms × 1,504 per test run. Moving it (proven: the CLI's feature matrix byte-identical
+before and after) made the judgement one parser with two callers, and fast. — S1, 2026-10-23
+
+**A GATE THAT COMPARED NOTHING MUST FAIL, NOT PASS.** S2 fails when no file's bytes match the
+release's, S1 when the behaviour input has no lines, and the size gate when it measured nothing.
+Each guard went in BEFORE its first green run. A clean verdict over an empty comparison is the most
+convincing false pass there is. — S1 / S2, 2026-10-23 (the size gate's lesson, Track B-e)
+
 ## 5. Recording what you found
 
 **"Update the project memory" means AUDIT for stale live claims, not edit the files you happened to
@@ -1388,6 +1413,25 @@ the 2026-07-16 note in `testing.md` even names the symptom. It stayed unchased b
 bytes, where instantiate is ~0.0 µs; on a real 46 KB guest it is 304–376 µs, a third of cold start.
 **Pick the benchmark module before trusting the ranking it produces** — a microbenchmark does not merely
 shrink the workload, it changes its SHAPE. — 2026-08-19, `testing.md`
+
+**ATTRIBUTE A SIZE CHANGE BY BUILDING, IN THE SAME DIRECTORY AND THE SAME ENVIRONMENT.** `wazmrt.lib`
+embeds paths: it read −22 under a shorter cache path, +132 over a longer one, and −78 one evening with
+neither changed, while three commits built in one worktree were byte-identical. Every guess at the
+cause ("the parser move", "the cache path") was wrong or incomplete until two builds differed in
+exactly one thing. **Do not lock in a shrink you cannot attribute**: it becomes the next false
+regression. — H10 / S1 gates, 2026-10-23, `known-issues.md`
+
+**A VERSION CAN BE DECIDED WITHOUT EVER BEING COMMITTED: check that a tag's tree STATES its version
+before tagging it.** `releasing.md` says `1.0.0` was set on 2026-08-19, but the code went from
+`0.1.0` straight to `1.0.1` in one commit. A `v1.0.0` tag on the parent would have named a tree
+whose own version says `0.1.0`. Each tag was verified against `root.zig`, `build.zig.zon` and the
+header first. — tagging, 2026-10-23
+
+**A CHECK RUN IN A SCRATCH CLONE IS EVIDENCE ABOUT THE CLONE.** After the history purge, `h3-check`
+passed in the purge clone because `refs/original` still held the old commits, and the claim went
+into a commit message. On the pushed repo the same check failed: 25 ids no longer existed. Re-run
+the proof where the claim lives, or say where it ran. — H19, 2026-10-23, `03d2de1`'s predecessor
+`1e37ec0`
 
 ---
 

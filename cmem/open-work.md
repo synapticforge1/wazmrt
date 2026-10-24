@@ -6,14 +6,16 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-23
 
-**`1.0.3` is the released version** (2026-09-21; on `synapticforge1/wazmrt`, not tagged).
+**`1.0.3` is the released version** (2026-09-21; tagged `v1.0.3` on `synapticforge1/wazmrt`,
+with `v1.0.1` and `v1.0.2`).
 ⚠️ **UNRELEASED on `main`: two bug fixes**: out-of-range truncation now traps "integer overflow",
 and `ref.get_desc` on null traps "null reference" (`a65c677`). With them come the class-checked
-`.wast` runner and today's tooling. The public surface is unchanged since `1.0.3`, so
-`zig build surface`'s floor for the next number is a **patch, `1.0.4`**. Whether to ship it is an
-owner call below. Contract: `interop.md` **v31**; wasmrt's copy is at 10. Every gate is green at
-`a65c677` + `27e5f93` (2026-10-23). The counts are in [`testing.md`](testing.md) and the sizes in
-`tools/size-ceilings.txt`, one place each; what landed is in [`roadmap.md`](roadmap.md)'s
+`.wast` runner, the compatibility gate with S1/S2, and today's tooling. The public surface,
+behaviour included, is unchanged since `1.0.3`, so `zig build surface`'s floor for the next number
+is a **patch, `1.0.4`**. Whether to ship it is an owner call below. Contract: `interop.md`
+**v32**; wasmrt's copy is at 10. Every gate is green at `2fa6b2c` (2026-10-23); `03d2de1` added
+S2 to the conformance step and ran it. The counts are in [`testing.md`](testing.md) and the sizes
+in `tools/size-ceilings.txt`, one place each; what landed is in [`roadmap.md`](roadmap.md)'s
 milestone table.
 
 ## 🗓️ Owner calls
@@ -48,7 +50,8 @@ milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- **wasmrt**: mirror `interop.md` v31 (it holds 10); make letter H13's three encoder fixes (`.wat`
+- **wasmrt**: mirror `interop.md` v32 (it holds 10); letter H23 (the behaviour carry-forward
+  testing) is in the workspace's `handoffs.md` for it; make letter H13's three encoder fixes (`.wat`
   pins agree 64/528 until it does, §3.1); its `--dir` help still shows the pre-v27 rules. ⚠️ **Do
   NOT ask it to match v30's wasm-tools `--features` vocabulary any more**: the owner reversed that on
   2026-10-23 (align with binaryang's D2, below), so wasmrt should wait for the contract row that

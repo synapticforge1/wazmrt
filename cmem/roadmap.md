@@ -9,6 +9,9 @@ names its commits and the file that now holds the substance; the full text as it
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
+| 2026-10-23 | **H6's rule 3 MET as behaviour carried forward** (owner): S1 (accepted modules, as `beh` surface lines, on `test`) and S2 (a release's per-file conformance, pinned by content), each equal to `v1.0.3` and inverted; S3 is `probes/carry-forward.ts`; the stages run in order. The `--features` parser moved into the library for it. Letter H23 to wasmrt | `90dd74e`, `e5ecf91`, `e991b33`, `2fa6b2c`, `03d2de1` | `releasing.md` → "Rule 3 as behaviour carried forward" |
+| 2026-10-23 | 🏷️ **Releases tagged** `v1.0.1`, `v1.0.2`, `v1.0.3` (owner); no `v1.0.0`, because no commit ever carried it | `4508169`, `90dd74e` | `open-work.md`, `releasing.md` |
+| 2026-10-23 | 🔒 Owner: `--features` aligns with binaryang's D2, not wasm-tools (deprecated aliases; the C enum appends; after binaryang FL1); contract v32 record-only | (this memory update) | `interop.md` v32, `open-work.md` |
 | 2026-10-23 | **`assert_trap` class-checked against binaryang's D3** (owner); the first checked run found two wrong-trap defects (out-of-range truncation, `ref.get_desc` on null), both fixed; 288 / 64,092 / 0 / 0, now class-checked; size ceilings raised by measurement | `a65c677`, `27e5f93` | `known-issues.md`, `tools/size-ceilings.txt` |
 | 2026-10-23 | Letter H10 stage A: `src/definitions.zig`, a hash-verified copy of binaryang's D1/D2/D3; the decoder and assembler held to D1 (582, both ways); the opcode follow-up queued behind binaryang; `wazmrt.lib` found to embed the cache path | `f00a177`, `05f37b4`, `9495d5a` | `open-work.md` (H10), `known-issues.md` |
 | 2026-10-23 | Letter H6: SemVer 2.0.0 replaces the odometer; the compatibility gate `zig build surface`; the 28 ★ rules adopted; a README Breaking Changes table | `6c055eb`, `98d9313` | `releasing.md`, `best-practices.md` §7 |

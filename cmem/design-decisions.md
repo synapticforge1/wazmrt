@@ -741,6 +741,9 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
   From here the cadence is the **single-digit ladder** in [`releasing.md`](releasing.md): `+0.0.1` per
   shipped track, `x.y.9` rolls to `x.(y+1).0`, `x.9.9` rolls to `(x+1).0.0`, and a **breaking change
   takes the next major immediately**, wherever the ladder happens to be.
+  🗄️ **SUPERSEDED 2026-10-23 (letter H6):** plain SemVer 2.0.0, no digit cap and no carry, with
+  the number's floor set by `zig build surface` (`releasing.md`). The one rule that survives is
+  SemVer's own: a breaking change takes the next major.
 
   ⚠️ **Four places move together and only a grep keeps them honest**: `src/root.zig`, `build.zig.zon`,
   the `wazmrt_version_string` example comment in `include/wazmrt.h`, and the tree diagram in

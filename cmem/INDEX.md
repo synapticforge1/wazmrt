@@ -117,7 +117,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | --- | --- |
 | [open-work.md](open-work.md) | 🎯 **Start here for state.** The ONE list of what is outstanding, and the only status line. |
 | [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, building and testing from the exFAT `D:` drive. |
-| [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; **live artifact sizes** (the one place they are recorded). |
+| [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; the 2026-10-23 history rewrite. (The live artifact sizes are in `tools/size-ceilings.txt`, the one place.) |
 | [vision.md](vision.md) | The goal: a fast, small, embeddable WebAssembly runtime, itself wasm-compilable. |
 | [architecture.md](architecture.md) | The decode → validate → instantiate → execute pipeline, module layout, the libc-free core, the C ABI and freestanding targets. |
 | [design-decisions.md](design-decisions.md) | Load-bearing invariants and decisions with their reasons — kept in full, never silently reverted. |
@@ -126,7 +126,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | [roadmap.md](roadmap.md) | The tracks (H ✅, B ✅, O, S), their items and gates; **milestone summaries** with commits at the top. |
 | [testing.md](testing.md) | How to run every gate, what each can see, and **the dated counts** (the one place they are recorded). |
 | [known-issues.md](known-issues.md) | The defect log: fixed-with-root-cause and deferred-with-surfacing-condition. |
-| [releasing.md](releasing.md) | The version (`1.0.3`), the cadence and ladder, what counts as breaking, the binding per-release checklist. |
+| [releasing.md](releasing.md) | The version (`1.0.3`, tagged `v1.0.1`–`v1.0.3`), SemVer and the compatibility gate (`zig build surface`, with S1/S2 behaviour carried forward), what counts as breaking, the binding per-release checklist. |
 | [best-practices.md](best-practices.md) | METHOD rules, one bold rule + the incident that paid for it. |
 | [text-toolchain.md](text-toolchain.md) | The `.wat`/`.wast` assembler and script runner: spellings accepted, encoding decisions. |
 | [licensing.md](licensing.md) | Why `MIT OR Apache-2.0`, the zero-dependency verification, the reference-code obligations. |

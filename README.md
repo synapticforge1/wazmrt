@@ -108,7 +108,13 @@ zig build                          # CLI + C-ABI static library (+ headers)
 zig build run -- <file.wasm>       # summarize, or run _start (WASI command)
 zig build run -- <file.wat>        # assemble .wat, then the same
 zig build run -- <file.wasm> <export> [args…]   # run an exported function
-zig build test                     # unit tests
+zig build test                     # unit tests, plus the public-surface gate below
+zig build surface                  # the compatibility gate: the C header, root.zig's pub decls, the
+                                   #   --help syntax and which feature modules are ACCEPTED, against
+                                   #   the last release; refuses a version bump smaller than the change
+                                   #   -Dsurface=update|release   re-baseline / record a release
+zig build definitions              # regenerate src/definitions.zig from binaryang and diff (needs bun
+                                   #   + a binaryang checkout; -Ddefinitions=<dir> names another)
 zig build test-safe                # the same suite under ReleaseSafe (optimized, safety checks kept)
 zig build wasi-gate                # compile Zig+C wasm32-wasi programs, run them, assert output
                                    #   add -Drust-gate=true to also cross-check a rustc build
@@ -120,6 +126,10 @@ zig build conformance -Dtestsuite=<dir> -Dbaseline=tools/conformance-baseline.tx
                                    #   -Dbaseline=<file>        gate on regressions, not zero failures
                                    #   -Dwrite-baseline=true    generate that baseline from today's run
                                    #   -Dfailures=N             list up to N failures per file (default 1)
+                                   #   also compares every file with the last RELEASE's results
+                                   #   (tools/conformance-released.txt, pinned by content);
+                                   #   -Drecord-released=true records a release, -Dreleased= skips it.
+                                   #   Every assert_trap must trap with the expected CLASS.
 zig build size -Doptimize=ReleaseSmall    # check shipped artifact sizes against their ceilings
                                    #   …and a plain `zig build -Doptimize=ReleaseSmall` runs this
                                    #   by itself: the config that ships is the config that is gated
@@ -184,14 +194,17 @@ DLL and the wasm build — the CLI always assembles text and always has WASI.
 zig build dll -Doptimize=ReleaseSmall -Dwat=false -Dwasi=false
 ```
 
-Measured (ReleaseSmall, x86_64-windows):
+Measured 2026-10-23 (ReleaseSmall, x86_64-windows):
 
 | build | static lib | shared library |
 | --- | --- | --- |
-| default | 1,022,520 | 882,688 |
-| `-Dwat=false` | 840,962 | 738,816 |
-| `-Dwasi=false` | 502,178 | 419,840 |
-| both off | 319,916 | **275,456** |
+| default | 1,075,916 | 923,648 |
+| `-Dwat=false` | 866,014 | 756,736 |
+| `-Dwasi=false` | 555,390 | 460,288 |
+| both off | 344,958 | **292,864** |
+
+The static library's size moves by a few dozen bytes with the build environment, because it
+embeds build paths; the shared library and the exe do not.
 
 A compiled-out entry point does not fail quietly: `wazmrt_module_new_wat`,
 `wazmrt_wat_to_wasm` and `wazmrt_linker_define_wasi` return an error naming the
