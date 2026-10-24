@@ -6,7 +6,11 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
-**`4.0.0` is released** (2026-10-24, owner: "update the project memory files, bump then push"):
+**`4.0.1` is released** (2026-10-24, owner: "fix the issues", then "yes"): two validator defects
+from wasmrt's fuzz fixed. Deep constant expressions are no longer refused, and element flags > 7
+are refused. A patch by the gate (+0 −0; `known-issues.md`).
+
+**`4.0.0`** (2026-10-24, owner: "update the project memory files, bump then push"):
 value types follow binaryang D2 2.2.0's `typeRules`, read from the definitions copy (`interop.md`
 v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 agree on all 2,352
 judgements of the D2 matrix. wasmrt made the same change (`cee7bd1`) and released its own `1.0.0`
@@ -25,7 +29,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 **`2.0.0`** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
-fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v4.0.0` is tagged on
+fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v4.0.1` is tagged on
 `synapticforge1/wazmrt`. Contract: `interop.md` **v39** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule); wasmrt's copy was byte-identical at v38 (`f88a9ab`), and v39 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
@@ -206,8 +210,8 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
       - element flags 8 with a valid tail is accepted (flags > 7 never rejected).
 
       Recorded in `known-issues.md` (top) with cause and fix. ✅ **FIXED 2026-10-24** (owner: "fix
-      the issues"), each with an inverted test. The probe now agrees on all four tools. Unreleased
-      on `main`: the gate says patch (+0 −0).
+      the issues"), each with an inverted test. The probe now agrees on all four tools. Released as
+      `4.0.1` (the gate's patch floor).
 
     The letter as sent:
 

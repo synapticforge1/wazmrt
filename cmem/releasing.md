@@ -6,7 +6,18 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `4.0.0` — released 2026-10-24 (`3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `4.0.1` — released 2026-10-24 (`4.0.0`, `3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`4.0.1` — owner, 2026-10-24: *"fix the issues"*, then "yes" to pushing and cutting 4.0.1.**
+> Two validator defects, found by wasmrt's differential fuzz and re-measured on `4.0.0`
+> (`probes/constexpr-elemflags.ts`), where wazmrt alone differed from wasmrt, wasm-tools and
+> binaryang (`b919ef2`, `known-issues.md`):
+> - a constant expression deeper than 8 operands is no longer REFUSED (a fixed `[8]V` stack);
+> - element-segment flags above 7 are now REFUSED as malformed (they decoded as `flags & 7`).
+>
+> Both turn a wrong verdict into the spec's, so the number is the gate's patch floor (surface +0
+> −0, no S1 or `run` line moved) and there is no Breaking Changes row: the modules the second fix
+> refuses were never valid. Spec conformance is unchanged per file.
 
 > 🔒 **`4.0.0` — owner, 2026-10-24: *"update the project memory files, bump then push"*.** The
 > third major the gate set. **Value types follow binaryang D2 2.2.0's `typeRules`** (wasm-tools
