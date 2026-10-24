@@ -10,7 +10,7 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Earlier releases are tagged `v1.0.1`–`v1.0.3` on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v34** (v33 ended lockstep; v34 is record-only, the wasmrt ids after its second history rewrite); wasmrt's copy is at v32 + the folded annexes. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v34** (v33 ended lockstep; v34 is record-only, the wasmrt ids after its second history rewrite); wasmrt's copy is byte-identical at v34 (2026-10-24). The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -50,8 +50,9 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   bytes:
   - ✅ **Contract mirrored to v32** (`28f2982`, `6c06f5d`), with two wasmrt annexes, §2.2f and
     §2.2m. ✅ **Folded verbatim in v33** (2026-10-23), and the copies were byte-identical at the
-    fold. v33 also ends lockstep (owner) and carries the meanings answer below. ⏳ **wasmrt
-    mirrors v33.** Still for wazmrt as pen holder: refresh the stale wasmrt cells §2.2m lists, after
+    fold. v33 also ends lockstep (owner) and carries the meanings answer below. ✅ **wasmrt
+    mirrored v33 and v34** (wasmrt `37f0187`, 2026-10-24): the two copies are byte-identical,
+    checked with `cmp`. Still for wazmrt as pen holder: refresh the stale wasmrt cells §2.2m lists, after
     re-running them. §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
