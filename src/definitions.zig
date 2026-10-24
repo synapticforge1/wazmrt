@@ -4,15 +4,15 @@
 //! and diffs; `src/definitions_agreement.zig` and the tests beside each hand-kept table fail when
 //! wazmrt's tables disagree with what is below.
 //!
-//! Source: @jrmarcum/binaryang 1.15.0, `src/definitions/`. Each line below is that file's
+//! Source: @jrmarcum/binaryang 2.0.0, `src/definitions/`. Each line below is that file's
 //! stated SHA-256 over its canonical content, recomputed and matched by the generator.
 
 /// The source, as the generator found and verified it.
 pub const source = .{
     .package = "@jrmarcum/binaryang",
-    .version = "1.15.0",
-    .d1 = .{ .data_version = "1.0.0", .sha256 = "04f9a72445e3224dc53d98aa3088975d076d912b0fc20727773228a5608c8956", .entries = 582 },
-    .d2 = .{ .data_version = "1.0.0", .sha256 = "ced38bc7668d33c0f6f7f254e2a54464f98a77f55c2a97fa2675882b05de447f", .entries = 22 },
+    .version = "2.0.0",
+    .d1 = .{ .data_version = "1.0.1", .sha256 = "7552497df510ee2117d87e54f71081390e6ad80f27d6f0a6bcd4f705dcfb3cdc", .entries = 582 },
+    .d2 = .{ .data_version = "2.1.0", .sha256 = "81bc142b27ec9de4a9cd87644c4bbc405ad6cc4d1aa1ce0cef7712e1184a5ad9", .entries = 22 },
     .d3 = .{ .data_version = "1.0.0", .sha256 = "db956f7d590bf50c83e5062e4f636b99e14d0780ca50589d787e0edb93114a2a", .entries = 20 },
 };
 
@@ -78,7 +78,7 @@ pub const opcodes = [_]Opcode{
     .{ .name = "return_call", .encoding = "12", .prefix = null, .opcode = 0x12, .immediates = &.{ "funcidx" }, .natural_align = null, .signature = null, .feature = "tailCall", .class = "control" },
     .{ .name = "return_call_indirect", .encoding = "13", .prefix = null, .opcode = 0x13, .immediates = &.{ "typeidx", "tableidx" }, .natural_align = null, .signature = null, .feature = "tailCall", .class = "control" },
     .{ .name = "call_ref", .encoding = "14", .prefix = null, .opcode = 0x14, .immediates = &.{ "typeidx" }, .natural_align = null, .signature = null, .feature = "functionReferences", .class = "control" },
-    .{ .name = "return_call_ref", .encoding = "15", .prefix = null, .opcode = 0x15, .immediates = &.{ "typeidx" }, .natural_align = null, .signature = null, .feature = "tailCall", .class = "control" },
+    .{ .name = "return_call_ref", .encoding = "15", .prefix = null, .opcode = 0x15, .immediates = &.{ "typeidx" }, .natural_align = null, .signature = null, .feature = "functionReferences", .class = "control" },
     .{ .name = "delegate", .encoding = "18", .prefix = null, .opcode = 0x18, .immediates = &.{ "labelidx" }, .natural_align = null, .signature = null, .feature = "exceptions", .class = "control" },
     .{ .name = "catch_all", .encoding = "19", .prefix = null, .opcode = 0x19, .immediates = &.{}, .natural_align = null, .signature = null, .feature = "exceptions", .class = "control" },
     .{ .name = "drop", .encoding = "1a", .prefix = null, .opcode = 0x1a, .immediates = &.{}, .natural_align = null, .signature = null, .feature = null, .class = "parametric" },
@@ -644,7 +644,7 @@ pub const opcodes = [_]Opcode{
 pub const features = [_]Feature{
     .{ .name = "exceptions", .cli = "exceptions", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "legacy/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
     .{ .name = "mutableGlobals", .cli = "mutable-globals", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "satFloatToInt", .cli = "sat-float-to-int", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "satFloatToInt", .cli = "saturating-float-to-int", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
     .{ .name = "signExtension", .cli = "sign-extension", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
     .{ .name = "simd", .cli = "simd", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
     .{ .name = "threads", .cli = "threads", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "proposals/threads/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
