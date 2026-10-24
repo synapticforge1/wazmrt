@@ -1199,6 +1199,14 @@
 # read in `verifyGate` now reports `FileNotFound` instead of mapping it to "no DB", which crossed
 # one 512-byte PE boundary. The CLI is not in the lib or the dll.
 
-wazmrt.exe  1032704
-wazmrt.lib  1076076
-wazmrt.dll  923648
+# 2026-10-24 — `--features` takes binaryang's D2 MEANINGS (interop v32/v33; the opcode guide).
+# **exe +512, lib -1,296, dll -1,024.** Attributed by BUILDING, in one directory and one
+# environment: HEAD `2823681` is exact on all three. What moved the bytes: the `floats` gate's
+# helpers are gone (`opIsFloat`'s bitmap, `simd_float_subs`, the type rule), which is the lib and
+# dll shrinking; the CLI gained the deprecated-name table and its warning. ⚠️ A first cut printed
+# D2's names by walking `definitions.zig`'s table at run time and cost the exe **+4,096**: the
+# whole D2 table came along. Joining the names at COMPILE time (`d2_cli_names`) took it to +512.
+
+wazmrt.exe  1033216
+wazmrt.lib  1074780
+wazmrt.dll  922624

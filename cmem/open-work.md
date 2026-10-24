@@ -116,46 +116,32 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   SHA-256; `zig build definitions` regenerates and diffs when binaryang is present). On
   `zig build test`, always: the decoder knows exactly D1's 582 opcodes in both directions, every D1
   mnemonic assembles to D1's encoding, and every default alignment is D1's. Each test is inverted.
-  (The earlier note that binaryang lacked `0xfb 20`–`26` is stale: D1 has them.) ⏳ **Open:**
-  - **stage B** — replace the hand tables with reads from the copy, one table at a time, full gate
-    each;
-  - 🔒 **D2 and D1's `feature` column — DECIDED (owner, 2026-10-23): "we need to align with
-    binaryang not wasm-tools."** This REVERSES the 2026-09-21 wasm-tools decision. ⏳ **Not yet
-    implemented, because it is BREAKING on three fronts:**
-    - the `--features` names, a CLI contract change and kind 3 in `releasing.md`;
-    - the C ABI `wazmrt_feature_t` enum (25 values), whose renumbering or removal is a major and an
-      `abi_version` bump;
-    - `interop.md` v30's `--features` row, which binds wasmrt too.
-
-    🔒 **Shape DECIDED (owner, 2026-10-23), three answers:**
-    0. 🔒 **Names AND meanings** (owner, 2026-10-23: "aligning with binaryang means its meanings
-       also"): gating per instruction follows D1's `feature` column, and the rules follow D2.
-    1. **D2's names become canonical, and the wasm-tools-only names stay as deprecated ALIASES**
-       for one minor release, then go in a major (`floats`, `gc-types`, `legacy-exceptions`,
-       `bulk-memory-opt`, `call-indirect-overlong`, `mutable-global`). Deprecate before removing;
-       the README Breaking Changes row lands with the deprecation.
-    2. **It lands AFTER binaryang's FL1 settles**, together with the opcode follow-up below, so the
-       vocabulary migrates once, to D2's final `cli` spellings.
-    3. **The C ABI's `wazmrt_feature_t` APPENDS** any D2 feature it lacks and keeps every existing
-       value valid (deprecated where it has no D2 counterpart). That is additive: a minor, with no
-       `abi_version` bump.
-
-    Contract v30's `--features` row changes with it (a contract version bump, PENDING MIRROR to
-    wasmrt).
+  (The earlier note that binaryang lacked `0xfb 20`–`26` is stale: D1 has them.)
+  - ✅ **The opcode follow-up, steps 1, 2 and 4 — DONE 2026-10-24** (owner: "yes go ahead" to the
+    plan, once binaryang's opcode work and FL1 were done):
+    - step 1: `src/definitions.zig` regenerated from binaryang main `fa00de253` (D1 1.0.1, D2
+      2.1.0), `ef74a0a`;
+    - step 2 + 4: **`--features` takes D2's names AND meanings** (decided 2026-10-23, shape
+      answers 0–2 kept). The record is `interop.md` v37 and the README's _next release_ rows. A test
+      holds every D1 instruction to exactly its D1 feature (141 of 582 differed before, every one a
+      wasm-tools layer). The six wasm-tools-only names are deprecated aliases with a warning.
+    - Shape answer 3 is met by keeping the C ABI's values 20–24 valid and inert. **Nothing was
+      APPENDED**: the three D2 features wazmrt has no bit for (`annotations`, `code-metadata`,
+      `compact-imports`) name no module capability it can refuse, so they are names that switch
+      nothing.
+    - 🚦 **The gate says MAJOR**: S1 +62 −2, `wasm3` without `threads` (D2's release 3.0 has
+      none) and `lime1` without the overlong `call_indirect`. Spec conformance unchanged. The
+      owner's "one minor release of aliases" therefore lands in a major unless the owner calls it
+      otherwise.
+    - ⚠️ `cmem/probes/feature-matrix.ts` compares against wasm-tools, and now differs ON PURPOSE.
+  - ⏳ **stage B — now unblocked**: replace the hand tables with reads from the copy, one table at
+    a time, full gate each.
   - ✅ **D3 — adopted 2026-10-23** (owner: "start checking against binaryang's trap classes").
     `assert_trap` is class-checked, and the first run found two wrong-trap defects, both fixed
     (`known-issues.md`). ⏳ A D3 class for "expected shared memory" is a request to binaryang.
-  - ⏳ **FOLLOW-UP on the opcodes, once binaryang's opcode work is complete** (owner, 2026-10-23:
-    "some of the binaryang opcode work is ongoing"). That work is binaryang `cmem/open-work.md`
-    item 34: the opcode profile every widely used engine runs, the relaxed-SIMD lowering, D4, and
-    the final `opcode-guide.md` "for the other projects to follow" (owner there: "wasmrt / wazmrt
-    adopt it afterwards"); also its FL1, D2's `cli` spelling. **When it ships:**
-    1. regenerate `src/definitions.zig` from that release (`bun tools/gen-definitions.ts`, its own
-       commit) and re-run the H10 tests: any D1 change shows up as a named disagreement;
-    2. read `opcode-guide.md` and adopt the profile, in a scoped plan put to the owner first;
-    3. only then stage B, so the hand tables are migrated once, to the settled table;
-    4. revisit the D2 vocabulary question with FL1's outcome.
-    **Do not start stage B before this:** migrating to a table that is still moving means doing it twice.
+  - ⚠️ **The copy is binaryang's MAIN, not a release** (the guide: D1 1.0.1 / D2 2.1.0 ship in
+    binaryang's next release). When that release is cut, regenerate from it: the hashes must not
+    move, and the header's version will read the release's.
 - **The macOS pass** of the POSIX path fix — when the owner has the machine. Checklist and every probe
   it needs: [`probes/README.md`](probes/README.md) → "Open: the macOS pass".
 

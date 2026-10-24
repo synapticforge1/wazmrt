@@ -258,22 +258,21 @@ typedef enum {
      * add/sub and 64x64->128 multiply. Every one returns TWO i64 results, so it cannot be enabled
      * without MULTI_VALUE: a module using any of them is a multi-value module by construction. */
     WAZMRT_FEATURE_WIDE_ARITHMETIC           = 18,  /* requires MULTI_VALUE         */
-    /* 19-24, added in 1.0.x (2026-09-21): the rest of wasm-tools' feature vocabulary that
-     * wazmrt implements, each gated with wasm-tools' measured semantics. */
-    /* Importing or EXPORTING a mutable global. In wasm-tools' `wasm1`, not in its `mvp`. */
+    /* 19-24, added in 1.0.x (2026-09-21) as wasm-tools' vocabulary. Since the next release
+     * (2026-10-24) the meanings are binaryang's D2: 20-24 are DEPRECATED and gate NOTHING (each
+     * construct is gated by the proposal it belongs to); their values stay valid, and a later
+     * major removes them. */
+    /* Importing or EXPORTING a mutable global: D2's `mutable-globals`. Still a live switch. */
     WAZMRT_FEATURE_MUTABLE_GLOBAL            = 19,
-    /* Every f32/f64 type and float instruction, SIMD float lanes included. ON in every
-     * `wazmrt_config_all_features(cfg, false)` config: WebAssembly 1.0 has floats. */
+    /* DEPRECATED, inert: floating point is WebAssembly 1.0 core. */
     WAZMRT_FEATURE_FLOATS                    = 20,
-    /* `memory.copy` and `memory.fill`. A separate switch from BULK_MEMORY, which gates the rest
-     * (memory.init, data.drop, the table ops) — turn both off to refuse all of bulk memory. */
+    /* DEPRECATED, inert: `memory.copy` / `memory.fill` are gated by BULK_MEMORY. */
     WAZMRT_FEATURE_BULK_MEMORY_OPT           = 21,
-    /* A `call_indirect` table index encoded in more bytes than its value needs. */
+    /* DEPRECATED, inert: an overlong `call_indirect` table index is gated by REFERENCE_TYPES. */
     WAZMRT_FEATURE_CALL_INDIRECT_OVERLONG    = 22,
-    /* Every abstract reference type except func and exn (externref included), and the
-     * struct/array composite types. */
+    /* DEPRECATED, inert: externref is REFERENCE_TYPES; struct/array types are GC. */
     WAZMRT_FEATURE_GC_TYPES                  = 23,
-    /* try / catch / catch_all / rethrow / delegate. Needs EXCEPTIONS as well. */
+    /* DEPRECATED, inert: try / catch / catch_all / rethrow / delegate are gated by EXCEPTIONS. */
     WAZMRT_FEATURE_LEGACY_EXCEPTIONS         = 24
 } wazmrt_feature_t;
 

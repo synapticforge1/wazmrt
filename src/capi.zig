@@ -313,8 +313,9 @@ export fn wazmrt_config_all_features(c: ?*Config, enabled: bool) void {
     // 🔒 **`false` still means "WebAssembly 1.0 only", as documented** — and 1.0 HAS floats.
     // Since `floats` became a bit (2026-09-21), switching every bit off would also refuse every
     // module that touches an f32, silently changing what this call has always meant to an
-    // embedder. So `false` is wasm-tools' `mvp`: everything off except floats. Nothing-at-all
-    // stays available through `wazmrt_config_set_feature(cfg, WAZMRT_FEATURE_FLOATS, false)`.
+    // embedder. So `false` is wasm-tools' `mvp`: everything off except floats.
+    // ⚠️ Since 2026-10-24 (D2's meanings) `floats` gates NOTHING — floating point is 1.0 core — so
+    // this line only keeps `wazmrt_config_get_feature(…FLOATS…)` reading as it did.
     if (!enabled) cfg.features.set(.floats, true);
 }
 

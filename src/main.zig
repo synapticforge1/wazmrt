@@ -2121,12 +2121,13 @@ test "--features: the seed is explicit, or inferred from ONE unambiguous shape" 
 
     // Explicit seeds say it outright, and then either sign is unambiguous.
     try std.testing.expect((try parseInto("all", .{})).all());
-    // `mvp` is wasm-tools' mvp: everything off EXCEPT floats (WebAssembly 1.0 has floats; since
-    // 2026-09-21 they are a bit). `-all` is the seed that turns floats off too.
+    // `mvp` is the 1.0 core: every proposal off. The deprecated wasm-tools bits stay ON in it
+    // (they gate nothing since 2026-10-24, D2's meanings), so `get_feature` reads as before.
+    // `-all` is the seed that turns every bit off.
     const mvp = try parseInto("mvp", .{});
     for (0..wazmrt.features.count) |i| {
         const f: F = @enumFromInt(@as(u8, @intCast(i)));
-        try std.testing.expectEqual(f == .floats, mvp.has(f));
+        try std.testing.expectEqual(wazmrt.features.deprecatedFeature(f.name()) != null and f != .mutable_global, mvp.has(f));
     }
     try std.testing.expect(std.meta.eql(try parseInto("none", .{}), mvp));
     const nothing = try parseInto("-all", .{});
@@ -2167,13 +2168,38 @@ test "--features: names come from the ENUM, so the CLI cannot offer a different 
     // the engine, `capi.Feature` and `wazmrt.h` — and the two that were hand-written are exactly
     // the two that drifted and shipped a switch which silently did nothing. Every name is
     // accepted here without any of them being written down in `main.zig`.
+    // ⚠️ Since 2026-10-24 the wasm-tools-only names are deprecated aliases that switch ANOTHER bit
+    // (or none), so they are skipped here and pinned below.
     for (0..wazmrt.features.count) |i| {
         const f: wazmrt.features.Feature = @enumFromInt(@as(u8, @intCast(i)));
+        if (wazmrt.features.deprecatedFeature(f.name()) != null) continue;
         const on = try parseInto(f.name(), .{});
         try std.testing.expect(on.has(f));
         var buf: [64]u8 = undefined;
         const off = try parseInto(try std.fmt.bufPrint(&buf, "-{s}", .{f.name()}), .{});
         try std.testing.expect(!off.has(f));
+    }
+}
+
+test "--features: every D2 `cli` name parses, and every deprecated name warns" {
+    // 🔒 binaryang's D2 is the vocabulary (interop v32/v33; the opcode guide: "spell features as
+    // D2's `cli`"). Read from the generated copy, so a D2 name wazmrt does not take is a red test.
+    for (wazmrt.features.d2_features) |d| {
+        var buf: [64]u8 = undefined;
+        var sink: std.Io.Writer = .fixed(&buf);
+        _ = wazmrt.features.parseFeatures(d.cli, .{}, &sink) catch {
+            std.debug.print("\n  D2 name '{s}' is refused:\n{s}", .{ d.cli, sink.buffered() });
+            return error.D2NameRefused;
+        };
+        try std.testing.expectEqual(@as(usize, 0), sink.buffered().len); // and no warning
+    }
+    for (wazmrt.features.deprecated_features) |d| {
+        var buf: [256]u8 = undefined;
+        var sink: std.Io.Writer = .fixed(&buf);
+        _ = try wazmrt.features.parseFeatures(d.name, .{}, &sink);
+        try std.testing.expect(std.mem.startsWith(u8, sink.buffered(), "warning: --features:"));
+        // Printed ONCE, though the parser reads the list twice.
+        try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, sink.buffered(), "warning"));
     }
 }
 
@@ -2493,9 +2519,15 @@ test "--features accepts wasm-tools' vocabulary as well as wazmrt's own" {
     for ([_][]const u8{ "mvp", "wasm1", "wasm2", "wasm3", "lime1", "all", "-all" }) |p| {
         try std.testing.expect(presetSeed(p) != null);
     }
-    // Group names switch SEVERAL bits, both directions (measured in wasm-tools).
-    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{ .bulk_memory, .bulk_memory_opt }, featureBits("bulk-memory").?);
-    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{ .reference_types, .call_indirect_overlong, .multi_table }, featureBits("reference-types").?);
+    // Still ACCEPTED, but since 2026-10-24 under D2's meanings: `bulk-memory` is one bit, and
+    // `reference-types` carries only wazmrt's own `multi_table` split. The deprecated wasm-tools
+    // names switch the D2 feature they belong to, or nothing.
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{.bulk_memory}, featureBits("bulk-memory").?);
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{ .reference_types, .multi_table }, featureBits("reference-types").?);
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{.bulk_memory}, featureBits("bulk-memory-opt").?);
+    try std.testing.expectEqualSlices(wazmrt.features.Feature, &.{.exceptions}, featureBits("legacy-exceptions").?);
+    try std.testing.expectEqual(@as(usize, 0), featureBits("floats").?.len);
+    try std.testing.expectEqual(wazmrt.features.Feature.mutable_global, featureFromSpelling("mutable-globals").?);
     // A proposal wazmrt does not implement is a NAME that switches nothing (`--features` only
     // narrows, so there is nothing to switch).
     try std.testing.expectEqual(@as(usize, 0), featureBits("stack-switching").?.len);

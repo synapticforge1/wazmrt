@@ -3905,8 +3905,7 @@ const SimdOp = struct { sub: u32, imm: SimdImm };
 const SimdEntry = struct { n: []const u8, s: u32, i: SimdImm };
 
 /// Every `0xFD` mnemonic the assembler knows, with its sub-opcode. File-level (it was local to
-/// `lookupSimd`) so a test can walk it: `features.simd_float_subs` is a list of NUMBERS — the
-/// feature gate cannot import the assembler — and this table is where the NAMES live.
+/// `lookupSimd`) so tests can walk it, the H10 agreement with binaryang's D1 among them.
 const simd_table = [_]SimdEntry{
         .{ .n = "v128.load", .s = 0x00, .i = .mem },       .{ .n = "v128.store", .s = 0x0b, .i = .mem },
         .{ .n = "v128.load8x8_s", .s = 0x01, .i = .mem },  .{ .n = "v128.load8x8_u", .s = 0x02, .i = .mem },
@@ -9974,28 +9973,6 @@ test "a branch hint wazmrt cannot honour is refused, never dropped" {
     }
 }
 
-test "features.simd_float_subs is exactly the SIMD mnemonics naming f32/f64 (relaxed excepted)" {
-    // 🔒 COVERAGE PIN for the `floats` gate's SIMD half (2026-09-21). The gate holds sub-opcode
-    // NUMBERS (it cannot import this assembler); this table holds the NAMES. A float lane op
-    // added to the table but not to the list would pass `-floats` silently — the exact failure
-    // `features.zig`'s header names — and this makes it a red build instead.
-    // ⚠️ Relaxed SIMD (sub ≥ 0x100) is EXCLUDED on both sides: measured, wasm-tools does not
-    // float-gate `f32x4.relaxed_madd`, `i32x4.relaxed_trunc_f32x4_s` or `f64x2.relaxed_min`.
-    const features = @import("features.zig");
-    var named: usize = 0;
-    for (simd_table) |e| {
-        const names_float = std.mem.indexOf(u8, e.n, "f32") != null or std.mem.indexOf(u8, e.n, "f64") != null;
-        const expected = names_float and e.s < 0x100;
-        const listed = std.mem.indexOfScalar(u32, &features.simd_float_subs, e.s) != null;
-        if (expected != listed) {
-            std.debug.print("{s} (0x{x}): names a float = {}, in simd_float_subs = {}\n", .{ e.n, e.s, expected, listed });
-            return error.TestUnexpectedResult;
-        }
-        if (expected) named += 1;
-    }
-    // …and nothing in the list is a number the table does not name.
-    try std.testing.expectEqual(features.simd_float_subs.len, named);
-}
 
 test "every 0xFD sub-opcode up to the table's top is NAMED or a listed GAP — never both, never neither" {
     // 🔒 COVERAGE PIN for `opcode.unassigned_simd_subs` (2026-09-21). The decoder refuses the
