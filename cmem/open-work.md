@@ -15,7 +15,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v2.0.1` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v35** (v33 ended lockstep; v34 is record-only; v35 refreshed the stale wasmrt cells and adds §5 #13/#14); wasmrt's copy is byte-identical at v34 (2026-10-24), and v35 is PENDING MIRROR. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v36** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both); wasmrt's copy was byte-identical at v35 (2026-10-24), and v36 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -59,24 +59,9 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     mirrored v33 and v34** (wasmrt `37f0187`, 2026-10-24): the two copies are byte-identical,
     checked with `cmp`. ✅ **The stale wasmrt cells §2.2m lists were REFRESHED in v35**
     (2026-10-24), each re-run on both binaries; all agree but two, decided by the owner the same
-    day. ⏳ **wasmrt to mirror v35 and make §5 #13's change** — owner, 2026-10-24: by LETTER,
-    not by a write from here. 📬 **The letter, for the owner to carry** (draft; the workspace
-    files it):
-
-    > **To wasmrt — contract v35 §5 #13: a WASI guest sees ONLY `--env`.** Owner decision,
-    > 2026-10-24. Measured on your `37f0187`: with no `--env` the guest sees the whole host
-    > environment (111 variables here), and `--env =x` is accepted. Required: (1) the guest's
-    > environment is the `--env` entries alone, nothing from `std::env::vars()` (`merged_env` in
-    > `crates/wasmrt/src/main.rs`); keep its last-KEY-wins replace, which already matches the row;
-    > (2) refuse an empty KEY (`--env =x`), rc 1, as you already refuse `--env A`; (3) INVERT
-    > `env_flags_add_to_the_inherited_environment_rather_than_replacing_it` in
-    > `cli_review_regressions.rs`, so it asserts 0 inherited and fails on today's code — do not
-    > delete it. **The check, not the conclusion:** a guest that exits with
-    > `10 + environ_sizes_get`'s count (the +10 tells "1 variable" from "refused, rc 1"), run with
-    > no `--env` (expect 10), `--env A=1 --env A=2` (11), `--env A=1 --env B=2` (12), `--env A=` (11),
-    > `--env A` and `--env =x` (rc 1). wazmrt gives exactly those since v35.
-
-    §2.2m asked whether v32 reverses v30's MEANINGS too, or
+    day. ✅ **wasmrt mirrored v35 and made §5 #13's change by letter** (`cfeee31`); re-verified by
+    running both, identical on six `--env` cases, recorded as v36. ⏳ **wasmrt to mirror v36**
+    (record-only). §2.2m asked whether v32 reverses v30's MEANINGS too, or
     only the vocabulary. 🔒 **ANSWERED (owner, 2026-10-23): "aligning with binaryang means its
     meanings also."** So the migration takes D2's names AND its semantics: which feature gates which
     instruction comes from D1's `feature` column (e.g. `memory.copy` is `bulkMemory`, not
