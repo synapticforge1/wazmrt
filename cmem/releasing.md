@@ -233,7 +233,32 @@ not written a second time beside them.
     red naming the lost pairs; re-baselined, `1.0.4` is refused (major) and `2.0.0` accepted;
   - with `mutable_global` added to `mvp`, `1.0.4` is refused (minor) and `1.1.0` accepted.
 - **Known limit:** it sees acceptance, not execution: that is S2's job. The corpus is what
-  `feature-matrix.ts` built; widening it is a deliberate re-baseline (`tests/behaviour/README.md`). Effort, roughly: S1 is a day's
+  `feature-matrix.ts` built; widening it is a deliberate re-baseline (`tests/behaviour/README.md`).
+
+**✅ S2 BUILT 2026-10-23, inside the conformance step** (checklist step 4). `tools/conformance.zig`
+keeps a RELEASE's per-file results in `tools/conformance-released.txt`: one line per `.wast`,
+`<sha256 of its bytes> <passed> <failed> <skipped> <path>`, headed `released-as` and the corpus'
+file count and list hash.
+
+- **Pinned by CONTENT, not by a wasmtk commit**, so no `git` is needed and it is stronger: only a
+  file whose bytes are the release's is compared. A moved corpus is reported (changed / new /
+  gone), and compared on the unchanged files.
+- **Compared by default** whenever `-Dtestsuite` is given (`-Dreleased=` empty opts out). A file
+  that lost passes, gained failures or gained skips regressed SINCE THE RELEASE, and the step
+  fails, saying so. `-Drecord-released=true` records after a release, and refuses to record one
+  with failures.
+- **The baseline is `v1.0.3`'s, proven:** the record's 288 per-file counts equal what the `v1.0.3`
+  binary's own runner reports (288/288, built from the tag), and what HEAD's CLI runner reports.
+- **Inverted, six cases:**
+  1. clean: 288 compared, 0 regressed;
+  2. the truncation fix reverted: `conversions.wast` 618 → 602 passed, the step fails;
+  3. recording that as a release: refused, record untouched;
+  4. a moved corpus (one edited, one removed): 286 compared, the moves named;
+  5. a corpus matching nothing: a FAILURE, never a vacuous pass;
+  6. a missing record: a failure.
+- **What S2 adds while the expected-failure baseline stays EMPTY is mostly the pinning and the
+  record**: a regression here also fails the baseline check (case 2 tripped both). It matters
+  once a baseline holds known failures, or when the suite moves. Effort, roughly: S1 is a day's
 increment, S2 an afternoon on top of S1, and S3 mostly a list of exclusions.
 
 ### The ladder from here
@@ -329,8 +354,12 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
    `zig build test`): it must accept the new number against `tools/surface/released.txt`'s floor. A
    refusal is answered by a bigger bump, never by editing a snapshot. If the release breaks anything
    (the four kinds above), add its **⚠️ Breaking Changes** row to `README.md` in the same commit.
-9a. 🆕 **After the release commit, in its own commit: `zig build surface -Dsurface=release`**, which
-   records the released surface as the next floor's baseline.
+9a. 🆕 **After the release commit, in its own commit: `zig build surface -Dsurface=release`** and
+   **`zig build conformance -Dtestsuite=… -Dbaseline=… -Drecord-released=true`**, which record the
+   released surface (S1 included) and the released per-file conformance results (S2) as the next
+   release's baselines. 🔒 **Order (owner): S1 (`surface`, inside `test`) → S2 (step 4) → S3 (the
+   local wide net, `probes/carry-forward.ts`). Stop at the first that finds an issue until it is
+   resolved; an INTENDED change is resolved by a deliberate re-baseline with the major it demands.**
 10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
     ladder, and `open-work.md`'s Status line (the only one — letter H3, 2026-09-21). A doc pass scheduled "after the release" is a doc pass that
     does not happen.

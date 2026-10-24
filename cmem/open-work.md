@@ -34,8 +34,12 @@ milestone table.
   - the stages run in order and stop at the first issue until it is resolved (intended counts as
     resolved, by a deliberate re-baseline);
   - ✅ **S1 built 2026-10-23**, on `zig build test`: 198 accepted pairs (47 modules × 32 configs),
-    equal to `v1.0.3`'s CLI, inverted both ways. ⏳ **S2 is next**, folded into the conformance step
-    (pin the wasmtk commit, keep per-file results per release).
+    equal to `v1.0.3`'s CLI, inverted both ways.
+  - ✅ **S2 built 2026-10-23**, inside the conformance step: `v1.0.3`'s per-file results, pinned by
+    content (288/288 equal to the `v1.0.3` binary's own runner), inverted six ways.
+  - ✅ **S3** is `probes/carry-forward.ts`, local testing (owner).
+
+    **H6's rule 3 is MET** by these three, in the owner's order.
   - 📬 Owner-directed: written up as workspace letter **H23** to wasmrt ("lets also make this a
     letter for wasmrt team on testing", 2026-10-23), `../../cmem/handoffs.md`, with the check
     (`probes/carry-forward.ts`), not the conclusion.

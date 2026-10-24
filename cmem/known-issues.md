@@ -33,6 +33,16 @@ binds the moment it does.
 flag that strips them (archive member names, or debug info). Until then, quote lib sizes with the
 cache path they were built under.
 
+**🔬 Second measurement, 2026-10-23 evening: it is not ONLY the cache path.** With the same
+`ZIG_LOCAL_CACHE_DIR` and the same repo directory, the gate at `2fa6b2c` read `wazmrt.lib` **78
+bytes UNDER** a ceiling that was EXACT at `27e5f93` four hours earlier. It was reproducible, twice.
+Building `e5ecf91`, `e991b33` and `2fa6b2c` in ONE worktree directory gives the IDENTICAL size for
+all three, so no commit moved a byte; the lib varies with build-environment state the gate does not
+pin. **The ceiling is NOT lowered for it**: locking in a number that moves without a code change
+would make the next environment shift look like a regression. The exe and dll stay exact through
+all of it, so the size gate is evidence about those two, and about the lib only within a byte
+range, until the embedded strings are stripped.
+
 ## ✅ FIXED SAME DAY — `assert_trap` was satisfied by ANY runtime trap, and it hid TWO wrong-trap defects (2026-10-23, letter H10)
 
 **What it was:** `wast.zig`'s `assert_trap` passed on any error `isRuntimeTrap` admits and never

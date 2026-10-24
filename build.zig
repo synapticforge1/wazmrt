@@ -690,6 +690,15 @@ pub fn build(b: *std.Build) void {
         run_conf.addArg(if (write_baseline) "write" else "check");
         const show_failures = b.option(usize, "failures", "List up to N failures per failing file (default 1)") orelse 1;
         run_conf.addArg(b.fmt("{d}", .{show_failures}));
+        // S2 of H6's rule 3 (owner, 2026-10-23): a RELEASE's per-file results, pinned by content.
+        // On by default whenever a testsuite is given, so the release-checklist command compares
+        // against the last release with nothing new to remember; `-Dreleased=` (empty) opts out.
+        const released = b.option([]const u8, "released", "A release's per-file conformance results (default tools/conformance-released.txt; empty to skip S2)") orelse
+            (if (testsuite != null) b.pathFromRoot("tools/conformance-released.txt") else "");
+        const record_released = b.option(bool, "record-released", "Record this run as the release's per-file results in -Dreleased (after the release commit)") orelse false;
+        run_conf.addArg(released);
+        run_conf.addArg(if (record_released) "record" else "compare");
+        run_conf.has_side_effects = true; // reads the released results by path: never a cached verdict
         const conf_step = b.step("conformance", "Run the spec testsuite (.wast) — needs -Dtestsuite=<dir>; add -Dbaseline=<file> to gate on regressions");
         conf_step.dependOn(&run_conf.step);
     }
