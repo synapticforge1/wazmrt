@@ -6,7 +6,23 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `2.0.0` — released 2026-10-23 (`1.0.4` the same day; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `2.0.1` — released 2026-10-24 (`2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`2.0.1` — owner, 2026-10-24: *"ship 2.0.1"*.** Two CLI fixes, found by running both
+> runtimes to refresh the contract's stale wasmrt cells (`interop.md` v35):
+> - **§5 #14: a `--pins` DB that cannot be read REFUSES, in every mode.** A missing file was read as
+>   "no DB", so a typo in the path ran the module unverified, without a word, unless `--verify
+>   enforce`. A fail-open.
+> - **§5 #13: `--env` takes only `KEY=VALUE` with a non-empty KEY, and a repeated KEY replaces.**
+>   `--env A` and `--env =x` reached the guest as malformed entries; `--env A=1 --env A=2` gave it
+>   two. (wazmrt never inherited the host environment; the row's other half is wasmrt's.)
+>
+> Both refuse command lines `2.0.0` accepted: kind 3/4, breaking. 🔒 **The owner ships them as a
+> PATCH, as security fixes** (answered before the fix: "Patch, as a security fix"), the exception
+> `1.0.2` and `1.0.3` had, with README Breaking Changes rows. The gate did not need the exception:
+> S1 records modules × feature configs, not CLI flags, so the surface is `+0 -0` since `2.0.0` and
+> the floor is a patch. 🎓 *That is the gate's blind spot, stated: a CLI behaviour change passes it
+> silently, and only the checklist's judgement and this record catch the break.*
 
 > 🔒 **`2.0.0` — owner, 2026-10-23: *"2.0.0 is fine"*, then "yes" to cutting it now.** The **first
 > MAJOR set by the gate, not by judgement.** It carries one change a consumer can feel: **a 64-bit
