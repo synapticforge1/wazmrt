@@ -4,15 +4,15 @@
 //! and diffs; `src/definitions_agreement.zig` and the tests beside each hand-kept table fail when
 //! wazmrt's tables disagree with what is below.
 //!
-//! Source: @jrmarcum/binaryang 2.1.0, `src/definitions/`. Each line below is that file's
+//! Source: @jrmarcum/binaryang 2.2.0, `src/definitions/`. Each line below is that file's
 //! stated SHA-256 over its canonical content, recomputed and matched by the generator.
 
 /// The source, as the generator found and verified it.
 pub const source = .{
     .package = "@jrmarcum/binaryang",
-    .version = "2.1.0",
+    .version = "2.2.0",
     .d1 = .{ .data_version = "1.0.1", .sha256 = "7552497df510ee2117d87e54f71081390e6ad80f27d6f0a6bcd4f705dcfb3cdc", .entries = 582 },
-    .d2 = .{ .data_version = "2.1.0", .sha256 = "81bc142b27ec9de4a9cd87644c4bbc405ad6cc4d1aa1ce0cef7712e1184a5ad9", .entries = 22 },
+    .d2 = .{ .data_version = "2.2.0", .sha256 = "9da43d1142fb11c73302175df704b472035055e058c03f93c8a588a1482e525e", .entries = 22 },
     .d3 = .{ .data_version = "1.0.0", .sha256 = "db956f7d590bf50c83e5062e4f636b99e14d0780ca50589d787e0edb93114a2a", .entries = 20 },
 };
 
@@ -46,6 +46,8 @@ pub const Feature = struct {
     cli: []const u8,
     default_on: bool,
     implemented: bool,
+    /// The prerequisites its proposal states. RECORDED, NOT ENFORCED (D2 2.1.0).
+    requires: []const []const u8,
     testsuite_dirs: []const []const u8,
     only_in: ?[]const []const u8,
     off_in: ?[]const []const u8,
@@ -642,28 +644,28 @@ pub const opcodes = [_]Opcode{
 };
 
 pub const features = [_]Feature{
-    .{ .name = "exceptions", .cli = "exceptions", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "legacy/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "mutableGlobals", .cli = "mutable-globals", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "satFloatToInt", .cli = "saturating-float-to-int", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "signExtension", .cli = "sign-extension", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "simd", .cli = "simd", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "threads", .cli = "threads", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "proposals/threads/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "functionReferences", .cli = "function-references", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "multiValue", .cli = "multi-value", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "tailCall", .cli = "tail-call", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "bulkMemory", .cli = "bulk-memory", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "referenceTypes", .cli = "reference-types", .default_on = true, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "annotations", .cli = "annotations", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "codeMetadata", .cli = "code-metadata", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "gc", .cli = "gc", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "memory64", .cli = "memory64", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "multiMemory", .cli = "multi-memory", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = &.{ "proposals/threads/" }, .note = "proposals/threads/ predates multi-memory: it asserts 'multiple memories' invalid five times (imports.wast:410/414/418, memory.wast:14/15).", .since = "2026-10-06" },
-    .{ .name = "extendedConst", .cli = "extended-const", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "relaxedSimd", .cli = "relaxed-simd", .default_on = false, .implemented = true, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "customPageSizes", .cli = "custom-page-sizes", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "proposals/custom-page-sizes/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "compactImports", .cli = "compact-imports", .default_on = false, .implemented = false, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = "Declared, not implemented: setting it changes nothing, and a module using import kind 0x7f is refused.", .since = "2026-10-06" },
-    .{ .name = "wideArithmetic", .cli = "wide-arithmetic", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "proposals/wide-arithmetic/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
-    .{ .name = "customDescriptors", .cli = "custom-descriptors", .default_on = false, .implemented = true, .testsuite_dirs = &.{ "proposals/custom-descriptors/" }, .only_in = &.{ "proposals/custom-descriptors/" }, .off_in = null, .note = "Relaxes br_on_cast's typing rule: on in the core suite, br_on_cast.wast and br_on_cast_fail.wast each lose 3 assert_invalid (wasmtk, measured 2026-09-28).", .since = "2026-10-06" },
+    .{ .name = "exceptions", .cli = "exceptions", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{ "legacy/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "mutableGlobals", .cli = "mutable-globals", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "satFloatToInt", .cli = "saturating-float-to-int", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "signExtension", .cli = "sign-extension", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "simd", .cli = "simd", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "threads", .cli = "threads", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{ "proposals/threads/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "functionReferences", .cli = "function-references", .default_on = false, .implemented = true, .requires = &.{ "referenceTypes" }, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "multiValue", .cli = "multi-value", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "tailCall", .cli = "tail-call", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "bulkMemory", .cli = "bulk-memory", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "referenceTypes", .cli = "reference-types", .default_on = true, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "annotations", .cli = "annotations", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "codeMetadata", .cli = "code-metadata", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "gc", .cli = "gc", .default_on = false, .implemented = true, .requires = &.{ "referenceTypes", "functionReferences" }, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "memory64", .cli = "memory64", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "multiMemory", .cli = "multi-memory", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = &.{ "proposals/threads/" }, .note = "proposals/threads/ predates multi-memory: it asserts 'multiple memories' invalid five times (imports.wast:410/414/418, memory.wast:14/15).", .since = "2026-10-06" },
+    .{ .name = "extendedConst", .cli = "extended-const", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "relaxedSimd", .cli = "relaxed-simd", .default_on = false, .implemented = true, .requires = &.{ "simd" }, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "customPageSizes", .cli = "custom-page-sizes", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{ "proposals/custom-page-sizes/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "compactImports", .cli = "compact-imports", .default_on = false, .implemented = false, .requires = &.{}, .testsuite_dirs = &.{}, .only_in = null, .off_in = null, .note = "Declared, not implemented: setting it changes nothing, and a module using import kind 0x7f is refused.", .since = "2026-10-06" },
+    .{ .name = "wideArithmetic", .cli = "wide-arithmetic", .default_on = false, .implemented = true, .requires = &.{}, .testsuite_dirs = &.{ "proposals/wide-arithmetic/" }, .only_in = null, .off_in = null, .note = null, .since = "2026-10-06" },
+    .{ .name = "customDescriptors", .cli = "custom-descriptors", .default_on = false, .implemented = true, .requires = &.{ "gc" }, .testsuite_dirs = &.{ "proposals/custom-descriptors/" }, .only_in = &.{ "proposals/custom-descriptors/" }, .off_in = null, .note = "Relaxes br_on_cast's typing rule: on in the core suite, br_on_cast.wast and br_on_cast_fail.wast each lose 3 assert_invalid (wasmtk, measured 2026-09-28).", .since = "2026-10-06" },
 };
 
 pub const verdicts = [_]Verdict{
@@ -687,4 +689,47 @@ pub const verdicts = [_]Verdict{
     .{ .verdict = .trap, .key = "null-descriptor-reference", .message = "null descriptor reference" },
     .{ .verdict = .trap, .key = "unaligned-atomic", .message = "unaligned atomic" },
     .{ .verdict = .exhaustion, .key = "call-stack-exhausted", .message = "call stack exhausted" },
+};
+
+/// D2 — a feature group: satisfied when ANY ONE of its features (binaryang names) is on.
+pub const Group = []const []const u8;
+
+/// D2 `typeRules` (2.2.0): which features a VALUE TYPE needs. `type` names the types in prose;
+/// every group of `needs` must be satisfied; `null` means no feature enables the type.
+pub const TypeRule = struct { type: []const u8, needs: ?[]const Group, note: ?[]const u8 };
+
+/// D2 `encodingRules` (2.2.0): which features an ENCODING or a module structure needs.
+pub const EncodingRule = struct { encoding: []const u8, needs: []const Group };
+
+/// D2 `presets` (2.1.0): the specification's releases, each exactly the features on.
+pub const Preset = struct { name: []const u8, features: []const []const u8, note: ?[]const u8 };
+
+pub const type_rules = [_]TypeRule{
+    .{ .type = "funcref, externref — (ref null func), (ref null extern)", .needs = &.{ &.{ "referenceTypes" } }, .note = "As the element type of a table or an element segment, funcref needs nothing: Wasm 1.0 had it there." },
+    .{ .type = "(ref func), (ref extern) — non-null", .needs = &.{ &.{ "referenceTypes" }, &.{ "functionReferences" } }, .note = null },
+    .{ .type = "(ref $t), (ref null $t) — a type index", .needs = &.{ &.{ "referenceTypes" }, &.{ "functionReferences", "gc" } }, .note = "(exact $t) needs customDescriptors as well." },
+    .{ .type = "exnref, nullexnref — (ref null? exn), (ref null? noexn)", .needs = &.{ &.{ "referenceTypes" }, &.{ "exceptions" } }, .note = null },
+    .{ .type = "anyref, eqref, i31ref, structref, arrayref, nullref, nullfuncref, nullexternref — and (ref null? any | eq | i31 | struct | array | none | nofunc | noextern)", .needs = &.{ &.{ "referenceTypes" }, &.{ "gc" } }, .note = null },
+    .{ .type = "stringref", .needs = null, .note = "The stringref proposal: no D2 feature enables it." },
+};
+
+pub const encoding_rules = [_]EncodingRule{
+    .{ .encoding = "importing or exporting a mutable global", .needs = &.{ &.{ "mutableGlobals" } } },
+    .{ .encoding = "a call_indirect table index in more than one byte (an LEB other than the single byte 0x00)", .needs = &.{ &.{ "referenceTypes" } } },
+    .{ .encoding = "more than one table", .needs = &.{ &.{ "referenceTypes" } } },
+    .{ .encoding = "a table initializer expression", .needs = &.{ &.{ "functionReferences" } } },
+    .{ .encoding = "a function type with more than one result; a block, loop or if with parameters", .needs = &.{ &.{ "multiValue" } } },
+    .{ .encoding = "more than one memory", .needs = &.{ &.{ "multiMemory" } } },
+    .{ .encoding = "a shared memory", .needs = &.{ &.{ "threads" } } },
+    .{ .encoding = "a 64-bit memory or table", .needs = &.{ &.{ "memory64" } } },
+    .{ .encoding = "a custom page size", .needs = &.{ &.{ "customPageSizes" } } },
+    .{ .encoding = "a struct or array type definition", .needs = &.{ &.{ "gc" } } },
+    .{ .encoding = "a tag (the tag section, imported or exported)", .needs = &.{ &.{ "exceptions" } } },
+};
+
+pub const presets = [_]Preset{
+    .{ .name = "wasm1", .features = &.{ "mutableGlobals" }, .note = null },
+    .{ .name = "wasm2", .features = &.{ "mutableGlobals", "satFloatToInt", "signExtension", "simd", "multiValue", "bulkMemory", "referenceTypes" }, .note = null },
+    .{ .name = "wasm3", .features = &.{ "exceptions", "mutableGlobals", "satFloatToInt", "signExtension", "simd", "functionReferences", "multiValue", "tailCall", "bulkMemory", "referenceTypes", "annotations", "gc", "memory64", "multiMemory", "extendedConst", "relaxedSimd" }, .note = "Release 3.0's exception handling is the exnref form; D2's `exceptions` also gates the legacy instructions, which no release contains." },
+    .{ .name = "all", .features = &.{ "exceptions", "mutableGlobals", "satFloatToInt", "signExtension", "simd", "threads", "functionReferences", "multiValue", "tailCall", "bulkMemory", "referenceTypes", "annotations", "codeMetadata", "gc", "memory64", "multiMemory", "extendedConst", "relaxedSimd", "customPageSizes", "compactImports", "wideArithmetic", "customDescriptors" }, .note = null },
 };

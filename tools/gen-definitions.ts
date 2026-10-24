@@ -105,8 +105,20 @@ const opcodes = d1.entries.map((e: Json) =>
 );
 const features = d2.entries.map((e: Json) =>
   `    .{ .name = ${str(e.name)}, .cli = ${str(e.cli)}, .default_on = ${e.defaultOn}, .implemented = ${e.implemented}, ` +
+  `.requires = ${strs(e.requires ?? [])}, ` +
   `.testsuite_dirs = ${strs(e.testsuiteDirs)}, .only_in = ${opt(e.onlyIn, strs)}, .off_in = ${opt(e.offIn, strs)}, ` +
   `.note = ${opt(e.note, str)}, .since = ${str(e.since)} },`
+);
+// D2 2.2.0: `needs` is a list of groups, every group satisfied by ANY one of its features.
+const groups = (g: string[][]) => (g.length ? `&.{ ${g.map(strs).join(", ")} }` : "&.{}");
+const typeRules = (d2.typeRules ?? []).map((r: Json) =>
+  `    .{ .type = ${str(r.type)}, .needs = ${opt(r.needs, groups)}, .note = ${opt(r.note, str)} },`
+);
+const encodingRules = (d2.encodingRules ?? []).map((r: Json) =>
+  `    .{ .encoding = ${str(r.encoding)}, .needs = ${groups(r.needs)} },`
+);
+const presets = (d2.presets ?? []).map((p: Json) =>
+  `    .{ .name = ${str(p.name)}, .features = ${strs(p.features)}, .note = ${opt(p.note, str)} },`
 );
 const verdicts = d3.entries.map((e: Json) =>
   `    .{ .verdict = .${e.verdict}, .key = ${str(e.key)}, .message = ${str(e.message)} },`
@@ -160,6 +172,8 @@ pub const Feature = struct {
     cli: []const u8,
     default_on: bool,
     implemented: bool,
+    /// The prerequisites its proposal states. RECORDED, NOT ENFORCED (D2 2.1.0).
+    requires: []const []const u8,
     testsuite_dirs: []const []const u8,
     only_in: ?[]const []const u8,
     off_in: ?[]const []const u8,
@@ -180,6 +194,31 @@ ${features.join("\n")}
 
 pub const verdicts = [_]Verdict{
 ${verdicts.join("\n")}
+};
+
+/// D2 — a feature group: satisfied when ANY ONE of its features (binaryang names) is on.
+pub const Group = []const []const u8;
+
+/// D2 \`typeRules\` (2.2.0): which features a VALUE TYPE needs. \`type\` names the types in prose;
+/// every group of \`needs\` must be satisfied; \`null\` means no feature enables the type.
+pub const TypeRule = struct { type: []const u8, needs: ?[]const Group, note: ?[]const u8 };
+
+/// D2 \`encodingRules\` (2.2.0): which features an ENCODING or a module structure needs.
+pub const EncodingRule = struct { encoding: []const u8, needs: []const Group };
+
+/// D2 \`presets\` (2.1.0): the specification's releases, each exactly the features on.
+pub const Preset = struct { name: []const u8, features: []const []const u8, note: ?[]const u8 };
+
+pub const type_rules = [_]TypeRule{
+${typeRules.join("\n")}
+};
+
+pub const encoding_rules = [_]EncodingRule{
+${encodingRules.join("\n")}
+};
+
+pub const presets = [_]Preset{
+${presets.join("\n")}
 };
 `;
 
