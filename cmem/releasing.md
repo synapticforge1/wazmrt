@@ -6,7 +6,24 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `2.0.1` — released 2026-10-24 (`2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `3.0.0` — released 2026-10-24 (`2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+
+> 🔒 **`3.0.0` — owner, 2026-10-24: *"keep D2's wasm3"*, then *"cut the 3.0.0 after the H23 id
+> clash is fixed"*.** The second major the gate set. **`--features` takes binaryang D2's names AND
+> meanings** (`interop.md` v37; binaryang 2.1.0's `docs/opcode-guide.md`): every instruction is
+> gated by its own D1 feature, held by a test over all 582; D2's names and presets; `requires`
+> recorded, not enforced. What a consumer can feel, each a README Breaking Changes row:
+> - `wasm3` no longer includes `threads` (D2's release 3.0 has none);
+> - `call_ref` is refused with gc on and function-references off;
+> - `lime1` no longer accepts an overlong `call_indirect` index;
+> - the six wasm-tools-only names are deprecated aliases with a warning, and C ABI values 20–24
+>   gate nothing (still valid; `abi_version` unchanged).
+>
+> The gate set the number: S1 lost exactly two accepted pairs since `2.0.1` (`wasm3` /
+> `threads.wat`, `lime1` / `call-indirect-overlong.wasm`) and gained 62, so the floor is MAJOR. No
+> `run` line moved, and spec conformance is unchanged per file. Also in it: the CLI-behaviour
+> `run` lines in the gate, stage B of H10 (the data tables generated from D1), and the definitions
+> pinned to binaryang 2.1.0.
 
 > 🔒 **`2.0.1` — owner, 2026-10-24: *"ship 2.0.1"*.** Two CLI fixes, found by running both
 > runtimes to refresh the contract's stale wasmrt cells (`interop.md` v35):

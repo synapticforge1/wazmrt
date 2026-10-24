@@ -103,7 +103,7 @@ extern "C" {
 #define WAZMRT_ABI_VERSION 2u
 
 uint32_t    wazmrt_abi_version(void);     /* bumped on any breaking change to this header */
-const char *wazmrt_version_string(void);  /* e.g. "2.0.1"; static storage, do not free     */
+const char *wazmrt_version_string(void);  /* e.g. "3.0.0"; static storage, do not free     */
 
 /* ---- Opaque handles (owned; each has exactly one _delete) ---------------------------- */
 typedef struct wazmrt_engine      wazmrt_engine_t;

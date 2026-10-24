@@ -6,7 +6,12 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-10-24
 
-**`2.0.1` is released** (2026-10-24, owner: "ship 2.0.1"): a `--pins` DB that cannot be read
+**`3.0.0` is released** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
+`--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1
+−2 since `2.0.1` (`wasm3` without threads, kept by the owner; `lime1` without the overlong
+`call_indirect`). README Breaking Changes has the four rows (`releasing.md`).
+
+**`2.0.1`** (2026-10-24, owner: "ship 2.0.1"): a `--pins` DB that cannot be read
 REFUSES (contract v35, §5 #14), and `--env` takes only well-formed `KEY=VALUE`, a repeated KEY
 replacing (§5 #13). Both refuse what `2.0.0` accepted; 🔒 the owner ships them as a **PATCH**, as
 security fixes, with README Breaking Changes rows (`releasing.md`).
@@ -14,8 +19,8 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 **`2.0.0`** (2026-10-23, owner: "2.0.0 is fine", then "yes"): a 64-bit table needs
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
-fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v2.0.1` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v36** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both); wasmrt's copy was byte-identical at v35 (2026-10-24), and v36 is PENDING MIRROR. The counts are in
+fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v3.0.0` is tagged on
+`synapticforge1/wazmrt`. Contract: `interop.md` **v37** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`); wasmrt's copy was byte-identical at v35 (2026-10-24), and v36 / v37 are PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
