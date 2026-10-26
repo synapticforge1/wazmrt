@@ -1529,7 +1529,15 @@ pub fn assembleModule(a: std.mem.Allocator, module: []const Sexpr) Error![]const
             }
             try emitNameSubsection(a, &s, 11, try nameMapPayloadFinal(a, final_tags.items));
         }
-        if (s.items.len != 0) {
+        // 🔒 A `(@custom "name" …)` IS the name section: when the text writes one, none is
+        // generated (binaryang's C5 rule). Measured 2026-10-26 on wasm-tools 1.262, wasmrt 2.0.0
+        // and binaryang 2.2.0 — all three emit only the hand-written one, whatever its anchor and
+        // however many; `"names"` is not it. ⚠️ wasm-tools 1.259 emitted BOTH, and this matched
+        // that until 1.262 changed (workspace I8; `cmem/probes/h8-fixtures/`).
+        const text_wrote_name = for (customs.items) |c| {
+            if (std.mem.eql(u8, c.name, "name")) break true;
+        } else false;
+        if (s.items.len != 0 and !text_wrote_name) {
             var sec: List(u8) = .empty;
             try nameBytes(a, &sec, "name");
             try sec.appendSlice(a, s.items);
@@ -9754,6 +9762,23 @@ fn findCustomPayload(bin: []const u8, name: []const u8) !?[]const u8 {
         if (std.mem.eql(u8, got, name)) return body[sub.pos..];
     }
     return null;
+}
+
+test "a (@custom \"name\" …) IS the name section: none is generated beside it (I8)" {
+    // 🔒 wasm-tools 1.262's bytes, read off `wasm-tools parse` 2026-10-26 (wasmrt 2.0.0 and
+    // binaryang 2.2.0 emit the same). Before the fix wazmrt appended its own 10-byte name
+    // section after the hand-written one, as wasm-tools 1.259 had done.
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const head = [_]u8{ 0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x04, 0x01, 0x60, 0x00, 0x00, 0x03, 0x02, 0x01, 0x00, 0x0a, 0x04, 0x01, 0x02, 0x00, 0x0b };
+    const one = head ++ [_]u8{ 0x00, 0x11, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x68, 0x61, 0x6e, 0x64, 0x2d, 0x77, 0x72, 0x69, 0x74, 0x74, 0x65, 0x6e };
+    try std.testing.expectEqualSlices(u8, &one, try assemble(a, "(module $m (func $f) (@custom \"name\" \"hand-written\"))"));
+    const two = head ++ [_]u8{ 0x00, 0x08, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x6f, 0x6e, 0x65, 0x00, 0x08, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x74, 0x77, 0x6f };
+    try std.testing.expectEqualSlices(u8, &two, try assemble(a, "(module $m (func $f) (@custom \"name\" \"one\") (@custom \"name\" \"two\"))"));
+    // A section with any other name is not it: the generated one is still written.
+    const other = try assemble(a, "(module $m (func $f) (@custom \"names\" \"x\"))");
+    try std.testing.expect((try findCustomPayload(other, "name")) != null);
 }
 
 test "@name is legal ONLY in a name-bearing form's identifier slot" {

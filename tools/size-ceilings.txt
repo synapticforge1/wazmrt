@@ -1233,6 +1233,12 @@
 # `src` is v4.0.1's (exact): the two new loops in `features.firstViolation` (the gate, and the
 # const-expr walk over table initializers). The exe crossed one 512-byte PE boundary.
 
+# 2026-10-26 — a `(@custom "name" …)` is the name section; none is generated beside it (workspace
+# I8, wasm-tools 1.262). **exe +0, lib +12 against the ceiling, dll +0.** Attributed by building
+# in one directory and one environment: the parent `db55b84` measures lib 1,075,276 (22 UNDER the
+# ceiling, so not exact here), and this change 1,075,310, so its own share is **+34**: one loop
+# over the collected custom sections and a string compare. The 22-byte gap predates the change.
+
 wazmrt.exe  1033728
-wazmrt.lib  1075298
+wazmrt.lib  1075310
 wazmrt.dll  922624
