@@ -65,6 +65,12 @@ Zig 0.16.0, Deno 2.9.7:**
   `NOTCAPABLE`. **AFTER:** each opens itself, `../../../../etc/passwd` is `NOTCAPABLE`, and its
   backslash spelling is `NOENT`. On Windows the same guest is unchanged by the fix.
 
+**2026-10-26, I8 re-run (`four-assemblers.ts`, wasm-tools 1.262.0, wasmrt `2ee6628`, binaryang
+2.2.0):** the two `h8-fixtures/` plus five variants. Before `852ff84`, wazmrt alone wrote a
+generated `name` section beside a `(@custom "name" …)` on the five that name anything (identifiers or `@name`; 60 B vs
+43 B on the fixture); after, all seven equal wasm-tools on both runtimes, and the fixture's pins
+are equal. (On 1.259, 2026-09-21, wasm-tools wrote both sections and wazmrt matched it.)
+
 **2026-09-21, letter H13 (Windows, wasm-tools 1.259.0, the 532 `.wat` of `wasmtk/tests`):** bodies
 equal wasm-tools' on **64/528 before, 528/528 after**; the 464 were 460 local-runs + 2 export-order
 + 2 type-order. Full files (= `.wat` pins) after the fix: **528/528 identical to `wasm-tools parse`**,

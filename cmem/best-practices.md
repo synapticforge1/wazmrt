@@ -357,6 +357,14 @@ mis-emitted by the assembler; repairing the validator alone turned a silent acce
 on modules that were fine. Check whether the mirror half exists before shipping either. —
 `known-issues.md`
 
+**An agreement with an oracle is dated by the oracle's VERSION; when the oracle upgrades, the
+agreement is a hypothesis again.** I8 was measured on wasm-tools 1.259 (both `name` sections) and
+wazmrt matched it byte for byte. wasm-tools 1.262 changed the rule, the sibling re-measured and
+moved, and wazmrt stayed right by the old oracle and wrong by the new one (1.262 is dated 2026-10-13). The 603/603
+pin parity could not show it: no corpus file carried the annotation. Record the oracle's version
+beside every "equals the oracle" claim, and re-run the claim's own probe when the version moves. —
+I8, `known-issues.md` (2026-10-26)
+
 ## 4. Tests and gates
 
 **A CHANGE'S OWN NEW SURFACE IS THE ONE PLACE THE AUDIT THAT PRODUCED IT WILL NOT LOOK.** Track H

@@ -4,7 +4,15 @@
 status narrative exists once"). Only open items; each points at its record. Done work leaves this file
 and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
-## 🏁 Status — 2026-10-24
+## 🏁 Status — 2026-10-26
+
+**On `main`, unreleased (2026-10-26, owner: "fix the items for wazmrt")**: workspace I8 re-run on
+wasm-tools 1.262. A `(@custom "name" …)` is now the only `name` section, as wasm-tools 1.262,
+wasmrt and binaryang emit (`852ff84`, `known-issues.md`); before, wazmrt also wrote a generated one,
+as 1.259 had. It changes `wat` output and `.wat` pins only for text carrying that annotation, and
+it brings wazmrt into line with the other three, so the next release takes it as a PATCH by the
+gate (S1 +0 −0). Contract v41 records it, plus that wasmrt mirrored v40. Full gate green
+(`testing.md`).
 
 **`5.0.0` is released** (2026-10-24, owner: "bump to 5.0.0 and push"): a table INITIALIZER needs
 function-references (found by wasmrt while mirroring v39; contract v40, `known-issues.md`). It was
@@ -20,8 +28,8 @@ v39). A MAJOR by the gate: S1 −20 since `3.0.0`. wazmrt and binaryang 2.2.0 ag
 judgements of the D2 matrix. wasmrt made the same change (`cee7bd1`) and released its own `1.0.0`
 (`9871fd4`); the two agree on every D2-matrix judgement and every CLI case. ✅ **wasmrt
 mirrored v39** (`e843c7e`), byte-identical to wazmrt's v39 (`4aa4e15`, checked with `cmp`).
-⏳ **The v40 mirror** (wasmrt's `1f1e43a` records that wazmrt is fixing the table-initializer gap;
-the fix shipped in 5.0.0).
+✅ **wasmrt mirrored v40**: the two `interop.md` copies have the same SHA-256 (checked 2026-10-26,
+wasmrt `2ee6628`; wasmrt records it byte-identical to wazmrt `bd97ae2`).
 
 **`3.0.0`** (2026-10-24, owner: "cut the 3.0.0 after the H23 id clash is fixed"):
 `--features` takes binaryang D2's names AND meanings (`interop.md` v37). A MAJOR by the gate: S1
@@ -37,7 +45,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v5.0.0` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v39** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule); wasmrt's copy was byte-identical at v38 (`f88a9ab`), and v39 is PENDING MIRROR. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v41** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule; v40 corrects v39 for the table initializer; v41 records I8 and that every version through v40 is mirrored); wasmrt's copy was identical at v40 (SHA-256, 2026-10-26), and v41 is PENDING MIRROR. The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -209,7 +217,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - matrix vs binaryang 2.2.0: **2,352 / 0 differ**; three new pins, inverted.
     - S1 −20, so the floor is MAJOR: **released as `4.0.0`**. Contract v39.
     - ✅ wasmrt adopted the same rule (`cee7bd1`). Re-run on wasmrt `1.0.0` (`d0cb616`): 2,352 / 0
-      differ, CLI corpus identical. ⏳ **The v39 mirror.**
+      differ, CLI corpus identical. ✅ **wasmrt mirrored v39** (`e843c7e`) and v40.
     - ✅ **Re-measured 2026-10-24 on 4.0.0** (wasmrt's ask: const-expr depth > 8 and the element
       flags, unmeasured since the 2026-09-21 build), with `probes/constexpr-elemflags.ts` on four
       tools. **Both are still wazmrt defects**, and wazmrt alone differs:
@@ -280,7 +288,7 @@ milestone table. Two remnants:
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
   is DONE on wazmrt's side: D2 2.2.0's `typeRules` closed the 22-case type-rule gap (contract v39;
   released as `4.0.0`). The D3 shared-memory request is closed (declined).
-- **H6's rule 3**: every release from `v1.0.1` to `v4.0.0` is tagged, and S1 / S2 / S3 carry
+- **H6's rule 3**: every release from `v1.0.1` to `v5.0.0` is tagged, and S1 / S2 / S3 carry
   behaviour forward from them. It waits only for a consumer's own suite (none depends on wazmrt
   yet).
 

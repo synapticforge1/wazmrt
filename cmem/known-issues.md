@@ -13,6 +13,28 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## ✅ FIXED 2026-10-26 — a `(@custom "name" …)` got a generated `name` section beside it (workspace I8)
+
+**What it was:** `(module $m (func $f) (@custom "name" "hand-written"))` assembled to 60 bytes with
+TWO `name` sections, the hand-written 12 B and a generated 10 B. wasm-tools 1.262, wasmrt 2.0.0 and
+binaryang 2.2.0 all emit 43 bytes with only the hand-written one, whatever the annotation's anchor
+and however many there are. A section with another name (`"names"`) is not it, and still gets the
+generated one beside it, on all four.
+
+**How it hid:** it was RIGHT when written. On 2026-09-21 (`5f82c94bf`) wasm-tools 1.259 emitted both,
+and wazmrt matched it byte for byte. wasm-tools 1.262 changed. wasmrt adopted the new rule
+2026-10-23, so a `.wat` carrying the annotation pinned differently in the two runtimes, and the
+603/603 `.wat` pin parity (`interop.md` §3.1) could not show it: no file in wasmtk's corpus has the
+annotation. binaryang and wasmrt each re-ran I8 on 1.262 and named wazmrt's re-run as the one
+outstanding. 🎓 *An agreement with an oracle is dated by the oracle's version.*
+
+**The fix** (`852ff84`, lib +34 B by attribution): `assembleModule` skips its generated section when the text wrote a
+`@custom "name"`. A unit test holds wasm-tools 1.262's bytes for one and two annotations, and that
+`"names"` keeps the generated one. Probe: `probes/four-assemblers.ts` on `probes/h8-fixtures/`, now
+equal to wasm-tools on both.
+
+---
+
 ## ✅ FIXED 2026-10-24 — a table INITIALIZER was accepted with function-references off (found by wasmrt)
 
 **What it was:** `(table 1 funcref (ref.null func))` (binary `0x40 0x00 tt e`) validated on wazmrt
