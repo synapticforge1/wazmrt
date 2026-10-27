@@ -1872,10 +1872,12 @@ Replaying `v2.0.0` through them shows exactly the five removals. — 2026-10-24,
 
 ## 7. ★ The workspace's convergent rules — ADOPTED 2026-10-23 (letter H6)
 
-🔒 **Copied VERBATIM on 2026-10-23 from `../../cmem/best-practices.md`** (workspace letter H6: "the ★
-rules block copied into your `best-practices.md` under a dated stamp"). **Re-copied whole
-2026-10-24** (letter H24: canonical rule 5.2 names the drive's FILESYSTEM, not its letter); the
-re-extraction differed from the 2026-10-23 copy in rule 5.2 alone. **★ = convergent**: two or more
+🔒 **Copied from synapticforge1/cmem/best-practices.md on 2026-10-27** (the canonical stamp, letter
+H27; the workspace file is `../../cmem/best-practices.md` from here). First copied verbatim
+2026-10-23 (letter H6: "the ★ rules block copied into your `best-practices.md` under a dated
+stamp"); re-copied 2026-10-24 (letter H24: canonical rule 5.2 names the drive's FILESYSTEM, not its
+letter); re-copied 2026-10-27 (ledger C8: canonical 6.1 cites binaryang's public id `8d9ba0cb9`) —
+text check (number + normalized text) 28 = 28, 1 difference before (6.1), 0 after. **★ = convergent**: two or more
 repos derived the rule without reading each other, and both origin stories are the evidence. The tags
 (`[wazmrt]`, `[binaryang + wasmrt]`, …) and the section numbers are the WORKSPACE's; the incidents they
 cite live in the sibling named. ⚠️ **This copy is not edited here.** The workspace file is the authority:
@@ -1971,7 +1973,7 @@ when it changes, the block is re-copied whole under a new date, never patched li
 
 - **6.1 ★ A written result is a CLAIM: a commit message, a status line, a doc of a safety guard, a
   contract row verified by reading. Compare it to the artifact; put a pin where the tool enforces
-  it.** `b8fafaa3f` said "pin to 132" and left 116; prose has no failure mode. [binaryang + wabt-ts + wasmrt]
+  it.** `8d9ba0cb9` (was `b8fafaa3f` before binaryang's 2026-10-23 purge; corrected here 2026-10-26, ledger C8) said "pin to 132" and left 116; prose has no failure mode. [binaryang + wabt-ts + wasmrt]
 - **6.2 ★ Write down the thing you only said out loud; write the negatives (what was varied, what
   held fixed), the calibration, and what you did NOT check; distinguish clean / measured /
   UNMEASURED.** Knowledge that exists only in a conversation is operationally identical to

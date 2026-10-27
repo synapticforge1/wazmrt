@@ -72,7 +72,7 @@ toolchains drop the same way.
 ## External conformance corpora (owner-designated 2026-07-02)
 
 The designated real-world test inputs live in the sibling **wasmtk** project under
-`…/wasmExamples/wasmtk/tests/`. They are **outside this repo** (not copied in) — reference by path.
+`../wasmtk/tests/` (sibling-relative from the repo root; letter H27). They are **outside this repo** (not copied in) — reference by path.
 Reorganized layout confirmed by the owner **2026-07-02**:
 
 ```text

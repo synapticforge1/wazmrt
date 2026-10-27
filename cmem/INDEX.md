@@ -1,8 +1,10 @@
 # cmem — Portable Project Memory for wazmrt
 
-> **At session start, read `../../cmem/handoffs.md` for letters addressed to this repo.** The workspace
-> session (`../../cmem/INDEX.md`) reviews across the sibling repos and reports there; nothing is ever
-> written into this repo from outside. (owner directive, 2026-09-20)
+> **At session start, and before each new work item, read `../../cmem/workspace-correspondence.md`**
+> (every row whose "to" names wazmrt or whose subject touches the change; 🔒 owner, 2026-10-26), then
+> the letter it points to in `../../cmem/handoffs.md`. Handle or record a conflicting open row first;
+> only an item's creator closes it. Nothing is ever written into this repo from outside (owner,
+> 2026-09-20).
 >
 > 🔤 **ID namespace (owner, 2026-09-21):** a bare `H<n>` means a WORKSPACE LETTER; wazmrt's own
 > Track H items are `zH1`–`zH8` (renamed in `da4e558cf` — the two had collided).
@@ -109,14 +111,15 @@ passes is a regression). Surface anything risky or ambiguous rather than fixing 
 
 The editing boundary (`interop.md` §1a, absolute) · prove or validate before acting · tooling (Bun
 for committed scripts, one-time scripts relaxed, no heredocs; scratch work lives in [`probes/`](probes/README.md)) · LF
-line endings everywhere · building and testing from the exFAT `D:` drive.
+line endings everywhere · records (no secrets or personal information public) · building and testing
+from the exFAT `D:` drive.
 
 ## Files
 
 | File | What it holds |
 | --- | --- |
 | [open-work.md](open-work.md) | 🎯 **Start here for state.** The ONE list of what is outstanding, and the only status line. |
-| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, building and testing from the exFAT `D:` drive. |
+| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, records (privacy), building and testing from the exFAT `D:` drive. |
 | [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; the 2026-10-23 history rewrite. (The live artifact sizes are in `tools/size-ceilings.txt`, the one place.) |
 | [vision.md](vision.md) | The goal: a fast, small, embeddable WebAssembly runtime, itself wasm-compilable. |
 | [architecture.md](architecture.md) | The decode → validate → instantiate → execute pipeline, module layout, the libc-free core, the C ABI and freestanding targets. |
@@ -126,7 +129,7 @@ line endings everywhere · building and testing from the exFAT `D:` drive.
 | [roadmap.md](roadmap.md) | The tracks (H ✅, B ✅, O, S), their items and gates; **milestone summaries** with commits at the top. |
 | [testing.md](testing.md) | How to run every gate, what each can see, and **the dated counts** (the one place they are recorded). |
 | [known-issues.md](known-issues.md) | The defect log: fixed-with-root-cause and deferred-with-surfacing-condition. |
-| [releasing.md](releasing.md) | The version (`1.0.3`, tagged `v1.0.1`–`v1.0.3`), SemVer and the compatibility gate (`zig build surface`, with S1/S2 behaviour carried forward), what counts as breaking, the binding per-release checklist. |
+| [releasing.md](releasing.md) | The version (the one place it is recorded), SemVer and the compatibility gate (`zig build surface`, with S1/S2 behaviour carried forward), what counts as breaking, the binding per-release checklist. |
 | [best-practices.md](best-practices.md) | METHOD rules, one bold rule + the incident that paid for it. |
 | [text-toolchain.md](text-toolchain.md) | The `.wat`/`.wast` assembler and script runner: spellings accepted, encoding decisions. |
 | [licensing.md](licensing.md) | Why `MIT OR Apache-2.0`, the zero-dependency verification, the reference-code obligations. |

@@ -45,7 +45,7 @@ security fixes, with README Breaking Changes rows (`releasing.md`).
 `memory64`. That is accepting less, so it took the gate's MAJOR floor, the first major the gate set
 (`releasing.md`). `1.0.4` shipped earlier the same day. Its number is the gate's patch floor, and it carries the two wrong-trap
 fixes ([`releasing.md`](releasing.md)). Every release from `v1.0.1` to `v5.0.0` is tagged on
-`synapticforge1/wazmrt`. Contract: `interop.md` **v41** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule; v40 corrects v39 for the table initializer; v41 records I8 and that every version through v40 is mirrored); wasmrt's copy was identical at v40 (SHA-256, 2026-10-26), and v41 is PENDING MIRROR. The counts are in
+`synapticforge1/wazmrt`. Contract: `interop.md` **v41** (v33 ended lockstep; v35 refreshed the stale wasmrt cells and decided §5 #13/#14; v36 records #13 met on both; v37 is D2's `--features`; v38 records it AGREED on both; v39 is D2 2.2.0's type rule; v40 corrects v39 for the table initializer; v41 records I8 and that every version through v40 is mirrored); wasmrt's copy was identical at v40 (SHA-256, 2026-10-26), and ✅ **at v41**: wasmrt `36091ab` (on its `origin/main`) has the same SHA-256 as wazmrt `0edbc5c` (checked 2026-10-27; ledger C7 closed). The counts are in
 [`testing.md`](testing.md) and the sizes in `tools/size-ceilings.txt`, one place each; what landed
 is in [`roadmap.md`](roadmap.md)'s milestone table.
 
@@ -282,8 +282,20 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 ## 📬 Workspace letters
 
 **Every letter addressed to wazmrt is done on wazmrt's side** (2026-10-24, H24 included: the ★
-block re-copied, `462e0e8`). The summaries, with their commits, are in [`roadmap.md`](roadmap.md)'s
-milestone table. Two remnants:
+block re-copied, `462e0e8`; 2026-10-27, H27 + C8: ★ block re-stamped with the canonical
+`synapticforge1` wording and 6.1 re-copied, text check 28 = 28 / 0 differences, and `testing.md`'s
+old-folder path made sibling-relative; H28 recorded in `working-rules.md` § Records; the pointer
+now reads `../../cmem/workspace-correspondence.md` first). The summaries, with their commits, are
+in [`roadmap.md`](roadmap.md)'s milestone table. Before each new work item, read the ledger's rows
+for wazmrt (INDEX). Remnants:
+
+- **Size gate, reported by wasmrt (ledger C7 answer, 2026-10-27)**: a scratch ReleaseSmall build
+  of `0edbc5c` from a `git archive` failed `wazmrt.lib` by +116 bytes over its ceiling. Measured
+  here 2026-10-27 (`zig build size -Doptimize=ReleaseSmall`, same `src/`, in the repo): all three
+  EXACT at ceiling, delta 0. Only the `.lib` moved and only from another directory, so the
+  HYPOTHESIS is that the static library records the build location (archive member / object
+  paths) — which would make the `.lib` ceiling depend on where the tree sits. UNMEASURED: build the
+  same tree from two directories of different path length and compare the `.lib` sizes.
 
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
   is DONE on wazmrt's side: D2 2.2.0's `typeRules` closed the 22-case type-rule gap (contract v39;

@@ -175,6 +175,28 @@ Track B-c2 spent a day closing.
 [`best-practices.md`](best-practices.md) §6.
 
 
+## 🔒 RECORDS — no secrets or personal information are ever made public (owner, 2026-10-22)
+
+The rule is the workspace's, `../../cmem/working-rules.md` § Records; it is not restated here. What
+it means in this repo:
+
+- **Nothing machine-specific in a committed file, commit message, issue or release** — no user
+  profile, project-drive location, scoop/AppData install or scratchpad path. Use repo-relative or
+  sibling-relative paths (`../wasmtk/…`) or placeholders; the real paths live in the gitignored
+  `cmem/local/environment.md`. A convention path is fine (the test is "machine-specific?" — see the
+  exFAT section below).
+- **The maintainer address** (🔒 owner, 2026-10-26, letter H28): allowed as the git commit
+  author/committer and in ONE committed `cmem/` note that names the maintainer contact — wazmrt
+  keeps none today and needs none. Nowhere else; never repeated in memory (call it "the maintainer
+  address").
+- **Scan before committing memory**, text AND binaries (`-I` skips a `.wasm` carrying DWARF paths):
+  `git grep -I -n -i -E '[A-Za-z]:[\\/]+(Programs|Users|scoop|tools)[\\/]|/[a-z]/(Programs|Users)/'`,
+  then the same with `-a -l`. Each hit is judged by the test above. Clean on 2026-10-27.
+- **The retired predecessors** (wabt-ts, binaryen-ts — 🔒 owner, 2026-10-26, H28) are never cited
+  as a live location (`../wabt-ts/…`); their memory is binaryang's `cmem/wabt-ts.md` /
+  `cmem/binaryen-ts.md`. None cited here (`git grep`, 2026-10-27).
+
+
 ## 🏗️ BUILDING AND TESTING FROM THE `D:` DRIVE (exFAT)
 
 **Set the zig LOCAL CACHE to an NTFS path and build normally from this repo's own cwd:**
