@@ -304,6 +304,12 @@ now reads `../../cmem/workspace-correspondence.md` first). The summaries, with t
 in [`roadmap.md`](roadmap.md)'s milestone table. Before each new work item, read the ledger's rows
 for wazmrt (INDEX). Remnants:
 
+- ✅ **C26 — wazmrt's part CLOSED 2026-11-05** (owner: "then your part is closed"). binaryang's second
+  history rewrite: the two ids wazmrt quoted are translated in this file, `c5ab570c3` (was
+  `fa00de253`) and `3a2b4e475` (was `4a829d216`), in `cb7e7c4`; none of the C26 table's 28 old ids
+  is left in wazmrt. The ledger ROW stays open for wasmtk's part, and binaryang (its creator)
+  closes it; nothing further is owed from here.
+
 - **Size gate, reported by wasmrt (ledger C7 answer, 2026-10-27)**: a scratch ReleaseSmall build
   of `0edbc5c` from a `git archive` failed `wazmrt.lib` by +116 bytes over its ceiling. Measured
   here 2026-10-27 (`zig build size -Doptimize=ReleaseSmall`, same `src/`, in the repo): all three
