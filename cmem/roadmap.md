@@ -9,6 +9,7 @@ names its commits and the file that now holds the substance; the full text as it
 
 | date | what landed | commits | substance now in |
 | --- | --- | --- | --- |
+| 2026-10-27 | **The four exFAT symlink skips closed** (owner: "make the change and see if we can clear it"): the two sandbox tests scratch in the OS temp dir (`osTmpDir`), as wasmrt's always did, not the CWD's `.zig-cache/tmp`. From `D:`: `test` 842/842, 0 skipped; `test-security` 3/3. Unreleased | the commit that adds `osTmpDir` | `testing.md`, `working-rules.md`, `known-issues.md` |
 | 2026-10-26 | **Workspace I8 re-run on wasm-tools 1.262** (owner: "fix the items for wazmrt"): a `(@custom "name" …)` is the only `name` section, as wasm-tools 1.262, wasmrt and binaryang emit; wazmrt had matched 1.259's two. Unit test inverted; full gate green; lib +34 B. Contract v41 records it and that wasmrt mirrored v40. Unreleased | `852ff84` | `known-issues.md`, `interop.md` v41 |
 | 2026-10-24 | 🔖 **Release `5.0.0`** (owner: "bump to 5.0.0 and push"): a table initializer needs function-references and its expression is walked (found by wasmrt); `table-init.wat` joined S1 at the released behaviour first, so the gate saw S1 −30, MAJOR; the D2 matrix at 2,401 / 0 against binaryang and wasmrt; the full checklist ran | `4aa4e15`, `bd97ae2`, the release commit | `releasing.md`, `known-issues.md`, `interop.md` v40 |
 | 2026-10-24 | 🔖 **Release `4.0.1`** (owner: "fix the issues", then "yes"): two validator defects from wasmrt's fuzz (const-expr depth > 8 refused; element flags > 7 accepted), each with an inverted test; the four-tool probe agrees; the gate's patch floor; the full checklist ran | `b919ef2`, the release commit | `releasing.md`, `known-issues.md` |
@@ -1368,9 +1369,10 @@ C-ABI handle; **resource ceilings honoured on every allocation path** (shared wi
   path needs a check that survives it — zH1 is the inventory, S is the judgement.
 - ⚠️ **Unbounded execution (zH3).** If zH3 decided "the embedder must bound it", S records that as an
   accepted risk **with the mitigation an embedder is expected to implement**, not as a silent gap.
-- **The WASI sandbox.** `test-security` must be **3/3 from an NTFS cwd** — ⚠️ **a SKIP here is a
-  FAILURE**, and this is exactly the track where a self-skipping escape test is worthless. Do not accept
-  a `D:`-cwd run's numbers as evidence about the sandbox; they are evidence about the filesystem.
+- **The WASI sandbox.** `test-security` must be **3/3** — ⚠️ **a SKIP here is a
+  FAILURE**, and this is exactly the track where a self-skipping escape test is worthless. Since
+  2026-10-27 the fixtures live in the OS temp dir, so a `D:`-cwd run counts; a skip is evidence about
+  the temp dir's filesystem, never about the sandbox.
 - **The verification path** (`pin.zig`, `sign.zig`). The TOCTOU window is closed by construction — the
   gate hashes the **in-memory buffer it runs** and never re-reads the file. Confirm that property still
   holds at every call site, and check what happens on the paths that **skip** verification.
@@ -2206,6 +2208,8 @@ before and after. **A conformance number says nothing about a surface the corpus
 symlinks, and the sandbox-escape tests plant symlink fixtures under the cwd's `.zig-cache/tmp`. That is
 what the step's "run from an NTFS cwd" note means. Verified by running the same test binary from a `C:`
 cwd — 3/3 OK. Do not read those two failures as a regression; do not "fix" them in `wasi.zig`.
+*(Closed 2026-10-27 by moving the fixtures to the OS temp dir, not by touching the resolver; 3/3 from
+`D:` now — `known-issues.md`.)*
 
 ⚠️ **2,637 assertions are still SKIPPED and that is not a pass.** (2,655 before R1 → 2,649 after it
 → 2,637 after R2; both times the recovered assertions were ones no longer suppressed by a module that

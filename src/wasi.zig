@@ -2097,10 +2097,10 @@ test "resolve contains guest paths inside the preopen" {
 /// test`?
 ///
 /// ⚠️ **Why this exists.** The sandbox-escape tests below skip when the harness cannot create a
-/// symlink. On the dev machine that is NOT a privilege problem (Developer Mode is on): `testing.tmpDir`
-/// puts its scratch under `.zig-cache/tmp` relative to the CWD, and the D: drive is **exFAT** — no
-/// reparse points, so the call returns INVALID_DEVICE_REQUEST. From an NTFS cwd the suite is 493/493
-/// with zero skips. That skip is honest (with
+/// symlink. Until 2026-10-27 that happened on every run from the exFAT D: drive, because
+/// `testing.tmpDir` scratched under the CWD's `.zig-cache/tmp`; they now scratch in the OS temp dir
+/// (`osTmpDir`) and run from any cwd. The skip remains for a host that truly cannot make a link
+/// (no privilege, a temp dir on a link-less filesystem). That skip is honest (with
 /// no link there is nothing to traverse) but it is **not** a pass: it fires during *fixture setup*,
 /// before a single assertion runs, so nothing was refused by wazmrt — the OS refused the test. Folded
 /// into a "489/493, 4 skipped" summary, an unverified sandbox is indistinguishable from a verified one.
@@ -2124,6 +2124,40 @@ fn securityStrict() bool {
 /// which for a security gate is a failure, not an absence.
 const CannotVerifySandbox = error.SymlinkUnavailable_CannotVerifySandbox;
 
+/// `std.testing.tmpDir`, but rooted in the **OS temp dir** (`%TEMP%`, `$TMPDIR`, else `/tmp`)
+/// instead of `.zig-cache/tmp` under the CWD.
+///
+/// ⚠️ **Why (2026-10-27).** The CWD is wherever the repo lives, and on the dev machine that is the
+/// exFAT `D:` drive, which cannot hold a symlink, so the two sandbox tests skipped from there (the
+/// "4 skipped" in every `zig build test` from `D:`). wasmrt never saw it because its tests scratch
+/// under `std::env::temp_dir()`, which is NTFS `C:`. Same fix here: the fixture's filesystem is the
+/// OS temp dir's, not the repo's. Falls back to the stock `tmpDir` if the temp dir cannot be had,
+/// so the skip (or, under the security gate, the failure) still reports an unusable host honestly.
+fn osTmpDir(opts: Io.Dir.OpenOptions) std.testing.TmpDir {
+    const gpa = std.testing.allocator;
+    const tio = std.testing.io;
+    const windows = @import("builtin").os.tag == .windows;
+    const base = std.testing.environ.getAlloc(gpa, if (windows) "TEMP" else "TMPDIR") catch blk: {
+        if (windows) return std.testing.tmpDir(opts);
+        break :blk gpa.dupe(u8, "/tmp") catch return std.testing.tmpDir(opts);
+    };
+    defer gpa.free(base);
+
+    var temp = Io.Dir.cwd().openDir(tio, base, .{}) catch return std.testing.tmpDir(opts);
+    defer temp.close(tio);
+    const parent_dir = temp.createDirPathOpen(tio, "wazmrt-test", .{}) catch return std.testing.tmpDir(opts);
+
+    var tmp: std.testing.TmpDir = .{ .dir = undefined, .parent_dir = parent_dir, .sub_path = undefined };
+    var random_bytes: [12]u8 = undefined;
+    tio.random(&random_bytes);
+    _ = std.base64.url_safe.Encoder.encode(&tmp.sub_path, &random_bytes);
+    tmp.dir = parent_dir.createDirPathOpen(tio, &tmp.sub_path, .{ .open_options = opts }) catch {
+        parent_dir.close(tio);
+        return std.testing.tmpDir(opts);
+    };
+    return tmp;
+}
+
 test "symlink traversal: in-sandbox links follow, escaping links refused (#17/4.3)" {
     // The real-filesystem resolver test. Full traversal (4.3): an in-sandbox
     // symlink is FOLLOWED; a symlink whose target leaves the preopen is REFUSED
@@ -2131,10 +2165,11 @@ test "symlink traversal: in-sandbox links follow, escaping links refused (#17/4.
     // needs privilege on Windows (Zig std uses raw FSCTL_SET_REPARSE_POINT), so
     // this SKIPS on an unprivileged Windows box; it runs on POSIX CI. The
     // Windows path is covered manually by `examples/wasi_symlink_traversal.zig`.
+    // Scratch is in the OS temp dir, not the CWD's filesystem (see `osTmpDir`).
     const gpa = std.testing.allocator;
     const tio = std.testing.io;
 
-    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    var tmp = osTmpDir(.{ .iterate = true });
     defer tmp.cleanup();
 
     // tmp/outside/secret.txt is OUTSIDE the preopen; tmp/pre is the preopen.
@@ -2223,7 +2258,7 @@ test "symlink resolver fuzz: no adversarial topology reaches outside the preopen
     const gpa = std.testing.allocator;
     const tio = std.testing.io;
 
-    var tmp = std.testing.tmpDir(.{ .iterate = true });
+    var tmp = osTmpDir(.{ .iterate = true }); // OS temp dir, not the CWD's filesystem
     defer tmp.cleanup();
     try tmp.dir.createDir(tio, "outside", .default_dir);
     try tmp.dir.createDir(tio, "pre", .default_dir);

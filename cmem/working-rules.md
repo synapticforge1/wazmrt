@@ -214,18 +214,17 @@ EXACT), `test` and `test-safe` (633 tests), `features` — all green, repeatedly
 **No tree copy is needed any more.**
 
 
-### `test-security` needs an NTFS **cwd**
+### `test-security` and the symlink tests run from `D:` (since 2026-10-27)
 
-`std.testing.tmpDir` scratches under `.zig-cache/tmp` **relative to the CWD**, which is *not* the
-configured cache dir — so redirecting the cache does **not** help it. From D: the suite reads
-**754/758 (4 skipped)** and `test-security` **1 pass / 2 fail**; from an NTFS cwd it is **758/758**
-and `test-security` 3/3. That is an exFAT property (no reparse points), not a defect:
+*Was: "`test-security` needs an NTFS cwd".* `std.testing.tmpDir` scratches under `.zig-cache/tmp`
+**relative to the CWD**, which exFAT cannot give symlinks, so from `D:` the suite read **N/N+4 (4
+skipped)** and `test-security` **1 pass / 2 fail**. The two symlink tests in `src/wasi.zig` now
+scratch in the **OS temp dir** (`osTmpDir`: `%TEMP%`, NTFS `C:`), as wasmrt's tests always have
+(`std::env::temp_dir()`). Measured 2026-10-27 from the `D:` cwd: **`test` 842/842, 0 skipped;
+`test-security` 3/3.** No NTFS-cwd run is needed any more.
 
-```
-cd C:\ntfs\dir && zig build --build-file D:\…\wazmrt\build.zig test-security
-```
-
-⚠️ **Quote NTFS numbers.** A D:-cwd run's skips are evidence about the FILESYSTEM, not the sandbox.
+⚠️ **A skip there is still evidence about the FILESYSTEM, not the sandbox** — now the temp dir's. If
+one ever comes back, check where `%TEMP%` points before reading anything else into it.
 
 ---
 

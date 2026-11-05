@@ -113,9 +113,11 @@ while real runs rose 225 — the second number is the size of the item. — R3, 
 not the code.** Chained builds race the cache lock; a `D:` cache dir fails outright (use
 `--cache-dir`/`--global-cache-dir` on `C:`). — Windows gotchas, `design-decisions.md`
 
-**`D:` is exFAT.** It has no symlinks, so `zig build test-security` cannot pass from this repo's own
-cwd — that is what the step's "run from an NTFS cwd" note means. Verify from a `C:` cwd before reading
-those failures as a regression. — R1, `roadmap.md`
+**`D:` is exFAT.** It has no symlinks, so `zig build test-security` could not pass from this repo's own
+cwd while its fixtures lived under the cwd's `.zig-cache/tmp`. Verify from a `C:` cwd before reading
+those failures as a regression. — R1, `roadmap.md`. **2026-10-27: a test fixture belongs on the
+filesystem the test NEEDS, not the one the repo happens to sit on** — the symlink tests moved to the
+OS temp dir (`osTmpDir`) and the skips were gone; wasmrt had done this from the start.
 
 ## 2. Investigating a defect
 

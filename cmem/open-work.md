@@ -80,6 +80,21 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
+- 🔜 **Migrate to Zig 0.17.0** (owner, 2026-10-27: "I am going to install zig 0.17.0 and we will
+  migrate this project to that version"). **Waiting on the owner to say 0.17.0 is installed; do not
+  start before then.** ⚠️ Measured 2026-11-05: the host's `zig` is already **0.17.1** (not 0.17.0)
+  and 0.16.0 is no longer installed, so the project's own version can no longer be built here; the
+  owner has not yet said "go". The 2026-10-27 skip fix was committed with `test-safe` /
+  `test-shipped` never re-run on 0.16.0 (owner's call) — the migration's gate measures them. The
+  project is on 0.16.0: `build.zig.zon` `.minimum_zig_version`, README
+  ("Requires Zig 0.16"), `overview.md`'s layout line. Places that know std internals and are the
+  likeliest to break: `securityStrict` (`std.testing.environ`) and `osTmpDir`, which builds a
+  `std.testing.TmpDir` by its fields (`src/wasi.zig`); the `std.Io` / `Io.Dir` calls throughout.
+  Done means the full release gate green on 0.17.0 (`releasing.md` → PER-RELEASE CHECKLIST: `test`,
+  `test-safe`, `test-shipped`, `test-security`, conformance, `features`, `capi-smoke`, `size`), with
+  size ceilings re-measured, not assumed. Whether it ships as a release, and which bump, is the
+  owner's call.
+
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
   bytes:

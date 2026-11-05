@@ -541,9 +541,9 @@ as long as nobody acted on the note directly underneath it.)*
 ## ✅ PER-RELEASE CHECKLIST (binding)
 
 Every gate below already exists as a build step; this list adds no machinery, it only says which gates a
-version bump requires. ⚠️ **Run from an NTFS cwd with `ZIG_LOCAL_CACHE_DIR` on NTFS** — a `D:` cache is
-poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the 3 security tests
-(`INDEX.md`).
+version bump requires. ⚠️ **Run with `ZIG_LOCAL_CACHE_DIR` on NTFS** — a `D:` cache is poisoned after
+exactly one build. A `D:` cwd is fine since 2026-10-27 (it used to cost 4 unit tests and 2 of the 3
+security tests; the symlink fixtures now live in the OS temp dir — `working-rules.md`).
 
 1. **The track's own gate passes**, as written for that track in `roadmap.md`.
 2. **`zig build test`, `zig build test-safe` and `zig build test-shipped`** — all three, and **diff the
@@ -552,7 +552,7 @@ poisoned after exactly one build, and a `D:` cwd costs 4 unit tests and 2 of the
    config that is actually distributed, with Zig's safety checks **off**. `test-safe` asks whether any
    input reaches a bad cast or index; `test-shipped` asks whether the **shipped** build behaves the
    same, and a miscompile or optimizer-exposed UB appears there and nowhere else.
-3. **`zig build test-security`** — 3/3. A **skip here is a failure**, which is what the NTFS cwd buys.
+3. **`zig build test-security`** — 3/3. A **skip here is a failure** (`WAZMRT_SECURITY_STRICT=1`).
 4. **`zig build conformance -Dtestsuite=… -Dbaseline=…`** — and read **four** numbers: passed, failed,
    skipped, **and the count of files with failures or errors**. 🔒 **The baseline file is EMPTY and stays
    empty.** A line added there to make a release green is the failure mode that file invites.

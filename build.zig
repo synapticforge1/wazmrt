@@ -448,13 +448,11 @@ pub fn build(b: *std.Build) void {
     }
 
     // ---- Security gate (`zig build test-security`) -------------------------
-    // The sandbox-escape tests SKIP when the harness cannot create a symlink. ⚠️ On the dev machine
-    // that is NOT a privilege problem — Developer Mode is on. `std.testing.tmpDir` puts its scratch
-    // under `.zig-cache/tmp` **relative to the CWD**, and the D: drive is **exFAT**, which has no
-    // reparse points, so FSCTL_SET_REPARSE_POINT returns INVALID_DEVICE_REQUEST. Run from an NTFS cwd
-    // and the whole suite is **493/493 with ZERO skips**. Inside `zig build test` that skip disappears
-    // into "489/493, 4 skipped" — and an UNVERIFIED sandbox then looks exactly like a verified one.
-    // Removing that ambiguity is the entire point of this step.
+    // The sandbox-escape tests SKIP when the harness cannot create a symlink. Inside `zig build test`
+    // that skip disappears into "N/N+4, 4 skipped" — and an UNVERIFIED sandbox then looks exactly like
+    // a verified one. Removing that ambiguity is the entire point of this step.
+    // 🆕 2026-10-27: the fixtures scratch in the OS temp dir (`osTmpDir` in `src/wasi.zig`), not the
+    // CWD's `.zig-cache/tmp`, so the exFAT D: drive no longer costs the symlinks: 3/3 from any cwd.
     //
     // `WAZMRT_SECURITY_STRICT=1` makes those same tests FAIL instead of skipping, so this step goes
     // red on a box that cannot verify the sandbox. Deliberately separate: the default `test` stays
@@ -474,7 +472,7 @@ pub fn build(b: *std.Build) void {
         const run_sec = b.addRunArtifact(sec_tests);
         run_sec.setEnvironmentVariable("WAZMRT_SECURITY_STRICT", "1");
         run_sec.has_side_effects = true; // always re-run: a cached pass proves nothing about today
-        const sec_step = b.step("test-security", "Sandbox-escape tests, where a SKIP is a FAILURE (run from an NTFS cwd)");
+        const sec_step = b.step("test-security", "Sandbox-escape tests, where a SKIP is a FAILURE");
         sec_step.dependOn(&run_sec.step);
     }
 

@@ -856,10 +856,12 @@ verdict was served to an unrelated later link — 32 import assertions flipped. 
 because `imports.wast` regressed 5 → 21; every file R1 was aimed at improved either way.** A win in the
 target files is not evidence the change is correct — diff the WHOLE per-file summary, every run.
 
-⚠️ **`zig build test-security` cannot pass from this repo's cwd.** `D:` is **exFAT**, which has no
+✅ **CLOSED 2026-10-27 — `zig build test-security` cannot pass from this repo's cwd.** `D:` is **exFAT**, which has no
 symlinks, and those tests plant symlink fixtures under the cwd's `.zig-cache/tmp` — hence the step's
 "run from an NTFS cwd" note. Verified by running the same test binary from a `C:` cwd: 3/3 OK. **Not a
-regression, and not something to "fix" in `wasi.zig`.**
+regression, and not something to "fix" in `wasi.zig`'s resolver.** *(Closed by moving the FIXTURE, not
+the resolver: the two tests scratch in the OS temp dir via `osTmpDir`, as wasmrt's tests always did with
+`std::env::temp_dir()`. From `D:`: `test` 842/842, 0 skipped; `test-security` 3/3.)*
 
 ⚠️ **THE SAME DEFECT WAS IN THE SHIPPED C ABI, AND ALMOST GOT WRITTEN OFF.** `capi.zig`'s
 `define_instance` path — one guest module's import bound to another's export — compared the two
