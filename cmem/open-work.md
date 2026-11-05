@@ -166,7 +166,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   (The earlier note that binaryang lacked `0xfb 20`–`26` is stale: D1 has them.)
   - ✅ **The opcode follow-up, steps 1, 2 and 4 — DONE 2026-10-24** (owner: "yes go ahead" to the
     plan, once binaryang's opcode work and FL1 were done):
-    - step 1: `src/definitions.zig` regenerated from binaryang main `fa00de253` (D1 1.0.1, D2
+    - step 1: `src/definitions.zig` regenerated from binaryang main `c5ab570c3` (was `fa00de253`) (D1 1.0.1, D2
       2.1.0), `ef74a0a`;
     - step 2 + 4: **`--features` takes D2's names AND meanings** (decided 2026-10-23, shape
       answers 0–2 kept). The record is `interop.md` v37 and the README's _next release_ rows. A test
@@ -209,7 +209,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
     - `(ref any)` is gc's.
     - The D3 shared-memory class: **DECLINED** (binaryang, 2026-10-24). See the D3 bullet below.
 
-    ⏳ **wazmrt's side, re-measured against binaryang `main` `4a829d216`: 22 of 2,352 differ, all
+    ⏳ **wazmrt's side, re-measured against binaryang `main` `3a2b4e475` (was `4a829d216`): 22 of 2,352 differ, all
     wazmrt ACCEPTING what D2's `typeRules` refuse.** Three gaps in `valTypeNeeds` and the gc
     grant:
     - the GC types (`any` `eq` `i31` struct array, the bottoms) need reference-types AND gc, and
