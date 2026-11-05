@@ -4,9 +4,19 @@
 status narrative exists once"). Only open items; each points at its record. Done work leaves this file
 and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
-## 🏁 Status — 2026-10-26
+## 🏁 Status — 2026-11-05
 
-**On `main`, unreleased (2026-10-26, owner: "fix the items for wazmrt")**: workspace I8 re-run on
+**On `main`, unreleased, pushed (`origin/main` = `b4f54a7`):**
+- **The four exFAT symlink skips are closed** (`46068fa`, 2026-10-27): the two sandbox tests
+  scratch in the OS temp dir, so `test` is 842/842 with 0 skipped and `test-security` 3/3 from
+  the `D:` cwd (`testing.md`). `test-safe` / `test-shipped` were not re-run on 0.16.0 before it
+  left the host.
+- **Ledger C26, wazmrt's part closed** (`cb7e7c4`, `b4f54a7`): binaryang's rewritten ids
+  translated (§ Workspace letters below).
+- **The host's Zig is 0.17.1** (owner, 2026-11-05); the project still targets 0.16.0. The
+  migration waits for the owner (§ Waiting).
+
+**Also on `main`, unreleased (2026-10-26, owner: "fix the items for wazmrt")**: workspace I8 re-run on
 wasm-tools 1.262. A `(@custom "name" …)` is now the only `name` section, as wasm-tools 1.262,
 wasmrt and binaryang emit (`852ff84`, `known-issues.md`); before, wazmrt also wrote a generated one,
 as 1.259 had. It changes `wat` output and `.wat` pins only for text carrying that annotation, and
@@ -80,11 +90,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- 🔜 **Migrate to Zig 0.17.0** (owner, 2026-10-27: "I am going to install zig 0.17.0 and we will
-  migrate this project to that version"). **Waiting on the owner to say 0.17.0 is installed; do not
-  start before then.** ⚠️ Measured 2026-11-05: the host's `zig` is already **0.17.1** (not 0.17.0)
-  and 0.16.0 is no longer installed, so the project's own version can no longer be built here; the
-  owner has not yet said "go". The 2026-10-27 skip fix was committed with `test-safe` /
+- 🔜 **Migrate to Zig 0.17.1** (owner, 2026-10-27: "I am going to install zig 0.17.0 and we will
+  migrate this project to that version"; 2026-11-05: "The version is 0.17.1 now. We will start
+  that later."). **Installed; waiting on the owner to say start — do not begin before then.**
+  0.16.0 is no longer installed, so the project's own version can no longer be built here. The 2026-10-27 skip fix was committed with `test-safe` /
   `test-shipped` never re-run on 0.16.0 (owner's call) — the migration's gate measures them. The
   project is on 0.16.0: `build.zig.zon` `.minimum_zig_version`, README
   ("Requires Zig 0.16"), `overview.md`'s layout line. Places that know std internals and are the
