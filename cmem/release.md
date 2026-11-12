@@ -10,31 +10,49 @@
 The workspace's `../../cmem/release-process.md` § 5 gives every project twelve slots, in the owner's
 order (D1, 2026-11-10): *"the CI to check first, then push the tag, and then create the release
 page from the tag, then publish the package to the registry"*. wazmrt's card is § 7 there.
-Measured here 2026-11-12, at `origin/main`:
+Built 2026-11-12, after the Zig 0.17.1 migration (owner: "Migrate, build CI, then release"):
 
-| slot | wazmrt today | to converge |
-| --- | --- | --- |
-| U1 the go and the level | ✅ the owner's, quoted in each record below | — |
-| U2 merge first; the bump its own commit, by the tooling | ❌ the bump is four hand edits (`releasing.md` → WHERE THE NUMBER LIVES) | a bump tool makes the commit |
-| U3 the bump tool | ⚠️ the floor exists — `zig build surface` (S1–S3) refuses a lower level — but no tool syncs the four places or refuses a dirty tree | a Bun bump tool: clean tree (untracked counted), surface floor, the four version lines |
-| U4 one guarded release script | ❌ none; the tag was made by hand | a Bun script that pushes `main` only and reads it back with `git ls-remote`; **no local tag, ever** |
-| U5 `checks` first, in CI | ❌ no CI | a workflow on the pushed `main`: `test`, `test-safe`, `test-shipped`, `test-security`, `features`, `capi-smoke`, `size`, `surface` in release mode |
-| U6 CI tags | ❌ | after a green U5, for a new version only |
-| U7 the Release page from the tag (letter H32) | ❌ 10 tags, 0 pages | REST API from a Bun step with `GITHUB_TOKEN`, no `gh` (rule 9); only new tags get pages (owner, no backfill) |
-| U8 publish | n/a — **wazmrt publishes to no registry**; consumers build from source | U8 reduces to U10's read-back done in CI |
-| U9 pins | n/a until a workflow exists | actions by commit hash, Zig and Bun 1.4.4 by version + sha256, per-tag never-cancelled concurrency |
-| U10 read back as a user | ⚠️ the checklist's standalone step: the exe in an empty directory, `PATH` cut, prints its version and runs a WASI module | the same, from a clean clone of the tag |
-| U11 record it | ✅ this file (2026-11-12) | — |
-| U12 failure | adopted: re-run failed jobs; never a new or moved tag for the same code | — |
+| slot | wazmrt |
+| --- | --- |
+| U1 the go and the level | ✅ the owner's, quoted in each record below; `bump.ts` takes the level as an argument, no default |
+| U2 merge first; the bump its own commit, by the tooling | ✅ `bun tools/release/bump.ts <patch\|minor\|major>` commits `bump to vX.Y.Z` on `main` |
+| U3 the bump tool | ✅ refuses a dirty tree (untracked counted) and any branch but `main`; moves the four places (each edit matching exactly once — `bump.test.ts` holds that against the tree); runs `zig build test`, whose surface gate refuses a level below the floor; restores the files on any failure |
+| U4 one guarded release script | ✅ `bun tools/release/push.ts [--dry-run]`: clean tree, on `main`, `origin/main` an ancestor, HEAD the bump commit, the tag absent locally and on origin, the gate green → pushes **`main` only**, read back with `ls-remote`. No local tag, ever |
+| U5 `checks` first, in CI | ✅ `.github/workflows/release.yml` on every push (a branch push is a rehearsal), one gate per step through `tools/release/gate.ts` (a failure publishes its error lines as public annotations): the release self-tests, `test` (surface inside), `test-safe`, `test-shipped`, `test-security`, `features` + `capi-smoke`, spec conformance with S2 (a sparse clone of wasmtk's corpus), `size`, the standalone exe; then "is this a release?" (the version has no tag) |
+| U6 CI tags | ✅ `tag` job (`contents: write` only): an annotated tag on the commit `checks` passed, via the REST API, read back (peels to it); a tag elsewhere is refused, never moved |
+| U7 the Release page from the tag (letter H32) | ✅ `release` job: the tag must peel to the checked commit (`POST /releases` would create a missing tag), an existing page is done, `generate_release_notes` with `release.md`'s summary on top, read back. No `gh`. Only new tags get pages (owner, no backfill) |
+| U8 publish | n/a — **wazmrt publishes to no registry**; consumers build from source. Reduced to U10 in CI |
+| U9 pins | ✅ no `uses:` at all; token-less `git` clones; Zig 0.17.1 and Bun 1.4.4 by version + sha256 (each hash from two sources); `permissions: {}` at the top; per-commit concurrency, never cancelled |
+| U10 read back as a user | ✅ `readback` job: a token-less clone of the TAG (must peel to the checked commit), `zig build -Doptimize=small`, `--version` and `hello_wasi.wat`; locally the checklist's standalone step stays |
+| U11 record it | ✅ this file |
+| U12 failure | ✅ every job is re-run safe (an existing tag or page is "done"): re-run failed jobs; never a new or moved tag for the same code |
 
-🗓️ **When (owner, 2026-11-12): U2–U9 are built right AFTER the Zig 0.17.1 migration**, so the CI's
-toolchain pin is set once, on the version the project then targets (`open-work.md`). No release
-is cut before that lands and is rehearsed (workspace best-practices 7.22: a changed release job is
-rehearsed before it lands, and lands before a release, never during one).
+**Rehearsed on the branch `ci-release` before landing** (workspace best-practices 7.22). Run
+`43281313456` failed in the suites with no readable cause (the log needs a sign-in) → each gate
+became its own step with public annotations; run `43291978894` then named it: the CLI-behaviour
+gate could not spawn a RELATIVE exe path from its case directory — a real defect that every local
+run hid, because this machine sets `ZIG_LOCAL_CACHE_DIR` to an absolute path (`known-issues.md`).
 
 ---
 
 ## Release History
+
+### `5.0.1` — 2026-11-12
+
+Patch (owner). Builds with Zig 0.17.1, which is now the minimum (it was 0.16.0): a consumer building from source on Zig 0.16 must move to 0.17.1. A `(@custom "name" …)` annotation is now the module's only `name` section, as wasm-tools 1.262, wasmrt and binaryang emit. `zig build test` now passes in a fresh clone (the CLI-behaviour gate failed to spawn the runtime unless the Zig cache path was absolute), and the sandbox tests plant their symlinks in the OS temp directory, so they run on any drive. The first wazmrt release made by CI: checks, then the tag, then this page.
+
+> 🔒 **`5.0.1` — owner, 2026-11-12: "release", then "Migrate, build CI, then release" and "Patch
+> (5.0.1)".** What it carries since `5.0.0`:
+> - **Zig 0.17.1** (`eca1b51`): ten API moves, no behaviour change; every gate equal to 0.16.0's
+>   but the sizes, raised for the toolchain (`testing.md` § Zig 0.17.1). `minimum_zig_version`
+>   0.16.0 → 0.17.1 — the owner chose a patch knowing a 0.16 consumer cannot build it.
+> - **I8** (`852ff84`): `(@custom "name" …)` is the only `name` section (`known-issues.md`); the gate
+>   read it as a patch (S1 +0 −0).
+> - **The exFAT symlink skips closed** (`46068fa`): test-only.
+> - **`zig build test` in a fresh clone** (`c8f5382`): the CLI-behaviour gate resolves the exe
+>   before changing directory (`known-issues.md`); found by the CI rehearsal.
+> - **Definitions from binaryang 3.0.4** (`b4e7f97`): the version label only; the data is 2.2.0's.
+> - **The release CI** (letters H32 / H33): `tools/release/`, `.github/workflows/release.yml`.
 
 ### `5.0.0` — 2026-10-24
 

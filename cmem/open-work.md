@@ -94,17 +94,13 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- 🔜 **NEXT: the release tooling and CI (letters H32, H33), then release `5.0.1`** (owner,
-  2026-11-12: "release" → "Migrate, build CI, then release", level **patch, 5.0.1**). The Zig 0.17.1
-  migration that this waited for is DONE (`roadmap.md` 2026-11-12; `testing.md` § Zig 0.17.1).
-  What to build, slot by slot, is [`release.md`](release.md)'s U1–U12 table: a Bun bump tool
-  (U2/U3), a guarded release script that pushes `main` only (U4), and one workflow — `checks`
-  first, then the CI tag, then the Release page from the tag via the REST API, no `gh` (U5–U7,
-  H32), Zig 0.17.1 and Bun 1.4.4 pinned by sha256 (U9). wazmrt has no registry, so U8 is the
-  as-a-user read-back. Rehearse before it lands; no release is cut until it has. The ledger rows
-  H32 / H33 stay open until then. ⚠️ `5.0.1` raises `minimum_zig_version` 0.16.0 → 0.17.1: a
-  consumer building from source on 0.16 cannot build it — the owner chose patch knowing the
-  move; say so in the release notes.
+- 🔜 **NOW: release `5.0.1` through the new CI** (owner, 2026-11-12: "release" → "Migrate, build
+  CI, then release", level **patch, 5.0.1**). The migration is done and the release CI is built
+  and rehearsed (`release.md`: three runs on `ci-release`, the third, `43294037922`, green in every
+  gate). `checks` is proven on GitHub; **`tag`, `release` and `readback` have run only against the
+  mock and a read-only dry run until 5.0.1's own run** — read that run back before calling H32 /
+  H33 done. ⚠️ `5.0.1` raises `minimum_zig_version` 0.16.0 → 0.17.1: a consumer building from
+  source on 0.16 cannot build it — the owner chose patch knowing the move; the notes say so.
 
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same

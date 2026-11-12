@@ -13,6 +13,24 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## ✅ FIXED 2026-11-12 — `zig build test` failed in any checkout without an absolute local cache
+
+**What it was:** the CLI-behaviour gate (`tools/cli_behaviour.zig`, inside `zig build test` since
+2026-10-24) runs each case with its cwd set to `tests/cli`, and received the built `wazmrt.exe` as
+whatever path `zig build` passed. With a RELATIVE local cache — a fresh clone with no
+`ZIG_LOCAL_CACHE_DIR`, every CI runner, any consumer building from source — that path is relative,
+resolved from `tests/cli`, and the first case failed to spawn: "`wazmrt ok.wat` did not complete:
+FileNotFound", 16/19 steps. Fixed (`c8f5382`): the tool resolves the exe with `realPathFileAlloc`
+before running anything. 19/19 with a relative cache and with an absolute one.
+
+**How it hid:** 19 days of green runs, all on this machine, which sets `ZIG_LOCAL_CACHE_DIR` to an
+absolute path in the user environment — so even a repro "without `--cache-dir`" was absolute. The
+first CI rehearsal found it, and only after the job published its errors (`tools/release/gate.ts`):
+the job log needs a sign-in. 🎓 *A gate that has only ever run on one machine is evidence about
+that machine. Run it the way a stranger would — fresh clone, empty environment — before trusting it.*
+
+---
+
 ## ✅ FIXED 2026-10-26 — a `(@custom "name" …)` got a generated `name` section beside it (workspace I8)
 
 **What it was:** `(module $m (func $f) (@custom "name" "hand-written"))` assembled to 60 bytes with

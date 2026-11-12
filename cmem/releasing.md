@@ -312,6 +312,15 @@ as long as nobody acted on the note directly underneath it.)*
 
 ## ✅ PER-RELEASE CHECKLIST (binding)
 
+🆕 **How the steps run since 2026-11-12** (letters H32 / H33; the slot table is `release.md`): the
+release notes go into `release.md` § Release History on `main` first; then
+**`bun tools/release/bump.ts <level>`** does step 9 (the four places, the surface floor, the bump
+commit) and **`bun tools/release/push.ts`** pushes `main`. CI (`.github/workflows/release.yml`) then
+re-runs steps 2–8 on that commit — conformance from a sparse clone of wasmtk's corpus — and only
+when they are green tags it, makes the Release page and builds the tag as a user. **No local tag,
+ever.** Step 9a stays a local commit after the release. The steps below remain the definition of
+the gate, and are still run locally before the bump.
+
 Every gate below already exists as a build step; this list adds no machinery, it only says which gates a
 version bump requires. ⚠️ **Run with `ZIG_LOCAL_CACHE_DIR` on NTFS** — a `D:` cache is poisoned after
 exactly one build. A `D:` cwd is fine since 2026-10-27 (it used to cost 4 unit tests and 2 of the 3
