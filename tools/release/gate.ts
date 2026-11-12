@@ -12,7 +12,9 @@ import { spawn } from "node:child_process";
 const MAX_ANNOTATIONS = 40; // GitHub keeps 10 per step type in the UI, all of them in the API
 
 export function errorLines(output: string): string[] {
-  const keep = /error|fail|FAIL|expected|panic|refused|REFUSED|OVER|mismatch|not found/;
+  // "did not": the CLI-behaviour gate's own wording ("did not complete", "did not exit normally"),
+  // missed by the first version of this filter on the run that needed it.
+  const keep = /error|fail|FAIL|expected|panic|refused|REFUSED|OVER|mismatch|not found|did not/;
   const seen = new Set<string>();
   const out: string[] = [];
   for (const raw of output.split(/\r?\n/)) {

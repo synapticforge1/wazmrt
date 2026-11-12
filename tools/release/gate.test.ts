@@ -7,6 +7,11 @@ test("errorLines keeps error lines once, in order, and drops the rest", () => {
   expect(errorLines(out)).toEqual(["Build Summary: 3/4", "src\\x.zig:1:2: error: bad", "expected 3, found 1"].filter((l) => /error|expected/.test(l)));
 });
 
+test("errorLines keeps the CLI-behaviour gate's 'did not complete' line", () => {
+  const line = "cli_behaviour: `wazmrt ok.wat` did not complete: FileNotFound";
+  expect(errorLines(`x\n${line}\n`)).toContain(line);
+});
+
 test("escape protects a workflow command's message", () => {
   expect(escape("50% a\nb\r")).toBe("50%25 a%0Ab%0D");
 });

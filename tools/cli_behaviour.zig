@@ -29,7 +29,12 @@ pub fn main(init: std.process.Init) !void {
     const io = init.io;
     const args = try init.minimal.args.toSlice(arena);
     if (args.len != 4) return error.BadUsage;
-    const exe = args[1];
+    // 🔒 Absolute, because every case runs with its cwd set to the case dir: a RELATIVE exe path
+    // (what `zig build` passes when the local cache is relative — a fresh clone with no
+    // `ZIG_LOCAL_CACHE_DIR`, and every CI runner) resolved from there and failed to spawn
+    // (`FileNotFound`). Found by the first CI rehearsal, 2026-11-12; local runs had always set
+    // the cache to an absolute path, so the gate had never run the way a consumer runs it.
+    const exe = try Io.Dir.cwd().realPathFileAlloc(io, args[1], arena);
     const case_dir = args[2];
     const out_path = args[3];
 
