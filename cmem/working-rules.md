@@ -112,6 +112,18 @@ commit.
   ported the same day; the earlier "26" counted the README, which `git grep -l Deno.` also
   matched. A probe that spawns a process goes through [`probes/run.ts`](probes/run.ts), which keeps
   `Deno.Command`'s result shape and `env` merging.
+- 🔒 **No `gh`, in CI too** (owner, 2026-11-08; workspace Tooling rule 9, letter H30): check the repo
+  instead — `git ls-remote` and the repo's own files; in a workflow, GitHub's REST API from a Bun
+  step with `GITHUB_TOKEN`; a GitHub web-UI task is an owner item. Measured 2026-11-12: wazmrt has
+  no `gh` call anywhere (`git grep`) and no `.github/` workflow yet; any workflow it gains follows
+  this rule from its first line.
+- 🔒 **Every Bun-version notation is the latest installed Bun, always** (owner, 2026-11-09; workspace
+  Tooling rule 10, letter H31): a pin, installer, Docker tag, `@types/bun` or minimum supported Bun
+  moves to the current one at the next session; a DATED test result ("measured on Bun x") stays
+  until that test is re-run. Measured 2026-11-12: wazmrt writes no Bun version anywhere
+  (`git grep` for `bun@`, `bun-version`, `oven-sh`, a version beside "Bun"), so nothing moves; a
+  workflow that installs Bun pins the then-current version by sha256 (workspace
+  `release-process.md` U9).
 
 🚫 **Never pass a script to an interpreter through a shell heredoc.** `cmd <<'EOF' … EOF` adds an
 invisible escaping layer and **fails silently more often than loudly** — three distinct corruptions in
@@ -231,3 +243,22 @@ one ever comes back, check where `%TEMP%` points before reading anything else in
 *(How the env-var fix was found — the FOURTH diagnosis of one symptom; three earlier ones blamed
 hardware/event-51 (`f3496fa`, `e9d9ce6`, `38a6991`, `c66ad49`) and were wrong — is summarized in
 `best-practices.md`; the full account is `git show 3f1bfbc1d:cmem/INDEX.md`, lines 475–510.)*
+
+## Owner commands: "commit", "push", "release" (owner, 2026-11-10)
+
+🔒 Written into every project by the workspace session on the owner's direction (2026-11-10:
+"please write that into each project"; workspace `cmem/working-rules.md` Tooling rule 12, letter
+H34). When the owner says:
+
+- **"commit"** — first run "update the project memory files" (re-derive this repo's `cmem/` from
+  its current state), then commit to the branch being worked on. Nothing is pushed.
+- **"push"** — perform "commit", then merge the branch into `main`, then push `main` (and the
+  working branch) to GitHub (`origin`) and read it back with `git ls-remote`.
+- **"release"** — perform "push", then the release process: the workspace's
+  `cmem/release-process.md` §§ 5–8 — CI checks first, then CI pushes the tag, then the GitHub
+  Release page from the tag, then the publish to the registry — recorded in `cmem/release.md`
+  § "Release History" (newest first, a summary of what changed). The level (patch / minor /
+  major) is the owner's: ask if it was not given.
+
+Each command includes the one before it, and none goes further than its own word (a "commit"
+never pushes, a "push" never releases). This repo's own gate and merge rules apply at each step.

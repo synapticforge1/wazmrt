@@ -93,16 +93,31 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 - 🔜 **Migrate to Zig 0.17.1** (owner, 2026-10-27: "I am going to install zig 0.17.0 and we will
   migrate this project to that version"; 2026-11-05: "The version is 0.17.1 now. We will start
   that later."). **Installed; waiting on the owner to say start — do not begin before then.**
-  0.16.0 is no longer installed, so the project's own version can no longer be built here. The 2026-10-27 skip fix was committed with `test-safe` /
+  0.16.0 is no longer installed, so the project's own version can no longer be built here.
+  **The 0.17 breaks to expect** (loader-zig measured them moving to 0.17.1, `f417f71`; workspace
+  `handoffs.md` § loader-zig's notes, ledger C37). Of its five removed APIs, wazmrt uses three
+  (`git grep`, 2026-11-12): `b.args` → `Run.addPassthruArgs()` (`build.zig` ×2),
+  `b.pathFromRoot` → `b.root.joinString` (`build.zig` ×2), and `@typeInfo` records →
+  `field_names` / `field_types`, `decl_names`, `param_types`, `attrs`, `error_names`,
+  `field_values` (×12: `src/features.zig`, `src/interp.zig`, `src/capi.zig`). It uses neither
+  `@cImport` nor `Run.addPathDir`. Also: **code after a comptime-known `return` is analyzed in
+  0.17**, so a trailing `@compileError` fires. The 2026-10-27 skip fix was committed with `test-safe` /
   `test-shipped` never re-run on 0.16.0 (owner's call) — the migration's gate measures them. The
   project is on 0.16.0: `build.zig.zon` `.minimum_zig_version`, README
   ("Requires Zig 0.16"), `overview.md`'s layout line. Places that know std internals and are the
   likeliest to break: `securityStrict` (`std.testing.environ`) and `osTmpDir`, which builds a
   `std.testing.TmpDir` by its fields (`src/wasi.zig`); the `std.Io` / `Io.Dir` calls throughout.
-  Done means the full release gate green on 0.17.0 (`releasing.md` → PER-RELEASE CHECKLIST: `test`,
+  Done means the full release gate green on 0.17.1 (`releasing.md` → PER-RELEASE CHECKLIST: `test`,
   `test-safe`, `test-shipped`, `test-security`, conformance, `features`, `capi-smoke`, `size`), with
   size ceilings re-measured, not assumed. Whether it ships as a release, and which bump, is the
   owner's call.
+- 🔜 **The release tooling and CI — letters H32 and H33, built right AFTER the 0.17.1 migration**
+  (owner, 2026-11-12: "Records now, CI after migration"), so the CI's Zig pin is set once. What to
+  build, slot by slot, is [`release.md`](release.md)'s U1–U12 table: a Bun bump tool (U2/U3), a
+  guarded release script that pushes `main` only (U4), and one workflow — `checks` first, then the
+  CI tag, then the Release page from the tag via the REST API, no `gh` (U5–U7, H32), pins per U9.
+  wazmrt has no registry, so U8 is the as-a-user read-back. Rehearse before it lands; no release
+  is cut until it has. The ledger rows H32 / H33 stay open until then.
 
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
@@ -305,7 +320,14 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## 📬 Workspace letters
 
-**Every letter addressed to wazmrt is done on wazmrt's side** (2026-10-24, H24 included: the ★
+**2026-11-12 (owner: "review workspace for items needing this project's attention"):** H30 (no
+`gh`) and H31 (Bun versions) recorded in `working-rules.md` § Tooling, nothing to change in the
+tree; H34's owner-written section in `working-rules.md` committed as written; C37's 0.17 breaks
+recorded beside the migration note; H33's D3 done — [`release.md`](release.md) is the one release
+record. **Open on wazmrt's side: H32 and H33's tooling and CI**, after the 0.17.1 migration (§
+Waiting).
+
+**Every OTHER letter addressed to wazmrt is done on wazmrt's side** (2026-10-24, H24 included: the ★
 block re-copied, `462e0e8`; 2026-10-27, H27 + C8: ★ block re-stamped with the canonical
 `synapticforge1` wording and 6.1 re-copied, text check 28 = 28 / 0 differences, and `testing.md`'s
 old-folder path made sibling-relative; H28 recorded in `working-rules.md` § Records; the pointer
