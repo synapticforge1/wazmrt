@@ -6,7 +6,10 @@ and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
 ## 🏁 Status — 2026-11-05
 
-**On `main`, unreleased, pushed (`origin/main` = `b4f54a7`):**
+**On `main`, unreleased, pushed (read `origin/main` with `git ls-remote`; this line names no id, so
+it cannot go stale):**
+- **Workspace letters H30, H31, H34, C37 answered; H33's D3 done** (2026-11-12): `release.md` is
+  the one release record; H32 / H33's CI waits for the migration (§ Waiting, § Workspace letters).
 - **The four exFAT symlink skips are closed** (`46068fa`, 2026-10-27): the two sandbox tests
   scratch in the OS temp dir, so `test` is 842/842 with 0 skipped and `test-security` 3/3 from
   the `D:` cwd (`testing.md`). `test-safe` / `test-shipped` were not re-run on 0.16.0 before it
