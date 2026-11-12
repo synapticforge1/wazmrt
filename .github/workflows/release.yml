@@ -1,0 +1,210 @@
+# wazmrt's release CI (workspace letters H32 / H33; `cmem/release.md` has the slot table).
+#
+# The owner's order (2026-11-10): CI checks first, then CI pushes the tag, then the Release page
+# from the tag. wazmrt publishes to no registry, so the last job is the read-back as a user: build
+# the TAG from a clean clone and run it.
+#
+# Every push runs `checks` (a branch push is a rehearsal). Only a push to `main` whose
+# `src/root.zig` version has no tag yet goes on to `tag` → `release` → `readback`; the local side
+# (`bun tools/release/bump.ts <level>`, then `bun tools/release/push.ts`) pushes `main` only.
+#
+# No `uses:` at all (U9): clones are token-less `git` calls, Zig and Bun are downloaded by version
+# and refused unless their sha256 matches. No `gh` (Tooling rule 9): GitHub writes are
+# `tools/release/github.ts` over the REST API with the job's GITHUB_TOKEN.
+
+name: release
+
+on:
+  push:
+    branches: ["**"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
+
+env:
+  ZIG_VERSION: "0.17.1"
+  ZIG_SHA256_WINDOWS: "b03f477a1943673e02aca0f570e8030dffd536ce1f45cbc4d3326ec31159562e"
+  BUN_VERSION: "1.4.4"
+  BUN_SHA256_WINDOWS: "cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5"
+  BUN_SHA256_LINUX: "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
+  # The spec corpus lives in wasmtk; only that folder is fetched (S2 pins each file by content).
+  CORPUS_REPO: "https://github.com/synapticforge1/wasmtk.git"
+  CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
+
+jobs:
+  checks:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      release: ${{ steps.isrel.outputs.release }}
+      version: ${{ steps.isrel.outputs.version }}
+      tag: ${{ steps.isrel.outputs.tag }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Clone this commit (no token)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git init -q .
+          git remote add origin "https://github.com/$env:GITHUB_REPOSITORY.git"
+          git fetch -q --depth 1 origin $env:GITHUB_SHA
+          git checkout -q FETCH_HEAD
+          if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) { throw "HEAD is not $env:GITHUB_SHA" }
+
+      - name: Install Zig and Bun (pinned by sha256)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Get-Pinned($url, $out, $sha) {
+            for ($i = 1; $i -le 4; $i++) {
+              try { Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 300; break }
+              catch { if ($i -eq 4) { throw }; Start-Sleep -Seconds (10 * $i) }
+            }
+            $h = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()
+            if ($h -ne $sha) { throw "$url sha256 $h, expected $sha" }
+          }
+          Get-Pinned "https://ziglang.org/download/$env:ZIG_VERSION/zig-x86_64-windows-$env:ZIG_VERSION.zip" "$env:RUNNER_TEMP\zig.zip" $env:ZIG_SHA256_WINDOWS
+          Get-Pinned "https://github.com/oven-sh/bun/releases/download/bun-v$env:BUN_VERSION/bun-windows-x64.zip" "$env:RUNNER_TEMP\bun.zip" $env:BUN_SHA256_WINDOWS
+          Expand-Archive "$env:RUNNER_TEMP\zig.zip" -DestinationPath $env:RUNNER_TEMP
+          Expand-Archive "$env:RUNNER_TEMP\bun.zip" -DestinationPath $env:RUNNER_TEMP
+          "$env:RUNNER_TEMP\zig-x86_64-windows-$env:ZIG_VERSION" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          "$env:RUNNER_TEMP\bun-windows-x64" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Release-tool self-tests
+        run: |
+          zig version
+          bun --version
+          bun test tools/release
+
+      - name: Unit, safety, shipped and security suites; features; C ABI smoke
+        run: zig build test test-safe test-shipped test-security features capi-smoke --summary all
+
+      - name: Spec conformance (S2 against the last release)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $c = "$env:RUNNER_TEMP\corpus"
+          git clone -q --depth 1 --filter=blob:none --sparse $env:CORPUS_REPO $c
+          git -C $c sparse-checkout set $env:CORPUS_PATH
+          zig build conformance "-Dtestsuite=$c\$env:CORPUS_PATH" "-Dbaseline=tools/conformance-baseline.txt"
+
+      - name: Size gate (the shipped config)
+        run: zig build size -Doptimize=small
+
+      - name: The shipped exe is standalone
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $v = (Select-String -Path src\root.zig -Pattern '^pub const version: \[:0\]const u8 = "(.+)";$').Matches[0].Groups[1].Value
+          $d = "$env:RUNNER_TEMP\standalone"
+          New-Item -ItemType Directory $d | Out-Null
+          Copy-Item zig-out\bin\wazmrt.exe $d
+          Copy-Item examples\hello_wasi.wat $d
+          $env:PATH = "$env:SystemRoot\System32"
+          $out = (& "$d\wazmrt.exe" --version | Select-Object -First 1)
+          if ($out -ne "wazmrt $v (abi 2)") { throw "version line '$out', expected 'wazmrt $v (abi 2)'" }
+          $hello = (& "$d\wazmrt.exe" "$d\hello_wasi.wat")
+          if ($LASTEXITCODE -ne 0 -or $hello -ne 'hello from wasi') { throw "hello_wasi: '$hello' (exit $LASTEXITCODE)" }
+          "standalone: $out; hello_wasi ok"
+
+      - name: Is this a release?
+        id: isrel
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun tools/release/github.ts is-release
+
+  tag:
+    needs: checks
+    if: needs.checks.outputs.release == 'true' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Clone this commit (no token) and install Bun (pinned by sha256)
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for i in 1 2 3 4; do
+            curl -fsSL --max-time 300 -o "$RUNNER_TEMP/bun.zip" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" && break
+            [ "$i" = 4 ] && exit 1; sleep $((10 * i))
+          done
+          echo "${BUN_SHA256_LINUX}  $RUNNER_TEMP/bun.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/bun-linux-x64" >> "$GITHUB_PATH"
+      - name: Create the tag on the commit checks passed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun tools/release/github.ts tag "${{ needs.checks.outputs.tag }}"
+
+  release:
+    needs: [checks, tag]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Clone this commit (no token) and install Bun (pinned by sha256)
+        run: |
+          set -euo pipefail
+          git init -q .
+          git remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for i in 1 2 3 4; do
+            curl -fsSL --max-time 300 -o "$RUNNER_TEMP/bun.zip" "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" && break
+            [ "$i" = 4 ] && exit 1; sleep $((10 * i))
+          done
+          echo "${BUN_SHA256_LINUX}  $RUNNER_TEMP/bun.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/bun.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/bun-linux-x64" >> "$GITHUB_PATH"
+      - name: The Release page, from the tag
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bun tools/release/github.ts release "${{ needs.checks.outputs.tag }}"
+
+  readback:
+    needs: [checks, release]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Clone the TAG as a user would (no token)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $t = "${{ needs.checks.outputs.tag }}"
+          git clone -q --depth 1 --branch $t "https://github.com/$env:GITHUB_REPOSITORY.git" .
+          if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) { throw "$t peels to $(git rev-parse HEAD), expected $env:GITHUB_SHA" }
+      - name: Install Zig (pinned by sha256)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = "$env:RUNNER_TEMP\zig.zip"
+          for ($i = 1; $i -le 4; $i++) {
+            try { Invoke-WebRequest -Uri "https://ziglang.org/download/$env:ZIG_VERSION/zig-x86_64-windows-$env:ZIG_VERSION.zip" -OutFile $zip -TimeoutSec 300; break }
+            catch { if ($i -eq 4) { throw }; Start-Sleep -Seconds (10 * $i) }
+          }
+          $h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($h -ne $env:ZIG_SHA256_WINDOWS) { throw "zig sha256 $h" }
+          Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP
+          "$env:RUNNER_TEMP\zig-x86_64-windows-$env:ZIG_VERSION" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+      - name: Build the tag and run it
+        run: |
+          $ErrorActionPreference = 'Stop'
+          zig build -Doptimize=small
+          $out = (& zig-out\bin\wazmrt.exe --version | Select-Object -First 1)
+          if ($out -ne "wazmrt ${{ needs.checks.outputs.version }} (abi 2)") { throw "version line '$out'" }
+          $hello = (& zig-out\bin\wazmrt.exe examples\hello_wasi.wat)
+          if ($hello -ne 'hello from wasi') { throw "hello_wasi: '$hello'" }
+          "read back as a user: $out; hello_wasi ok"
