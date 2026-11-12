@@ -81,19 +81,38 @@ jobs:
           bun --version
           bun test tools/release
 
-      - name: Unit, safety, shipped and security suites; features; C ABI smoke
-        run: zig build test test-safe test-shipped test-security features capi-smoke --summary all
+      # One gate per step, each through gate.ts: a failure names its step and publishes its error
+      # lines as annotations (public; the log needs a sign-in).
+      - name: Unit suite (the surface gate inside it)
+        run: bun tools/release/gate.ts test --summary all
+      # `!cancelled()`: every gate runs even after one fails, so one run shows every problem. The
+      # job still fails, and `tag` needs a green `checks`.
+      - name: Safety suite (safe)
+        if: ${{ !cancelled() }}
+        run: bun tools/release/gate.ts test-safe --summary all
+      - name: Shipped suite (small, safety off)
+        if: ${{ !cancelled() }}
+        run: bun tools/release/gate.ts test-shipped --summary all
+      - name: Sandbox security (a skip is a failure)
+        if: ${{ !cancelled() }}
+        run: bun tools/release/gate.ts test-security --summary all
+      - name: Feature combinations and the C ABI smoke
+        if: ${{ !cancelled() }}
+        run: bun tools/release/gate.ts features capi-smoke --summary all
 
       - name: Spec conformance (S2 against the last release)
+        if: ${{ !cancelled() }}
         run: |
           $ErrorActionPreference = 'Stop'
           $c = "$env:RUNNER_TEMP\corpus"
           git clone -q --depth 1 --filter=blob:none --sparse $env:CORPUS_REPO $c
           git -C $c sparse-checkout set $env:CORPUS_PATH
-          zig build conformance "-Dtestsuite=$c\$env:CORPUS_PATH" "-Dbaseline=tools/conformance-baseline.txt"
+          bun tools/release/gate.ts conformance "-Dtestsuite=$c\$env:CORPUS_PATH" "-Dbaseline=tools/conformance-baseline.txt"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Size gate (the shipped config)
-        run: zig build size -Doptimize=small
+        if: ${{ !cancelled() }}
+        run: bun tools/release/gate.ts size -Doptimize=small
 
       - name: The shipped exe is standalone
         run: |
