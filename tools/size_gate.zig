@@ -49,9 +49,10 @@ pub fn main(init: std.process.Init) !void {
     // Ceilings describe the SHIPPING build. A Debug artifact is ~4x that, so without this check the
     // gate would go red for a meaningless reason and hand out the wrong advice ("raise the ceiling"),
     // which is how a gate gets waved through — the exact habit it exists to prevent.
-    if (!std.mem.eql(u8, mode, "ReleaseSmall")) {
-        try out.print("\n  size gate: built {s}, but the ceilings describe ReleaseSmall.\n", .{mode});
-        try out.print("  Re-run as: zig build size -Doptimize=ReleaseSmall\n\n", .{});
+    // Zig 0.17 renamed the modes (`ReleaseSmall` is `small`; `-Doptimize=small` or `--release=small`).
+    if (!std.mem.eql(u8, mode, "small")) {
+        try out.print("\n  size gate: built {s}, but the ceilings describe small (was ReleaseSmall).\n", .{mode});
+        try out.print("  Re-run as: zig build size -Doptimize=small\n\n", .{});
         return error.WrongOptimizeMode;
     }
 
@@ -65,7 +66,7 @@ pub fn main(init: std.process.Init) !void {
     if (!std.mem.eql(u8, features, "wat,wasi")) {
         try out.print("\n  size gate: built with features '{s}', but the ceilings describe the FULL build.\n", .{features});
         try out.print("  A gated artifact is legitimately smaller — grading it here would record the wrong ceiling.\n", .{});
-        try out.print("  Re-run as: zig build size -Doptimize=ReleaseSmall (no -Dwat/-Dwasi)\n\n", .{});
+        try out.print("  Re-run as: zig build size -Doptimize=small (no -Dwat/-Dwasi)\n\n", .{});
         return error.GatedBuildNotComparable;
     }
 
@@ -118,7 +119,7 @@ pub fn main(init: std.process.Init) !void {
 
     if (checked == 0) {
         try out.print("\n  size gate: NO artifact was found — a gate that checks nothing is not a gate.\n", .{});
-        try out.print("  Build first: `zig build -Doptimize=ReleaseSmall` (and `dll` for the shared library).\n\n", .{});
+        try out.print("  Build first: `zig build -Doptimize=small` (and `dll` for the shared library).\n\n", .{});
         return error.NothingMeasured;
     }
     // An artifact the ceilings name and the build did not produce is a hole in the

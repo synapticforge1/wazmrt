@@ -1898,7 +1898,7 @@ fn testWasi(mem: *Memory, stdout: *Io.Writer) Wasi {
 }
 
 test "fd_write gathers iovecs to the target stream" {
-    var mem_bytes = [_]u8{0} ** 64;
+    var mem_bytes: [64]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     // one iovec at 0: { base=16, len=5 }; the data "hello" at 16.
     std.mem.writeInt(u32, mem_bytes[0..4], 16, .little);
@@ -1924,7 +1924,7 @@ test "fd_write gathers iovecs to the target stream" {
 }
 
 test "proc_exit records the code and traps" {
-    var mem_bytes = [_]u8{0} ** 8;
+    var mem_bytes: [8]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -1937,7 +1937,7 @@ test "proc_exit records the code and traps" {
 }
 
 test "fd_read scatters stdin into the iovecs (and reports EOF)" {
-    var mem_bytes = [_]u8{0} ** 128;
+    var mem_bytes: [128]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     // two iovecs: {base=64,len=4} and {base=80,len=4}
     std.mem.writeInt(u32, mem_bytes[0..4], 64, .little);
@@ -1971,7 +1971,7 @@ test "fd_read scatters stdin into the iovecs (and reports EOF)" {
 }
 
 test "poll_oneoff reports an fd subscription ready immediately" {
-    var mem_bytes = [_]u8{0} ** 256;
+    var mem_bytes: [256]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2204,7 +2204,7 @@ test "symlink traversal: in-sandbox links follow, escaping links refused (#17/4.
         return error.SkipZigTest;
     };
 
-    var mem_bytes = [_]u8{0} ** 128;
+    var mem_bytes: [128]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2307,7 +2307,7 @@ test "symlink resolver fuzz: no adversarial topology reaches outside the preopen
         return error.SkipZigTest;
     };
 
-    var mem_bytes = [_]u8{0} ** 256;
+    var mem_bytes: [256]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2372,7 +2372,7 @@ test "symlink resolver fuzz: no adversarial topology reaches outside the preopen
 }
 
 test "path_open rejects an escaping path with ENOTCAPABLE before touching the host" {
-    var mem_bytes = [_]u8{0} ** 128;
+    var mem_bytes: [128]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2453,7 +2453,7 @@ test "read-only preopen rights can never yield a writable child fd (--ro-dir)" {
 }
 
 test "fd_prestat_get/dir_name enumerate preopens and stop at the first non-preopen" {
-    var mem_bytes = [_]u8{0} ** 128;
+    var mem_bytes: [128]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2490,7 +2490,7 @@ test "fd_prestat_get/dir_name enumerate preopens and stop at the first non-preop
 }
 
 test "args_sizes_get + args_get round-trip argv into memory" {
-    var mem_bytes = [_]u8{0} ** 128;
+    var mem_bytes: [128]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);
@@ -2525,7 +2525,7 @@ test "random_get returns real entropy, not zeros or a predictable stream" {
     // all zeros — on an `Io` without randomness), and reverting to a
     // deterministically-seeded PRNG. A fresh `Wasi` must therefore produce
     // non-constant bytes, and two independent instances must not agree.
-    var mem_bytes = [_]u8{0} ** 64;
+    var mem_bytes: [64]u8 = @splat(0);
     var mem = Memory{ .bytes = &mem_bytes, .max = null };
     var obuf: [8]u8 = undefined;
     var ow = Io.Writer.fixed(&obuf);

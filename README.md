@@ -58,7 +58,7 @@ compliance process, and for the ledger of any reused code.
 > **multiple memories**, **memory64** (i64 memory addresses), **custom page sizes** (`(memory 1 (pagesize 1))` for byte-granular memories), **wide arithmetic** (`i64.add128`/`sub128`/`mul_wide_s`/`mul_wide_u` — 128-bit add/sub and 64x64→128 multiply), **custom annotations** — `(@custom "name" (before|after <section>)? "bytes")` emits a custom section at the position you name, `(@name "…")` overrides the `$id` written into the name section for `module`, `func` and `tag`, and `(@metadata.code.branch_hint "\00"|"\01")` before an `if` or `br_if` emits a `metadata.code.branch_hint` section; any other annotation id is lexed and ignored per the proposal — **threads/atomics**
 > (the whole `0xFE` family plus `shared` memories), and the **complete SIMD
 > (v128)** instruction set — every fixed-width op plus the relaxed-SIMD
-> extensions. Requires Zig 0.16.
+> extensions. Requires Zig 0.17.1 (0.16 through `5.0.0`).
 
 ## ⚠️ Breaking Changes
 
@@ -141,14 +141,14 @@ zig build conformance -Dtestsuite=<dir> -Dbaseline=tools/conformance-baseline.tx
                                    #   (tools/conformance-released.txt, pinned by content);
                                    #   -Drecord-released=true records a release, -Dreleased= skips it.
                                    #   Every assert_trap must trap with the expected CLASS.
-zig build size -Doptimize=ReleaseSmall    # check shipped artifact sizes against their ceilings
-                                   #   …and a plain `zig build -Doptimize=ReleaseSmall` runs this
+zig build size -Doptimize=small    # check shipped artifact sizes against their ceilings
+                                   #   …and a plain `zig build -Doptimize=small` runs this
                                    #   by itself: the config that ships is the config that is gated
 zig build wasm                     # build the runtime itself as a wasm module
 zig build dll                      # C-ABI shared library -> zig-out/dll/ (for FFI: Bun, ctypes, …)
 zig build capi-smoke               # build + run the C example (needs no external deps)
 zig build ffi-demo                 # build the DLL + run examples/bun_ffi_capi.mjs (needs bun)
-zig build size -Doptimize=ReleaseSmall   # fail if a shipped artifact grew past its ceiling
+zig build size -Doptimize=small    # fail if a shipped artifact grew past its ceiling
 zig build features                 # compile the C ABI in all four -Dwat/-Dwasi combinations
 zig build bench                    # interpreter microbenchmark (ReleaseFast)
 zig build bakeoff -Dcorpus=<dir>   # benchmark vs wasmtime/wasmer/wazero end-to-end (needs bun)
@@ -202,7 +202,7 @@ them out. Both default to on; the flags affect **only** the C-ABI library, the
 DLL and the wasm build — the CLI always assembles text and always has WASI.
 
 ```
-zig build dll -Doptimize=ReleaseSmall -Dwat=false -Dwasi=false
+zig build dll -Doptimize=small -Dwat=false -Dwasi=false
 ```
 
 Measured 2026-10-23 (ReleaseSmall, x86_64-windows):

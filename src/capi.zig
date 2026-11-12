@@ -109,7 +109,7 @@ pub const Trap = struct {
 export fn wazmrt_trap_new(message: ?[*:0]const u8) ?*Trap {
     const text: []const u8 = if (message) |m| std.mem.span(m) else "";
     const t = alloc.create(Trap) catch return null;
-    const msg = alloc.dupeZ(u8, text) catch {
+    const msg = alloc.dupeSentinel(u8, text, 0) catch {
         alloc.destroy(t);
         return null;
     };
@@ -212,18 +212,19 @@ const Feature = enum(c_int) {
 // If this fires: add the member here, add `WAZMRT_FEATURE_<NAME> = <n>` to the header, and check
 // whether the new proposal belongs in `Set.incoherent`. Do NOT just bump a number.
 comptime {
-    const ours = @typeInfo(Feature).@"enum".fields;
-    const theirs = @typeInfo(root.features.Feature).@"enum".fields;
-    if (ours.len != theirs.len) @compileError(std.fmt.comptimePrint(
+    // Zig 0.17: an enum's type info holds `field_names` and `field_values` as parallel arrays.
+    const ours = @typeInfo(Feature).@"enum";
+    const theirs = @typeInfo(root.features.Feature).@"enum";
+    if (ours.field_names.len != theirs.field_names.len) @compileError(std.fmt.comptimePrint(
         "capi.Feature has {d} members, features.Feature has {d}. The C ABI must offer exactly the " ++
             "proposals the engine gates, and `include/wazmrt.h` must match both.",
-        .{ ours.len, theirs.len },
+        .{ ours.field_names.len, theirs.field_names.len },
     ));
-    for (ours, theirs) |a, b| {
-        if (!std.mem.eql(u8, a.name, b.name) or a.value != b.value) @compileError(std.fmt.comptimePrint(
+    for (ours.field_names, ours.field_values, theirs.field_names, theirs.field_values) |an, av, bn, bv| {
+        if (!std.mem.eql(u8, an, bn) or av != bv) @compileError(std.fmt.comptimePrint(
             "capi.Feature.{s} = {d} does not match features.Feature.{s} = {d}. A mismatch makes " ++
                 "@enumFromInt gate a DIFFERENT proposal than the embedder selected.",
-            .{ a.name, a.value, b.name, b.value },
+            .{ an, av, bn, bv },
         ));
     }
 }
@@ -1981,7 +1982,7 @@ export fn wazmrt_linker_instantiate(
 /// Snapshot a trap out of the interpreter, frames included, so it outlives the call.
 fn trapFrom(inst: *interp.Instance, err: anyerror) ?*Trap {
     const t = alloc.create(Trap) catch return null;
-    const msg = alloc.dupeZ(u8, @errorName(err)) catch {
+    const msg = alloc.dupeSentinel(u8, @errorName(err), 0) catch {
         alloc.destroy(t);
         return null;
     };
@@ -2004,7 +2005,7 @@ fn trapFrom(inst: *interp.Instance, err: anyerror) ?*Trap {
         // — which is what the header promises. Copied because the trap outlives the call and may
         // outlive the module the name is borrowed from.
         const nm: ?[:0]u8 = if (inst.module.funcName(f.func_index)) |n|
-            alloc.dupeZ(u8, n) catch null
+            alloc.dupeSentinel(u8, n, 0) catch null
         else
             null;
         dst.* = .{ .func_index = f.func_index, .offset = off, .name = nm };

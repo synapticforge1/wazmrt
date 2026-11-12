@@ -79,7 +79,7 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| run_cmd.addArgs(args);
+    run_cmd.addPassthruArgs(); // Zig 0.17: replaces `if (b.args) |args| run_cmd.addArgs(args)`
     const run_step = b.step("run", "Run the CLI (zig build run -- <module.wasm>)");
     run_step.dependOn(&run_cmd.step);
 
@@ -146,7 +146,9 @@ pub fn build(b: *std.Build) void {
     // `zig build --build-file` run from another drive, which is how the sandbox tests have to be
     // run on this machine.
     ffi.addFileArg(b.path("examples/bun_ffi_capi.mjs"));
-    ffi.setEnvironmentVariable("WAZMRT_CAPI_DLL", b.getInstallPath(.{ .custom = "dll" }, "wazmrt.dll"));
+    // Zig 0.17 dropped `b.getInstallPath`, so the demo gets the built library's own path as its
+    // first argument (it was the `WAZMRT_CAPI_DLL` env var, pointing at the install dir).
+    ffi.addArtifactArg(dll);
     ffi.step.dependOn(&install_dll.step);
     const ffi_step = b.step("ffi-demo", "Build the DLL + run the Bun FFI demo (needs bun)");
     ffi_step.dependOn(&ffi.step);
@@ -177,7 +179,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/wasm_entry.zig"),
             .imports = embed_imports,
             .target = b.resolveTargetQuery(.{ .cpu_arch = .wasm32, .os_tag = .freestanding }),
-            .optimize = .ReleaseSmall,
+            .optimize = .small,
         }),
     });
     wasm_exe.entry = .disabled;
@@ -231,17 +233,17 @@ pub fn build(b: *std.Build) void {
             .root_module = b.createModule(.{
                 .root_source_file = b.path("bench/bench.zig"),
                 .target = target,
-                .optimize = .ReleaseFast,
+                .optimize = .fast,
                 .imports = &.{.{ .name = "wazmrt", .module = b.createModule(.{
                     .root_source_file = b.path("src/root.zig"),
             .imports = full_imports,
                     .target = target,
-                    .optimize = .ReleaseFast,
+                    .optimize = .fast,
                 }) }},
             }),
         });
         const run_bench = b.addRunArtifact(bench);
-        if (b.args) |args| run_bench.addArgs(args); // `zig build bench -- out.wasm` emits the module
+        run_bench.addPassthruArgs(); // `zig build bench -- out.wasm` emits the module
         const bench_step = b.step("bench", "Run the interpreter microbenchmark (ReleaseFast)");
         bench_step.dependOn(&run_bench.step);
 
@@ -259,7 +261,7 @@ pub fn build(b: *std.Build) void {
             const ph = b.addSystemCommand(&.{"bun"});
             ph.addFileArg(b.path("tools/phases.mjs"));
             ph.addArtifactArg(bench);
-            ph.addArg(b.pathJoin(&.{ b.cache_root.path orelse ".", "phases-scratch.cwasm" }));
+            _ = ph.addOutputFileArg("phases-scratch.cwasm"); // Zig 0.17: no `b.cache_root`; the step's own cache path
             var it = std.mem.splitScalar(u8, mods, ',');
             while (it.next()) |m| if (m.len != 0) ph.addArg(m);
             ph.has_side_effects = true; // a measurement; never a cached verdict
@@ -298,7 +300,7 @@ pub fn build(b: *std.Build) void {
             .root_module = b.createModule(.{
                 .root_source_file = b.path("examples/hello_compiled.zig"),
                 .target = wasi_target,
-                .optimize = .ReleaseSmall,
+                .optimize = .small,
             }),
         });
         assertOut(b, exe, gate_step, zig_guest.getEmittedBin(), "Hello from a compiled WASI program!\nbulk-memory memcpy works\nsaturating truncation works\n");
@@ -392,14 +394,14 @@ pub fn build(b: *std.Build) void {
         const surface_tool = b.addExecutable(.{ .name = "surface", .root_module = b.createModule(.{
             .root_source_file = b.path("tools/surface.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }) });
         // The CLI half is read off the binary itself: the help text IS what a user is told.
         const help = b.addRunArtifact(exe);
         help.addArg("--help");
         const run_surface = b.addRunArtifact(surface_tool);
         run_surface.addArg(surface_mode);
-        run_surface.addArg(b.pathFromRoot("tools/surface"));
+        run_surface.addArg(b.root.joinString(b.allocator, "tools/surface") catch @panic("OOM"));
         run_surface.addFileArg(b.path("include/wazmrt.h"));
         run_surface.addFileArg(b.path("src/root.zig"));
         run_surface.addFileArg(help.captureStdOut(.{}));
@@ -411,7 +413,7 @@ pub fn build(b: *std.Build) void {
         const behaviour_tool = b.addExecutable(.{ .name = "behaviour", .root_module = b.createModule(.{
             .root_source_file = b.path("tools/behaviour.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
             .imports = &.{.{ .name = "wazmrt", .module = b.createModule(.{
                 .root_source_file = b.path("src/root.zig"),
                 .target = b.graph.host,
@@ -431,7 +433,7 @@ pub fn build(b: *std.Build) void {
         const cli_tool = b.addExecutable(.{ .name = "cli_behaviour", .root_module = b.createModule(.{
             .root_source_file = b.path("tools/cli_behaviour.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }) });
         const run_cli = b.addRunArtifact(cli_tool);
         run_cli.addArtifactArg(exe);
@@ -488,7 +490,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/root.zig"),
             .imports = full_imports,
             .target = target,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }) });
         // The C ABI is in the memory-safety gate as well: a C boundary is exactly where an
         // out-of-range cast or a bad index stops being a wrong answer and becomes a corrupted
@@ -498,7 +500,7 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/capi.zig"),
             .imports = full_imports,
             .target = target,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }) });
         // 🔒 **And the CLI, since Track F — it earned its place here immediately.** The stated
         // reason for this step is "a memory-safety bug that only manifests in an optimized build",
@@ -513,7 +515,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "build_options", .module = cli_options.createModule() },
             },
             .target = target,
-            .optimize = .ReleaseSafe,
+            .optimize = .safe,
         }) });
         const test_safe_step = b.step("test-safe", "Run the test suite under ReleaseSafe (optimized + safety checks kept)");
         test_safe_step.dependOn(&b.addRunArtifact(mod_tests_safe).step);
@@ -545,13 +547,13 @@ pub fn build(b: *std.Build) void {
             .root_source_file = b.path("src/root.zig"),
             .imports = full_imports,
             .target = target,
-            .optimize = .ReleaseSmall,
+            .optimize = .small,
         }) });
         const capi_tests_small = b.addTest(.{ .root_module = b.createModule(.{
             .root_source_file = b.path("src/capi.zig"),
             .imports = full_imports,
             .target = target,
-            .optimize = .ReleaseSmall,
+            .optimize = .small,
         }) });
         const cli_tests_small = b.addTest(.{ .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
@@ -560,7 +562,7 @@ pub fn build(b: *std.Build) void {
                 .{ .name = "build_options", .module = cli_options.createModule() },
             },
             .target = target,
-            .optimize = .ReleaseSmall,
+            .optimize = .small,
         }) });
         const test_shipped_step = b.step("test-shipped", "Run the test suite under ReleaseSmall (the SHIPPED config — safety checks off)");
         test_shipped_step.dependOn(&b.addRunArtifact(mod_tests_small).step);
@@ -625,7 +627,7 @@ pub fn build(b: *std.Build) void {
         }
     }
 
-    // ---- Size gate (`zig build size -Doptimize=ReleaseSmall`) --------------
+    // ---- Size gate (`zig build size -Doptimize=small`; `ReleaseSmall` before Zig 0.17) ----
     // `ReleaseSmall` is a first-class goal, and a goal with no gate is a preference: between
     // 2026-07-14 and 2026-08-11 the DLL grew +75% and the static lib +122% unnoticed, because the only
     // size numbers on record were a month-old note in a memory file. Same shape as `test-security` —
@@ -638,7 +640,7 @@ pub fn build(b: *std.Build) void {
         const size_gate = b.addExecutable(.{ .name = "size_gate", .root_module = b.createModule(.{
             .root_source_file = b.path("tools/size_gate.zig"),
             .target = b.graph.host,
-            .optimize = .Debug,
+            .optimize = .debug,
         }) });
         const run_size = b.addRunArtifact(size_gate);
         run_size.addFileArg(b.path("tools/size-ceilings.txt"));
@@ -648,9 +650,10 @@ pub fn build(b: *std.Build) void {
         // The Track 2c feature flags, for the same reason as the mode: `zig-out` has no record of
         // which FLAGS produced what is in it, and a gated artifact grading as "under" is a false win.
         run_size.addArg(b.fmt("{s},{s}", .{ if (want_wat) "wat" else "nowat", if (want_wasi) "wasi" else "nowasi" }));
-        run_size.addArg(b.getInstallPath(.bin, ""));
-        run_size.addArg(b.getInstallPath(.lib, ""));
-        run_size.addArg(b.getInstallPath(.{ .custom = "dll" }, ""));
+        // Zig 0.17 dropped `b.getInstallPath`; the install dirs are `.install_prefix` LazyPaths now.
+        run_size.addDirectoryArg2(b.graph.path(.install_prefix, "bin"), .{});
+        run_size.addDirectoryArg2(b.graph.path(.install_prefix, "lib"), .{});
+        run_size.addDirectoryArg2(b.graph.path(.install_prefix, "dll"), .{});
         run_size.has_side_effects = true; // measure what is on disk NOW, never a cached verdict
         run_size.step.dependOn(&install_exe.step);
         run_size.step.dependOn(&install_cabi.step);
@@ -662,7 +665,7 @@ pub fn build(b: *std.Build) void {
         // file, not of a change that cost nothing.* (Track B-e.)
         run_size.step.dependOn(&install_dll.step);
 
-        const size_step = b.step("size", "Check shipped artifact sizes (needs -Doptimize=ReleaseSmall)");
+        const size_step = b.step("size", "Check shipped artifact sizes (needs -Doptimize=small)");
         size_step.dependOn(&run_size.step);
 
         // 🔒 **THE TRIGGER, and it is the whole point of Track B-e: a gate only gates the commits
@@ -675,7 +678,7 @@ pub fn build(b: *std.Build) void {
         // ceilings describe**: build the configuration that SHIPS and you have checked it, with no
         // extra command and nothing to remember. Debug and the other modes are untouched, and so is
         // every gated `-Dwat=false` build, which the tool refuses for its own reasons.
-        if (optimize == .ReleaseSmall and want_wat and want_wasi) {
+        if (optimize == .small and want_wat and want_wasi) {
             b.getInstallStep().dependOn(&run_size.step);
         }
     }
@@ -709,7 +712,7 @@ pub fn build(b: *std.Build) void {
         // On by default whenever a testsuite is given, so the release-checklist command compares
         // against the last release with nothing new to remember; `-Dreleased=` (empty) opts out.
         const released = b.option([]const u8, "released", "A release's per-file conformance results (default tools/conformance-released.txt; empty to skip S2)") orelse
-            (if (testsuite != null) b.pathFromRoot("tools/conformance-released.txt") else "");
+            (if (testsuite != null) b.root.joinString(b.allocator, "tools/conformance-released.txt") catch @panic("OOM") else "");
         const record_released = b.option(bool, "record-released", "Record this run as the release's per-file results in -Dreleased (after the release commit)") orelse false;
         run_conf.addArg(released);
         run_conf.addArg(if (record_released) "record" else "compare");

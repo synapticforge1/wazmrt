@@ -206,7 +206,7 @@ test "parseHex round-trips toHex (case-insensitive)" {
     try std.testing.expectEqual(d, parseHex(&upper).?);
     // wrong length / non-hex → null
     try std.testing.expectEqual(@as(?Digest, null), parseHex("abc"));
-    try std.testing.expectEqual(@as(?Digest, null), parseHex("z" ** hex_len));
+    try std.testing.expectEqual(@as(?Digest, null), parseHex(&@as([hex_len]u8, @splat('z'))));
 }
 
 test "Db.parse: comments, labels, blanks; contains; loud on corruption" {

@@ -329,7 +329,7 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
    skipped, **and the count of files with failures or errors**. 🔒 **The baseline file is EMPTY and stays
    empty.** A line added there to make a release green is the failure mode that file invites.
 5. **`zig build features`** — all four `-Dwat`/`-Dwasi` combinations compile.
-6. **`zig build size -Doptimize=ReleaseSmall`** — all three ceilings EXACT. A release that moves a byte
+6. **`zig build size -Doptimize=small`** (`ReleaseSmall` before Zig 0.17) — all three ceilings EXACT. A release that moves a byte
    says so, with the reason, in the commit that moves it (`tools/size-ceilings.txt`).
 7. **`zig build capi-smoke`** — the ABI-2 symbol and smoke gate.
 8. **The shipped binary is STANDALONE** — copy `wazmrt.exe` to an empty directory, run it with a reduced

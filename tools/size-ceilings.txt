@@ -1239,6 +1239,15 @@
 # ceiling, so not exact here), and this change 1,075,310, so its own share is **+34**: one loop
 # over the collected custom sections and a string compare. The 22-byte gap predates the change.
 
-wazmrt.exe  1033728
-wazmrt.lib  1075310
-wazmrt.dll  922624
+# 2026-11-12 — **Zig 0.16.0 → 0.17.1** (owner: "Migrate, build CI, then release"). **exe +9,216,
+# lib +4,614, dll +10,752.** What bought the bytes: the TOOLCHAIN. The shipped source changed only
+# by mechanical renames the new compiler requires (`std.meta.Int` → `@Int`, `dupeZ` →
+# `dupeSentinel`, enum `fields` → `field_names` / `field_values`, `**` → `@splat`, a bit set's
+# `initEmpty()` → `.empty`), each the same operation spelled the 0.17 way. ⚠️ NOT attributed by a
+# same-tree build on 0.16.0: 0.16.0 is no longer installed on this machine, so this split rests on
+# the diff (no behavioural change) and not on a measurement. Measured in this directory with
+# `zig build size -Doptimize=small` (0.17's name for ReleaseSmall).
+
+wazmrt.exe  1042944
+wazmrt.lib  1079924
+wazmrt.dll  933376

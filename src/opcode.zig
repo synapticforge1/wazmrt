@@ -1030,7 +1030,7 @@ pub fn simdIsMemoryOp(sub: u32) bool {
 const simd_mem_len = alignTableLen(0xfd);
 const simd_mem = blk: {
     @setEvalBranchQuota(100_000);
-    var t = std.StaticBitSet(simd_mem_len).initEmpty();
+    var t: std.StaticBitSet(simd_mem_len) = .empty; // Zig 0.17: was `.initEmpty()`
     for (defs.opcodes) |e| if (e.prefix == 0xfd and e.natural_align != null) t.set(e.opcode);
     break :blk t;
 };

@@ -136,11 +136,11 @@ pub const Feature = enum(u8) {
     }
 };
 
-pub const count = @typeInfo(Feature).@"enum".fields.len;
+pub const count = @typeInfo(Feature).@"enum".field_names.len;
 
 /// Which proposals a module may use. All-on is the default and the fast path.
 pub const Set = struct {
-    bits: [count]bool = [_]bool{true} ** count,
+    bits: [count]bool = @splat(true),
 
     pub fn has(self: Set, f: Feature) bool {
         return self.bits[@intFromEnum(f)];
@@ -901,7 +901,7 @@ pub fn firstViolation(gpa: std.mem.Allocator, module: *const Module, fs: Set) !?
 // If it fires: decide which proposal the new opcode belongs to, add it to `opFeature` (or
 // confirm it really is MVP core), and only then update the number.
 comptime {
-    const n = @typeInfo(opcode.Op).@"enum".fields.len;
+    const n = @typeInfo(opcode.Op).@"enum".field_names.len;
     if (n != 258) @compileError(std.fmt.comptimePrint(
         "opcode.Op has {d} members, features.zig was written against 258. A new opcode must be " ++
             "classified in opFeature() before this number is updated — an unclassified opcode " ++

@@ -994,7 +994,7 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
     `@tagName`, so a third copy does not exist. **A comptime pin makes drift detectable; deriving
     makes it unrepresentable — prefer the second wherever the shape allows it.**
 
-## Zig 0.16 API notes (this project targets 0.16.0)
+## Zig 0.16 API notes (the project targeted 0.16.0 until 2026-11-12; it targets 0.17.1 now — the 0.17 changes are in `testing.md` § Zig 0.17.1)
 
 The 0.16 stdlib differs from older docs — verified against the installed stdlib this session:
 

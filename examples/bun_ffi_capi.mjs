@@ -5,6 +5,9 @@
 //   zig build dll
 //   bun examples/bun_ffi_capi.mjs        # or: zig build ffi-demo
 //
+// The library is the first argument (what `zig build ffi-demo` passes since Zig 0.17, which
+// dropped `b.getInstallPath`), else `WAZMRT_CAPI_DLL`, else `zig-out/dll/wazmrt.dll`.
+//
 // It does the two things the old wasm-c-api demo could not, and they are the two that decide
 // whether this ABI is useful to a loader:
 //
@@ -16,7 +19,7 @@
 import { dlopen, ptr, CString, JSCallback, read, toArrayBuffer } from "bun:ffi";
 import { fileURLToPath } from "node:url";
 
-const dllPath = process.env.WAZMRT_CAPI_DLL ??
+const dllPath = process.argv[2] ?? process.env.WAZMRT_CAPI_DLL ??
   fileURLToPath(new URL("../zig-out/dll/wazmrt.dll", import.meta.url));
 
 // ---------------------------------------------------------------------------------------

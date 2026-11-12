@@ -4049,7 +4049,7 @@ const Frame = struct {
         // reach 2·(2^bits−1) and any subtraction can go negative (an unsigned
         // wide would UNDERFLOW on `sub_sat_u` when a<b — the exact case it exists
         // to saturate to 0). `satTo` then clamps to `Lane`'s range.
-        const Wide = std.meta.Int(.signed, @bitSizeOf(Lane) + 2);
+        const Wide = @Int(.signed, @bitSizeOf(Lane) + 2);
         const b: [N]Lane = @bitCast(self.popV128());
         const a: [N]Lane = @bitCast(self.popV128());
         var r: [N]Lane = undefined;
@@ -4063,7 +4063,7 @@ const Frame = struct {
     /// can't overflow.
     fn simdAvgrU(self: *Frame, comptime Lane: type) Error!void {
         const N = 16 / @sizeOf(Lane);
-        const W = std.meta.Int(.unsigned, @bitSizeOf(Lane) + 1);
+        const W = @Int(.unsigned, @bitSizeOf(Lane) + 1);
         const b: [N]Lane = @bitCast(self.popV128());
         const a: [N]Lane = @bitCast(self.popV128());
         var r: [N]Lane = undefined;
@@ -4197,7 +4197,7 @@ const Frame = struct {
     fn simdCmp(self: *Frame, comptime Lane: type, comptime op: enum { eq, ne, lt, gt, le, ge }) Error!void {
         const N = 16 / @sizeOf(Lane);
         const Vec = @Vector(N, Lane);
-        const U = @Vector(N, std.meta.Int(.unsigned, @bitSizeOf(Lane)));
+        const U = @Vector(N, @Int(.unsigned, @bitSizeOf(Lane)));
         const b: Vec = @bitCast(self.popV128());
         const a: Vec = @bitCast(self.popV128());
         const m: @Vector(N, bool) = switch (op) {
@@ -4208,9 +4208,9 @@ const Frame = struct {
             .le => a <= b,
             .ge => a >= b,
         };
-        const ones: U = @splat(std.math.maxInt(std.meta.Int(.unsigned, @bitSizeOf(Lane))));
+        const ones: U = @splat(std.math.maxInt(@Int(.unsigned, @bitSizeOf(Lane))));
         const zeros: U = @splat(0);
-        try self.pushV128(@bitCast(@select(std.meta.Int(.unsigned, @bitSizeOf(Lane)), m, ones, zeros)));
+        try self.pushV128(@bitCast(@select(@Int(.unsigned, @bitSizeOf(Lane)), m, ones, zeros)));
     }
     /// A vector shift (shl / shr) by a scalar amount (mod lane bits).
     fn simdShift(self: *Frame, comptime Lane: type, comptime op: enum { shl, shr }) Error!void {
@@ -4239,7 +4239,7 @@ const Frame = struct {
         const arr: [16 / @sizeOf(Lane)]Lane = @bitCast(self.popV128());
         var m: u32 = 0;
         for (arr, 0..) |x, i| {
-            if (@as(std.meta.Int(.unsigned, @bitSizeOf(Lane)), @bitCast(x)) >> (@bitSizeOf(Lane) - 1) != 0) m |= (@as(u32, 1) << @intCast(i));
+            if (@as(@Int(.unsigned, @bitSizeOf(Lane)), @bitCast(x)) >> (@bitSizeOf(Lane) - 1) != 0) m |= (@as(u32, 1) << @intCast(i));
         }
         try self.pushI32(@bitCast(m));
     }
@@ -5219,7 +5219,7 @@ fn fmin(comptime F: type, a: F, b: F) F {
     if (std.math.isNan(a) or std.math.isNan(b)) return std.math.nan(F);
     if (a < b) return a;
     if (b < a) return b;
-    const U = std.meta.Int(.unsigned, @typeInfo(F).float.bits);
+    const U = @Int(.unsigned, @typeInfo(F).float.bits);
     return @bitCast(@as(U, @bitCast(a)) | @as(U, @bitCast(b)));
 }
 
@@ -5228,7 +5228,7 @@ fn fmax(comptime F: type, a: F, b: F) F {
     if (std.math.isNan(a) or std.math.isNan(b)) return std.math.nan(F);
     if (a > b) return a;
     if (b > a) return b;
-    const U = std.meta.Int(.unsigned, @typeInfo(F).float.bits);
+    const U = @Int(.unsigned, @typeInfo(F).float.bits);
     return @bitCast(@as(U, @bitCast(a)) & @as(U, @bitCast(b)));
 }
 

@@ -145,6 +145,37 @@ The CLI now also type-checks each module (`validation: OK` / `FAILED — <error>
   control flow (not just the simple `wasm_mod` set).
 
 
+## 🔁 Zig 0.17.1 (migrated 2026-11-12; owner: "Migrate, build CI, then release")
+
+`build.zig.zon` `minimum_zig_version = "0.17.1"`. **Every gate re-run on 0.17.1 from the `D:` cwd,
+results identical to 0.16.0's except the sizes:**
+
+| gate | 0.17.1, 2026-11-12 |
+| --- | --- |
+| `test` | **842/842, 0 skipped**, 19/19 steps (21/21 with `definitions`); the surface gate inside it current |
+| `test-safe` / `test-shipped` | **840/840 each, 0 skipped** (the first runs since the 2026-10-27 skip fix) |
+| `test-security` | 3/3 |
+| conformance | 288 files · 64,092 passed · 0 failed · 0 skipped · 0 file-errors; S2 vs `5.0.0` 288 compared, 0 regressed; baseline 0 regressions |
+| `features` · `capi-smoke` · `ffi-demo` · `wasi-gate` · `bench` | green (bench: 35.25 ns/loop-iter steady, 1.35 µs cold) |
+| `definitions` | binaryang **3.0.4** (regenerated: only the version label moved — the three files' SHA-256 are 2.2.0's) |
+| size (`-Doptimize=small`) | exe 1,042,944 · lib 1,079,924 · dll 933,376 — EXACT after a raise of +9,216 / +4,614 / +10,752, the toolchain (`tools/size-ceilings.txt`); imports `KERNEL32` + `ntdll` only |
+
+**What 0.17 broke here, and the 0.17 form** (loader-zig's list, ledger C37, plus four it did not
+meet):
+- `build.zig`: `b.args` → `Run.addPassthruArgs()`; `b.pathFromRoot(p)` →
+  `b.root.joinString(b.allocator, p)`; **`b.getInstallPath`** gone → the size gate takes
+  `addDirectoryArg2(b.graph.path(.install_prefix, "bin"|"lib"|"dll"))`, and `ffi-demo` passes the
+  DLL as `addArtifactArg(dll)` (the demo reads its first argument, then `WAZMRT_CAPI_DLL`);
+  **`b.cache_root`** gone → the phases scratch is `addOutputFileArg`.
+- **Optimize modes renamed**: `.Debug/.ReleaseSafe/.ReleaseFast/.ReleaseSmall` →
+  `.debug/.safe/.fast/.small`, so the command line is **`-Doptimize=small`** (or `--release=small`)
+  and `tools/size_gate.zig` checks for `small`.
+- **The `**` array-repeat operator is gone** → `@splat` (12 sites: `[_]u8{0} ** N` →
+  `var x: [N]u8 = @splat(0)`).
+- `std.meta.Int` → `@Int`; `Allocator.dupeZ(u8, s)` → `dupeSentinel(u8, s, 0)`; an enum's
+  `@typeInfo` `.fields` → parallel `field_names` / `field_values`;
+  `StaticBitSet(n).initEmpty()` → `.empty`.
+
 ## 🏁 TRACK H FINAL SCORE (2026-08-19) — `1.0.1`
 
 | gate | result |
@@ -593,9 +624,10 @@ zig build conformance -Doptimize=ReleaseFast -Dfailures=600 \
   column. **The runner reports a skip TOTAL with no breakdown; that is why both numbers were wrong.**
   Until it reports reasons, `grep -c "(module quote" <corpus>` and its siblings are the only way to
   size a runner gap.
-- ⚠️ **Run `zig build size -Doptimize=ReleaseSmall` in the same session.** Nothing invokes it
-  automatically and the ceilings drifted 22–25 KB between 2026-08-11 and 2026-08-13 because of that.
-  ⚠️ **And run `zig build dll -Doptimize=ReleaseSmall` too** — plain `zig build` does not produce the
+- ⚠️ **Run `zig build size -Doptimize=small` in the same session** (`ReleaseSmall` before Zig 0.17).
+  Nothing invokes it automatically and the ceilings drifted 22–25 KB between 2026-08-11 and
+  2026-08-13 because of that. ⚠️ **And run `zig build dll -Doptimize=small` too** *(since Track B-e
+  the gate builds the DLL itself; kept as history)* — plain `zig build` does not produce the
   DLL, so the gate grades whatever stale one is in `zig-out`. R3's first run showed the DLL at
   *exactly* its ceiling; the file was two builds old. **An exactly-zero delta is a timestamp check
   waiting to happen.**

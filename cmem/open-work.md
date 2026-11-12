@@ -4,20 +4,21 @@
 status narrative exists once"). Only open items; each points at its record. Done work leaves this file
 and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
-## 🏁 Status — 2026-11-05
+## 🏁 Status — 2026-11-12
 
 **On `main`, unreleased, pushed (read `origin/main` with `git ls-remote`; this line names no id, so
 it cannot go stale):**
 - **Workspace letters H30, H31, H34, C37 answered; H33's D3 done** (2026-11-12): `release.md` is
-  the one release record; H32 / H33's CI waits for the migration (§ Waiting, § Workspace letters).
+  the one release record; H32 / H33's CI is next (§ Waiting, § Workspace letters).
 - **The four exFAT symlink skips are closed** (`46068fa`, 2026-10-27): the two sandbox tests
   scratch in the OS temp dir, so `test` is 842/842 with 0 skipped and `test-security` 3/3 from
   the `D:` cwd (`testing.md`). `test-safe` / `test-shipped` were not re-run on 0.16.0 before it
   left the host.
 - **Ledger C26, wazmrt's part closed** (`cb7e7c4`, `b4f54a7`): binaryang's rewritten ids
   translated (§ Workspace letters below).
-- **The host's Zig is 0.17.1** (owner, 2026-11-05); the project still targets 0.16.0. The
-  migration waits for the owner (§ Waiting).
+- **Migrated to Zig 0.17.1** (2026-11-12): every gate green and identical to 0.16.0's but the
+  sizes (raised for the toolchain); `testing.md` § Zig 0.17.1. Next: the release CI, then
+  `5.0.1` (§ Waiting).
 
 **Also on `main`, unreleased (2026-10-26, owner: "fix the items for wazmrt")**: workspace I8 re-run on
 wasm-tools 1.262. A `(@custom "name" …)` is now the only `name` section, as wasm-tools 1.262,
@@ -93,34 +94,17 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- 🔜 **Migrate to Zig 0.17.1** (owner, 2026-10-27: "I am going to install zig 0.17.0 and we will
-  migrate this project to that version"; 2026-11-05: "The version is 0.17.1 now. We will start
-  that later."). **Installed; waiting on the owner to say start — do not begin before then.**
-  0.16.0 is no longer installed, so the project's own version can no longer be built here.
-  **The 0.17 breaks to expect** (loader-zig measured them moving to 0.17.1, `f417f71`; workspace
-  `handoffs.md` § loader-zig's notes, ledger C37). Of its five removed APIs, wazmrt uses three
-  (`git grep`, 2026-11-12): `b.args` → `Run.addPassthruArgs()` (`build.zig` ×2),
-  `b.pathFromRoot` → `b.root.joinString` (`build.zig` ×2), and `@typeInfo` records →
-  `field_names` / `field_types`, `decl_names`, `param_types`, `attrs`, `error_names`,
-  `field_values` (×12: `src/features.zig`, `src/interp.zig`, `src/capi.zig`). It uses neither
-  `@cImport` nor `Run.addPathDir`. Also: **code after a comptime-known `return` is analyzed in
-  0.17**, so a trailing `@compileError` fires. The 2026-10-27 skip fix was committed with `test-safe` /
-  `test-shipped` never re-run on 0.16.0 (owner's call) — the migration's gate measures them. The
-  project is on 0.16.0: `build.zig.zon` `.minimum_zig_version`, README
-  ("Requires Zig 0.16"), `overview.md`'s layout line. Places that know std internals and are the
-  likeliest to break: `securityStrict` (`std.testing.environ`) and `osTmpDir`, which builds a
-  `std.testing.TmpDir` by its fields (`src/wasi.zig`); the `std.Io` / `Io.Dir` calls throughout.
-  Done means the full release gate green on 0.17.1 (`releasing.md` → PER-RELEASE CHECKLIST: `test`,
-  `test-safe`, `test-shipped`, `test-security`, conformance, `features`, `capi-smoke`, `size`), with
-  size ceilings re-measured, not assumed. Whether it ships as a release, and which bump, is the
-  owner's call.
-- 🔜 **The release tooling and CI — letters H32 and H33, built right AFTER the 0.17.1 migration**
-  (owner, 2026-11-12: "Records now, CI after migration"), so the CI's Zig pin is set once. What to
-  build, slot by slot, is [`release.md`](release.md)'s U1–U12 table: a Bun bump tool (U2/U3), a
-  guarded release script that pushes `main` only (U4), and one workflow — `checks` first, then the
-  CI tag, then the Release page from the tag via the REST API, no `gh` (U5–U7, H32), pins per U9.
-  wazmrt has no registry, so U8 is the as-a-user read-back. Rehearse before it lands; no release
-  is cut until it has. The ledger rows H32 / H33 stay open until then.
+- 🔜 **NEXT: the release tooling and CI (letters H32, H33), then release `5.0.1`** (owner,
+  2026-11-12: "release" → "Migrate, build CI, then release", level **patch, 5.0.1**). The Zig 0.17.1
+  migration that this waited for is DONE (`roadmap.md` 2026-11-12; `testing.md` § Zig 0.17.1).
+  What to build, slot by slot, is [`release.md`](release.md)'s U1–U12 table: a Bun bump tool
+  (U2/U3), a guarded release script that pushes `main` only (U4), and one workflow — `checks`
+  first, then the CI tag, then the Release page from the tag via the REST API, no `gh` (U5–U7,
+  H32), Zig 0.17.1 and Bun 1.4.4 pinned by sha256 (U9). wazmrt has no registry, so U8 is the
+  as-a-user read-back. Rehearse before it lands; no release is cut until it has. The ledger rows
+  H32 / H33 stay open until then. ⚠️ `5.0.1` raises `minimum_zig_version` 0.16.0 → 0.17.1: a
+  consumer building from source on 0.16 cannot build it — the owner chose patch knowing the
+  move; say so in the release notes.
 
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
