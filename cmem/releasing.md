@@ -6,7 +6,7 @@ what earns it.
 
 ---
 
-## 🔖 THE VERSION IS `5.0.0` — released 2026-10-24 (`4.0.1`, `4.0.0`, `3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
+## 🔖 THE VERSION IS `5.0.1` — released 2026-11-12 by CI (`5.0.0` 2026-10-24; `4.0.1`, `4.0.0`, `3.0.0` and `2.0.1` the same day; `2.0.0` and `1.0.4` 2026-10-23; `1.0.3` and `1.0.2` 2026-09-21; Track H was `1.0.1`, 2026-08-19). It was SET to `1.0.0` before the first track, on purpose
 
 > 📦 **The per-version records moved to [`release.md`](release.md) § "Release History"** (2026-11-12;
 > owner D3, workspace letter H33: every project records releases in ONE place, newest first). This

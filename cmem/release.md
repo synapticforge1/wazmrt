@@ -27,6 +27,9 @@ Built 2026-11-12, after the Zig 0.17.1 migration (owner: "Migrate, build CI, the
 | U11 record it | ✅ this file |
 | U12 failure | ✅ every job is re-run safe (an existing tag or page is "done"): re-run failed jobs; never a new or moved tag for the same code |
 
+✅ **Measured on a real release: `5.0.1`, run `43296106417` — `tag`, `release` and `readback`
+ran for the first time and each passed in one attempt** (the record is in 5.0.1's entry below).
+
 **Rehearsed on the branch `ci-release` before landing** (workspace best-practices 7.22). Run
 `43281313456` failed in the suites with no readable cause (the log needs a sign-in) → each gate
 became its own step with public annotations; run `43291978894` then named it: the CLI-behaviour
@@ -53,6 +56,32 @@ Patch (owner). Builds with Zig 0.17.1, which is now the minimum (it was 0.16.0):
 >   before changing directory (`known-issues.md`); found by the CI rehearsal.
 > - **Definitions from binaryang 3.0.4** (`b4e7f97`): the version label only; the data is 2.2.0's.
 > - **The release CI** (letters H32 / H33): `tools/release/`, `.github/workflows/release.yml`.
+>
+> ✅ **Released by CI, 2026-11-12: run `43296106417` on the bump commit `e801dc2`, every job green
+> in one attempt.** The local side: `bun tools/release/bump.ts patch` (the gate accepted the patch
+> floor) made `e801dc2 bump to v5.0.1`; `bun tools/release/push.ts` pushed `main` and nothing else
+> (read back). CI then:
+> - `checks`: every gate (the release self-tests; `test`, `test-safe`, `test-shipped`,
+>   `test-security`; `features` + `capi-smoke`; conformance 288 / 64,092 / 0 / 0 with S2 vs `5.0.0`;
+>   size EXACT; the standalone exe), then "is this a release?" → yes;
+> - `tag`: annotated `v5.0.1` by `github-actions[bot]` ("wazmrt 5.0.1"), peeling to `e801dc2`;
+> - `release`: the page, by `github-actions[bot]`, published 2026-11-12 20:09:35Z, not a draft;
+> - `readback`: a token-less clone of the tag, built `small`, `wazmrt 5.0.1 (abi 2)` and
+>   `hello_wasi.wat`.
+>
+> **Read back 2026-11-13, not from the run's word:** `git ls-remote` gives `v5.0.1^{}` =
+> `e801dc2`; the REST API gives the tag object (tagger `github-actions[bot]`) and the page (author
+> `github-actions[bot]`, draft false, the body = the summary above + the build line + GitHub's
+> `v5.0.0...v5.0.1` link). **As a user**, a clean clone of `v5.0.1` with no `ZIG_LOCAL_CACHE_DIR`:
+> `zig build -Doptimize=small` → `wazmrt 5.0.1 (abi 2)`, `hello_wasi.wat` prints "hello from wasi",
+> the exe is 1,042,944 bytes (its ceiling, from another directory), and `zig build test` is 842/842
+> (the fresh-clone case that failed before `c8f5382`). Step 9a recorded `5.0.1` as the baselines
+> (`8cdafc6`): only the `released-as` line moved in either file, as a patch requires.
+>
+> ⚠️ **No security or hardening review was run for this release.** The workspace made both
+> required before every release (letter H35, owner 2026-11-12, recorded here before the bump); the
+> letter reached wazmrt the day after the release, so 5.0.1 shipped under the earlier process.
+> H35 is open work (`open-work.md`); the next release cannot skip it.
 
 ### `5.0.0` — 2026-10-24
 

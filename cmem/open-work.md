@@ -4,31 +4,17 @@
 status narrative exists once"). Only open items; each points at its record. Done work leaves this file
 and is summarized in [`roadmap.md`](roadmap.md) with its commits.
 
-## 🏁 Status — 2026-11-12
+## 🏁 Status — 2026-11-13
 
-**On `main`, unreleased, pushed (read `origin/main` with `git ls-remote`; this line names no id, so
-it cannot go stale):**
-- **Workspace letters H30, H31, H34, C37 answered; H33's D3 done** (2026-11-12): `release.md` is
-  the one release record; H32 / H33's CI is next (§ Waiting, § Workspace letters).
-- **The four exFAT symlink skips are closed** (`46068fa`, 2026-10-27): the two sandbox tests
-  scratch in the OS temp dir, so `test` is 842/842 with 0 skipped and `test-security` 3/3 from
-  the `D:` cwd (`testing.md`). `test-safe` / `test-shipped` were not re-run on 0.16.0 before it
-  left the host.
-- **Ledger C26, wazmrt's part closed** (`cb7e7c4`, `b4f54a7`): binaryang's rewritten ids
-  translated (§ Workspace letters below).
-- **Migrated to Zig 0.17.1** (2026-11-12): every gate green and identical to 0.16.0's but the
-  sizes (raised for the toolchain); `testing.md` § Zig 0.17.1. Next: the release CI, then
-  `5.0.1` (§ Waiting).
+**`5.0.1` is released** (2026-11-12, owner: "release" → "Migrate, build CI, then release", patch),
+**the first wazmrt release made by CI**: run `43296106417` checked `e801dc2`, tagged `v5.0.1`, made
+the Release page and built the tag as a user; read back on GitHub and as a user 2026-11-13; step 9a
+`8cdafc6` ([`release.md`](release.md) has the record). It carries Zig 0.17.1 (the new minimum), the
+I8 name-section fix, `zig build test` working in a fresh clone, and the sandbox tests on any drive.
+⚠️ It shipped without the security / hardening reviews that letter H35 made required the same day
+(§ Workspace letters). Nothing is unreleased on `main` but memory.
 
-**Also on `main`, unreleased (2026-10-26, owner: "fix the items for wazmrt")**: workspace I8 re-run on
-wasm-tools 1.262. A `(@custom "name" …)` is now the only `name` section, as wasm-tools 1.262,
-wasmrt and binaryang emit (`852ff84`, `known-issues.md`); before, wazmrt also wrote a generated one,
-as 1.259 had. It changes `wat` output and `.wat` pins only for text carrying that annotation, and
-it brings wazmrt into line with the other three, so the next release takes it as a PATCH by the
-gate (S1 +0 −0). Contract v41 records it, plus that wasmrt mirrored v40. Full gate green
-(`testing.md`).
-
-**`5.0.0` is released** (2026-10-24, owner: "bump to 5.0.0 and push"): a table INITIALIZER needs
+**`5.0.0`** (2026-10-24, owner: "bump to 5.0.0 and push"): a table INITIALIZER needs
 function-references (found by wasmrt while mirroring v39; contract v40, `known-issues.md`). It was
 accepted under every config. S1 −30, so the gate's floor is MAJOR. README has the row.
 
@@ -94,13 +80,16 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- 🔜 **NOW: release `5.0.1` through the new CI** (owner, 2026-11-12: "release" → "Migrate, build
-  CI, then release", level **patch, 5.0.1**). The migration is done and the release CI is built
-  and rehearsed (`release.md`: three runs on `ci-release`, the third, `43294037922`, green in every
-  gate). `checks` is proven on GitHub; **`tag`, `release` and `readback` have run only against the
-  mock and a read-only dry run until 5.0.1's own run** — read that run back before calling H32 /
-  H33 done. ⚠️ `5.0.1` raises `minimum_zig_version` 0.16.0 → 0.17.1: a consumer building from
-  source on 0.16 cannot build it — the owner chose patch knowing the move; the notes say so.
+- 🗓️ **OWNER: the rehearsal branch `ci-release`** is still on GitHub (it equals `main`'s history
+  up to `65f4717`; nothing to keep). Deleting it is the owner's call.
+- 🔜 **Letter H35 — the review process (owner, 2026-11-12), NOT started.** (1) Add "review",
+  "security review", "hardening review" to `working-rules.md` § Owner commands, pointing at the
+  workspace `review-process.md`; (2) fill wazmrt's slots (§ 7 there): private-data paths, the
+  worst silent case, the reference results, the CI matrix, the seven security surfaces, the
+  environment matrix, the findings ledger and work record; (3) make the release tooling refuse a
+  release whose `release.md` entry does not record both reviews (`bump.ts` is the natural place:
+  it runs before the bump). 🔒 **The next release needs a security AND a hardening review first**,
+  each to its empty round, on everything since `5.0.0` — 5.0.1 shipped without them.
 
 - **wasmrt: checked 2026-10-23 late (owner: "check item 7 now with wasmrt")**, READ-ONLY. Its
   committed HEAD `97d2d55` was built from a scratch clone, and both binaries were RUN on the same
@@ -307,7 +296,8 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 `gh`) and H31 (Bun versions) recorded in `working-rules.md` § Tooling, nothing to change in the
 tree; H34's owner-written section in `working-rules.md` committed as written; C37's 0.17 breaks
 recorded beside the migration note; H33's D3 done — [`release.md`](release.md) is the one release
-record. **Open on wazmrt's side: H32 and H33's tooling and CI**, after the 0.17.1 migration (§
+record. ✅ **H32 and H33 done 2026-11-12**: the release tooling and CI built, rehearsed, and
+measured by release `5.0.1` (`release.md`). **Open on wazmrt's side: H35** (the review process; §
 Waiting).
 
 **Every OTHER letter addressed to wazmrt is done on wazmrt's side** (2026-10-24, H24 included: the ★
