@@ -96,7 +96,11 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   `REFUSED:` line — committed and pushed 2026-11-13 (owner: "commit then push"). Round 7: the
   self-test could run nothing and pass → the pinned step checks bun's summary (owner: "Check the
   summary"); batch / relative command paths refused; honest endings after a push or commit;
-  committed and pushed 2026-11-13 (the push rehearses the new step in CI). **Next: round 8** on round 5's fixes; the review stops at the
+  committed and pushed 2026-11-13 (the push rehearses the new step in CI). Then the last two
+  items (owner): a 422 about the tag by field, not one code; batch-shim Ctrl-C closed by the
+  refusal. Round 8 (owner: "fix all"): honest endings after a push or a landed commit; lagging
+  reads retried; the summary check reads bun's last lines; no bun config allowed — committed
+  and pushed 2026-11-13 (owner: "yes"). **Next: round 9.** ⏳ Owner: is CI's "Release-tool self-tests" step green on `775f063`? on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.
 - 🔜 **Letter H35 — the review process (owner, 2026-11-12), NOT started.** (1) Add "review",

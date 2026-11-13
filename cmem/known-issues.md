@@ -13,6 +13,31 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 8 — round 7's fixes and the last two items (owner: "fix all")
+
+Three fresh reviewers on Sonnet (`spawn` / `bump` / `push` / `gate`; the workflow and its new
+self-test step; `github.ts` read whole). **No tag or page for an unchecked commit, no failure read
+as a pass; endings that still claimed nothing happened, checks no test held, and false failures.**
+All fixed. `bun test tools/release` 169 → **185**; `RELEASE_TESTS_MIN` 185, the pin moved with it
+(the workflow diff reviewed: the summary check and that value); 11 mutants, all caught. Committed
+and pushed 2026-11-13.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | REFUSED after a push (round 7 fixed only the thrown errors) | a failed push and a read-back mismatch still printed `REFUSED:`. Every refusal after `git push` ran now opens `PUSH ATTEMPTED, then:` | R10P1–P2; a case where the tags read BEFORE the push fails still says REFUSED |
+| **A2** | REFUSED and a false RESTORE FAILED after a commit that LANDED | git can write the commit and report a failure (a Ctrl-C mid-commit). On a failed `git commit` HEAD is read: a new commit `bump to v<to>` on the old HEAD means the bump is done — no restore, exit 0, said so | R10K1; a case |
+| **B1** | guards no test held | the final `git log` guard for a runner that THROWS; where `push.ts` sets its flag; the exact (case-sensitive) tag match in `findRelease`; the subject's trim | R10K2, R10P2, R10G4, R10G5; cases |
+| **B2** | the self-test summary could be read wrong | it took the FIRST `N pass` line and could not see past colour codes. Now colour codes are dropped and the LAST pass and fail lines (bun's own summary) are read, fail exactly `0` | by hand on real and crafted captures: real 185 accepted, 186 refused; coloured accepted; a test printing ` 999 pass` / ` 0 fail` before a FAILING summary refused; an early exit refused |
+| **B3** | a bun config could hollow the suite unseen | a committed `bunfig.toml` preload could make every test pass with the count unchanged. The commit must hold no `bunfig.toml` / `.bunfig.toml` (`git ls-tree`) | a case (by reasoning: it reads the committed tree) |
+| **C1** | a red run for correct work from a lagging read | a read right after a write (the tag, the page) or of a commit just pushed (the subject, the compare) now reads again on 404 / 5xx, 2 + 5 + 10 s, before it counts | R10G1–G2; lag cases for each read; a never-settling read still fails after three retries |
+| **C2** | a timed-out write said only "timed out" | it may have been done: the message says so, and that a re-run is safe (each job reads first) | R10G3; read and write cases |
+| **C3** | small | `GITHUB_OUTPUT` appended, never rewritten (a failed read dropped earlier outputs) — not seen by a test (the CLI's `main`); a QUOTED PATH entry read as cmd reads it (measured: `Bun.which` ignored it); a path rooted without a drive refused | R10S1–S2; cases |
+
+**Not fixed:** "PUSH ATTEMPTED" when the push process never started (cmd.exe gone) — it errs toward
+caution. ⚠️ Whether pwsh 7 runs the self-test step as written is CI's half (the owner reads the run).
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 7 — round 6's fixes and the three items (A1: "Check the summary")
 
 Three fresh reviewers on Sonnet (`spawn.ts` + `gate.ts`; the workflow pin; `github.ts` /
@@ -35,9 +60,14 @@ Committed and pushed 2026-11-13 — the push is also the CI rehearsal of the new
 | **B4** | an install path holding `%` / `!` refused generically | still refused (cmd would change it), now naming the resolved path | R8S3 |
 | **C** | small | a 422 is a page race only for `already_exists` on `tag_name`; `pathOf` takes the first NON-EMPTY spelling | R8G1, R8S4 |
 
-**Not fixed, with reasons:** whether GitHub answers a tag held by an IMMUTABLE release with a
-`custom` 422 is unmeasured (it would now be a loud failure, not "done" — the safe side); a real
-console Ctrl-C through a batch shim is moot (batch targets are refused).
+**Left at first, then closed (owner: "fix the last two items", after the round-7 push; uncommitted):**
+- **A tag held by an IMMUTABLE release** — GitHub's 422 for it is unmeasured (no API call made
+  here). Which 422s concern the tag is now decided by the FIELD (`tag_name`, any code) or the words
+  "immutable release" anywhere in the body; either re-reads the listing, and "done" still needs a
+  page for THIS tag. R9G1–G3 (G1 survived first: its case also said "immutable", so a case with a
+  bare custom code was added); five cases. `RELEASE_TESTS_MIN` 164 → 169, the pin moved with it.
+- **A real Ctrl-C through a batch shim** — closed by A3: a batch target is refused before anything
+  runs (an end-to-end case with a real `.cmd` on PATH), so no batch file runs inside our cmd line.
 
 ---
 

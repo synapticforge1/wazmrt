@@ -43,7 +43,7 @@ const EXE_RUN = "& { $PSNativeCommandUseErrorActionPreference = $false;"; // the
  * To change the workflow: edit it, run this test, review the diff of release.yml, then put the new
  * value printed below here — in the same commit, whose message says what changed and why.
  */
-const RELEASE_YML_SHA256 = "5456487ec1abbca3801f9abb07745b20c83cc33491272edaa8aaf866795c1dfe"; // round 7: the self-test summary check
+const RELEASE_YML_SHA256 = "d06f4c9a01dfe0e6421995360923e7e7a127985bbb59fdecbbfba6cd1df266c6"; // round 8: last summary lines, colour dropped; RELEASE_TESTS_MIN 185
 
 test("release.yml is exactly the reviewed text: any edit moves this pin, in the same commit (round 6)", () => {
   const text = readFileSync(".github/workflows/release.yml", "utf8").replace(/\r\n/g, "\n");
@@ -60,6 +60,13 @@ test("the COMMIT holds exactly one file under .github: release.yml (round 7: a c
   expect(r.status).toBe(0);
   expect(r.stdout.trim().split(/\r?\n/)).toEqual([".github/workflows/release.yml"]);
 });
+test("the commit holds no bun config: a bunfig preload could make every test pass with the count unchanged (round 8)", () => {
+  const r = spawnSync("git", ["ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" });
+  expect(r.status).toBe(0);
+  const configs = r.stdout.split(/\r?\n/).filter((f) => /(^|\/)\.?bunfig\.toml$/i.test(f));
+  expect(configs).toEqual([]);
+});
+
 test("shellOf reads the workflow-level default (round 3, C1)", () => {
   const winJob = { "runs-on": "windows-latest" };
   expect(shellOf(winJob, {}, { defaults: { run: { shell: "cmd" } } })).toBe("cmd");
@@ -352,9 +359,10 @@ const CHECK_LINES: Record<string, string[]> = {
   "checks/Release-tool self-tests": [
     BUN_TEST_LINE,
     'if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }',
-    "$s = ($t | ForEach-Object { \"$_\" }) -join \"`n\"",
-    "$pass = [regex]::Match($s, '(?m)^\\s*(\\d+) pass\\s*$')",
-    `if (-not $pass.Success -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $s -notmatch '(?m)^\\s*0 fail\\s*$') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }`,
+    "$s = (($t | ForEach-Object { \"$_\" }) -join \"`n\") -replace '\\x1b\\[[0-9;]*m', ''",
+    "$pass = @([regex]::Matches($s, '(?m)^\\s*(\\d+) pass\\s*$')) | Select-Object -Last 1",
+    "$fail = @([regex]::Matches($s, '(?m)^\\s*(\\d+) fail\\s*$')) | Select-Object -Last 1",
+    `if (-not $pass -or -not $fail -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $fail.Groups[1].Value -ne '0') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }`,
   ],
   "checks/Unit suite (the surface gate inside it)": ["bun tools/release/gate.ts test --summary all"],
   "checks/Safety suite (safe)": ["bun tools/release/gate.ts test-safe --summary all"],

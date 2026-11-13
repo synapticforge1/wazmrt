@@ -142,6 +142,33 @@ describe("bump.ts", () => {
     expect(err).toContain("cannot start cmd.exe (test)");
     expect(process.listenerCount("SIGINT")).toBe(baseline);
   });
+  test("git WRITES the commit but reports a failure: done, no restore, no REFUSED (round 8)", async () => {
+    const { work } = repo();
+    const real = runner(work);
+    const lying = fake(work, "ok", (a) => {
+      if (a[0] === "commit") {
+        real("git", a); // the commit lands ...
+        return FAIL; // ... and git says it failed (a Ctrl-C mid-commit)
+      }
+    });
+    const [r, err] = await captured(() => bump(["patch"], work, lying));
+    expect(r).toBe(0);
+    expect(err).toContain("but the commit WAS made");
+    expect(err).not.toContain("REFUSED");
+    expect(err).not.toContain("RESTORE");
+    expect(sh(work, "log", "-1", "--format=%s")).toBe("bump to v5.0.2");
+  });
+  test("the final `git log` THROWING after a good commit (a runner that throws): exit 0, no REFUSED (round 8: untested)", async () => {
+    const { work } = repo();
+    const real = fake(work);
+    const throwing: Run = (cmd, args, inh) => {
+      if (cmd === "git" && args[0] === "log") throw new Error("cannot start cmd.exe (test)");
+      return real(cmd, args, inh);
+    };
+    const [r, err] = await captured(() => bump(["patch"], work, throwing));
+    expect(r).toBe(0);
+    expect(err).not.toContain("REFUSED");
+  });
   test("the final `git log` failing after a GOOD commit: exit 0, no REFUSED (round 7)", async () => {
     const { work } = repo();
     const noLog = fake(work, "ok", (a) => (a[0] === "log" ? FAIL : undefined));
@@ -528,7 +555,20 @@ describe("push.ts", () => {
     void real;
     const [r, err] = await captured(() => push([], work, liar));
     expect(r).toBe(1);
-    expect(err).toContain("read-back");
+    expect(err).toContain("PUSH ATTEMPTED, then: read-back"); // after a push, never REFUSED (round 8)
+    expect(err).not.toContain("REFUSED");
+  });
+  test("a failure reading origin's tags BEFORE the push says REFUSED: nothing was attempted (round 8)", async () => {
+    const { work } = await bumped();
+    let reads = 0;
+    const noTags = fake(work, "ok", (a) => {
+      // The guard reads the listing once for the parent version; the next read is `tagsBefore`.
+      if (a[0] === "ls-remote" && a.length === 3 && a[1] === "--tags" && ++reads === 2) return FAIL;
+    });
+    const [r, err] = await captured(() => push([], work, noTags));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: git ls-remote --tags origin");
+    expect(err).not.toContain("PUSH ATTEMPTED");
   });
   test("origin's push URL is not its fetch URL: refused before pushing (round 2, B6)", async () => {
     const { root, work } = await bumped();
@@ -640,7 +680,8 @@ describe("push.ts", () => {
     const failed = fake(work, "ok", (a) => (a[0] === "push" ? FAIL : undefined));
     const [r, err] = await captured(() => push([], work, failed));
     expect(r).toBe(1);
-    expect(err).toContain(`origin/main is now ${before}`);
+    expect(err).toContain(`PUSH ATTEMPTED, then: git push failed; origin's tags are unchanged, origin/main is now ${before}`);
+    expect(err).not.toContain("REFUSED");
   });
   test("the documented way out of a bump whose CI checks failed: revert, fix, bump again, push (round 6)", async () => {
     const { work } = await bumped();

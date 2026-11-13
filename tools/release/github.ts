@@ -15,7 +15,7 @@
 // branch, so a page is only ever made for a tag that already exists AND peels to $GITHUB_SHA.
 // A tag that exists elsewhere is never moved (a published tag never moves): refused.
 
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -27,9 +27,28 @@ export interface Ctx {
   dryRun: boolean;
   fetch: Fetch;
   log: (line: string) => void;
+  sleep?: (ms: number) => Promise<void>; // the wait between retries (tests pass an instant one)
 }
 
 const TIMEOUT_MS = 30_000; // every request (workspace best-practices 7.21)
+const SETTLE_WAITS_MS = [2_000, 5_000, 10_000];
+
+/**
+ * A GET that GitHub may answer from a lagging read — right after a write, or of a commit just
+ * pushed: a 404 or a 5xx is retried, briefly (round 8: one lagging read made a red run for correct
+ * work). Anything else, and the last answer, is returned as it is.
+ */
+export async function settledGet(ctx: Ctx, path: string): Promise<{ status: number; json: any }> {
+  const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let r = await call(ctx, "GET", path);
+  for (const ms of SETTLE_WAITS_MS) {
+    if (r.status !== 404 && r.status < 500) return r;
+    ctx.log(`GET ${path}: HTTP ${r.status}; read again in ${ms / 1000} s (GitHub may lag)`);
+    await sleep(ms);
+    r = await call(ctx, "GET", path);
+  }
+  return r;
+}
 
 export async function call(ctx: Ctx, method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
   if (method !== "GET" && ctx.dryRun) throw new Error(`dry run: refusing to ${method} ${path}`);
@@ -40,12 +59,24 @@ export async function call(ctx: Ctx, method: string, path: string, body?: unknow
   };
   if (ctx.token) headers.Authorization = `Bearer ${ctx.token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  const res = await ctx.fetch(`${ctx.api}/repos/${ctx.repo}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
+  let res: Response;
+  try {
+    res = await ctx.fetch(`${ctx.api}/repos/${ctx.repo}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch (err) {
+    const name = (err as { name?: string } | null)?.name;
+    if (name !== "TimeoutError" && name !== "AbortError") throw err;
+    // A WRITE that timed out may still have been done (round 8): say so, and that a re-run is
+    // safe — every job reads what exists before it writes.
+    throw new Error(
+      `${method} ${path}: no answer in ${TIMEOUT_MS / 1000} s` +
+        (method === "GET" ? "" : "; it MAY have been done — re-run the job: it reads what exists first and finishes or reports done"),
+    );
+  }
   const text = await res.text();
   let json: any = null;
   try {
@@ -70,6 +101,19 @@ export async function peel(ctx: Ctx, tag: string): Promise<string | null> {
   }
   if (obj.type !== "commit") throw new Error(`tag ${tag} points at a ${obj.type}, not a commit`);
   return obj.sha;
+}
+
+/** `peel` for a READ-BACK right after a write: "absent" is read again, briefly, before it counts (round 8). */
+export async function peelSettled(ctx: Ctx, tag: string): Promise<string | null> {
+  const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  let at = await peel(ctx, tag);
+  for (const ms of SETTLE_WAITS_MS) {
+    if (at !== null) return at;
+    ctx.log(`tag ${tag}: not visible yet; read again in ${ms / 1000} s (GitHub may lag)`);
+    await sleep(ms);
+    at = await peel(ctx, tag);
+  }
+  return at;
 }
 
 /** `src/root.zig`'s `pub const version` — the one truth in code (`cmem/releasing.md`). */
@@ -104,7 +148,7 @@ export async function isRelease(ctx: Ctx, version: string): Promise<boolean> {
 
 /** The first line of ctx.sha's commit message; THROWS when the commit cannot be read. */
 async function subjectOf(ctx: Ctx): Promise<string> {
-  const c = await call(ctx, "GET", `/git/commits/${ctx.sha}`);
+  const c = await settledGet(ctx, `/git/commits/${ctx.sha}`); // a commit just pushed (round 8)
   if (c.status !== 200) throw new Error(`reading commit ${ctx.sha}: HTTP ${c.status}`);
   return String(c.json.message ?? "").split("\n")[0].trim();
 }
@@ -122,7 +166,7 @@ export async function bumpOnMain(ctx: Ctx, name: string): Promise<string | null>
     return err instanceof Error ? err.message : String(err);
   }
   if (subject !== `bump to ${name}`) return `${ctx.sha} is "${subject}", not the bump commit "bump to ${name}"`;
-  const cmp = await call(ctx, "GET", `/compare/${ctx.sha}...${MAIN}`);
+  const cmp = await settledGet(ctx, `/compare/${ctx.sha}...${MAIN}`);
   if (cmp.status !== 200) return `comparing ${ctx.sha} with ${MAIN}: HTTP ${cmp.status}`;
   if (cmp.json.status !== "ahead" && cmp.json.status !== "identical")
     return `${ctx.sha} is not on ${MAIN} (compare: ${cmp.json.status})`;
@@ -180,7 +224,7 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
     ctx.log(`creating ref refs/tags/${name}: HTTP ${ref.status}`);
     return 1;
   }
-  const back = await peel(ctx, name);
+  const back = await peelSettled(ctx, name);
   if (back !== ctx.sha) {
     ctx.log(`READ-BACK FAILED: ${name} peels to ${back}, expected ${ctx.sha}`);
     return 1;
@@ -262,23 +306,28 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     // Another run made the page between our check and our create (round 5) — GitHub's
     // `already_exists` on `tag_name`, and ONLY that (round 7): any other 422 is GitHub refusing
     // THIS request, a failure even if a page happens to exist.
+    // Which 422s concern the TAG is decided by the field, not by one code (round 8): GitHub's
+    // `already_exists` is documented, but a tag held by an IMMUTABLE release is said otherwise
+    // (unmeasured: "tag_name was used by an immutable release"). Any 422 about `tag_name` — or one
+    // naming an immutable release — re-reads the listing, and "done" still needs a page FOR THIS TAG.
     const errors: any[] = Array.isArray(made.json?.errors) ? made.json.errors : [];
-    const already = errors.some((e) => e?.code === "already_exists" && e?.field === "tag_name"); // round 7: the field too
+    const text = JSON.stringify(made.json ?? "");
+    const already = errors.some((e) => e?.field === "tag_name") || /immutable release/i.test(text);
     const raced = already ? await existingPage(ctx, name) : undefined;
     if (raced !== undefined) return raced;
-    ctx.log(`creating release ${name}: HTTP 422${already ? " (already_exists) and no such page exists" : ""} (${JSON.stringify(made.json)})`);
+    ctx.log(`creating release ${name}: HTTP 422${already ? " about the tag, and no page for it exists" : ""} (${JSON.stringify(made.json)})`);
     return 1;
   }
   if (made.status !== 201) {
     ctx.log(`creating release ${name}: HTTP ${made.status}`);
     return 1;
   }
-  const back = await call(ctx, "GET", `/releases/tags/${encodeURIComponent(name)}`);
+  const back = await settledGet(ctx, `/releases/tags/${encodeURIComponent(name)}`); // just created (round 8)
   if (back.status !== 200 || back.json.tag_name !== name || back.json.draft !== false) {
     ctx.log(`READ-BACK FAILED: release ${name}: HTTP ${back.status}, draft=${back.json?.draft}`);
     return 1;
   }
-  const again = await peel(ctx, name);
+  const again = await peelSettled(ctx, name);
   if (again !== ctx.sha) {
     ctx.log(`READ-BACK FAILED: after the page, ${name} peels to ${again}, expected ${ctx.sha}`);
     return 1;
@@ -334,7 +383,8 @@ async function main(argv: string[]): Promise<number> {
   if (cmd === "is-release") {
     const rel = await isRelease(ctx, version);
     const out = `version=${version}\ntag=v${version}\nrelease=${rel}\n`;
-    if (env.GITHUB_OUTPUT) await Bun.write(env.GITHUB_OUTPUT, (await Bun.file(env.GITHUB_OUTPUT).text().catch(() => "")) + out);
+    // APPENDED, never rewritten (round 8: a failed read of the file dropped the earlier outputs).
+    if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, out);
     console.log(out.trim());
     return 0;
   }

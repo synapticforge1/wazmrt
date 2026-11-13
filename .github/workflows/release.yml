@@ -42,7 +42,7 @@ env:
   CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
   # The fewest release-tool tests the self-test step accepts (review round 7, A1): raise it when
   # tests are added — with the workflow pin, in the same commit.
-  RELEASE_TESTS_MIN: "164"
+  RELEASE_TESTS_MIN: "185"
 
 jobs:
   checks:
@@ -100,10 +100,13 @@ jobs:
           # preload that exits early ends the run with 0 having run nothing; only the summary shows it.
           $t = & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 }
           if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }
-          $s = ($t | ForEach-Object { "$_" }) -join "`n"
+          # Colour codes dropped (a FORCE_COLOR would hide the summary); the LAST count lines are bun's
+          # own summary — a test that prints "N pass" earlier cannot stand in for it (round 8).
+          $s = (($t | ForEach-Object { "$_" }) -join "`n") -replace '\x1b\[[0-9;]*m', ''
           $s
-          $pass = [regex]::Match($s, '(?m)^\s*(\d+) pass\s*$')
-          if (-not $pass.Success -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $s -notmatch '(?m)^\s*0 fail\s*$') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }
+          $pass = @([regex]::Matches($s, '(?m)^\s*(\d+) pass\s*$')) | Select-Object -Last 1
+          $fail = @([regex]::Matches($s, '(?m)^\s*(\d+) fail\s*$')) | Select-Object -Last 1
+          if (-not $pass -or -not $fail -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $fail.Groups[1].Value -ne '0') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }
 
       # One gate per step, each through gate.ts: a failure names its step and publishes its error
       # lines as annotations (public; the log needs a sign-in).

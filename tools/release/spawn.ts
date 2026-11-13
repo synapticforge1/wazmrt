@@ -42,6 +42,19 @@ export function pathOf(env: Record<string, string | undefined>): string {
   return (key && env[key]) || "";
 }
 
+/**
+ * A Windows PATH as cmd.exe reads it: each entry's surrounding spaces and double quotes dropped
+ * (round 8, measured: `Bun.which` read a `"C:\…\shims"` entry as no entry at all, so a zig that runs
+ * was reported missing).
+ */
+export function cleanPath(path: string): string {
+  return path
+    .split(";")
+    .map((e) => e.trim().replace(/^"(.*)"$/, "$1").trim())
+    .filter((e) => e !== "")
+    .join(";");
+}
+
 /** What runs: `missing` when the command does not resolve (Windows) — then nothing may run. */
 export type Plan = { file: string; args: string[]; windowsVerbatimArguments: boolean; missing?: boolean };
 
@@ -50,7 +63,7 @@ export function plan(
   args: string[],
   platform: string = process.platform,
   comspec = process.env.ComSpec,
-  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: pathOf(process.env) }),
+  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: cleanPath(pathOf(process.env)) }),
 ): Plan {
   if (platform !== "win32") return { file: cmd, args, windowsVerbatimArguments: false };
   const exe = resolve(cmd);
@@ -59,7 +72,10 @@ export function plan(
   // resolved against THIS process's directory but would run in the child's — another file; and a
   // batch file (`.cmd` / `.bat`) runs INSIDE our cmd line, where its own `exit N` ends cmd before
   // the mapping, so a 256 reads as a pass again. Both refused; zig, git and bun are `.exe`.
-  if (!win32.isAbsolute(exe)) throw new Error(`${cmd} resolves to ${exe}, a relative path (a relative PATH entry); refusing to guess which file runs`);
+  // `\dir\x.exe` counts as absolute to `isAbsolute` but is DRIVE-relative (round 8): refused too;
+  // a UNC path (`\\server\…`) and a drive path pass.
+  if (!win32.isAbsolute(exe) || /^[\\/](?![\\/])/.test(exe))
+    throw new Error(`${cmd} resolves to ${exe}, a relative path (a relative PATH entry); refusing to guess which file runs`);
   if (/\.(cmd|bat)$/i.test(exe)) throw new Error(`${cmd} resolves to the batch file ${exe}; its own \`exit\` would bypass the exit-code mapping — put the real .exe first on PATH`);
   if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds " % or !, which cmd.exe would change; install it on a path without them`);
   for (const a of args)

@@ -148,6 +148,16 @@ async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: n
     return interrupts > 0 ? `interrupted ${where}` : null;
   };
 
+  /** Did a commit `bump to v<to>` land on top of `before`? Read from the raw object (no `%`: spawn.ts). */
+  const landed = (before: string): boolean => {
+    const now = run("git", ["rev-parse", "HEAD"]);
+    if (!now.ok || now.out === before) return false;
+    const obj = run("git", ["cat-file", "commit", "HEAD"]);
+    const subject = obj.ok ? (obj.out.split(/\r?\n\r?\n/)[1] ?? "").split(/\r?\n/)[0].trim() : "";
+    const parent = run("git", ["rev-parse", "HEAD~1"]);
+    return subject === `bump to v${to}` && parent.ok && parent.out === before;
+  };
+
   let committed = false;
   process.on("SIGINT", onInterrupt); // the WHOLE window, first write to commit (round 4, B2)
   try {
@@ -169,7 +179,15 @@ async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: n
     git("add", "--", ...files);
     why = await interruptedAt("before the commit");
     if (why) return refuse(why);
-    git("commit", "-m", `bump to v${to}`);
+    const head = git("rev-parse", "HEAD");
+    const commit = run("git", ["commit", "-m", `bump to v${to}`]);
+    if (!commit.ok) {
+      // git can WRITE the commit and still report a failure (a Ctrl-C mid-commit, a failing
+      // post-commit step). Then the bump is done: restoring would undo nothing and say RESTORE
+      // FAILED, and REFUSED would claim nothing happened (round 8). Read what HEAD is now.
+      if (!landed(head)) throw new Error(`git commit -m bump to v${to}: ${commit.err}`);
+      console.error(`bump: git reported a failure (${commit.err || "no message"}), but the commit WAS made`);
+    }
     committed = true;
   } catch (err) {
     return refuse(err instanceof Error ? err.message : String(err));

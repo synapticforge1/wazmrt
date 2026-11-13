@@ -47,8 +47,10 @@ function checkedPush(argv: string[], run: Run, state: { pushAttempted: boolean }
     if (!r.ok) throw new Error(`git ${args.join(" ")}: ${r.err}`);
     return r.out;
   };
+  // Once `git push` has run, no ending may say REFUSED — that claims nothing happened (round 8: a
+  // failed push and a read-back mismatch still did; round 7 had fixed only the thrown errors).
   const refuse = (why: string) => {
-    console.error(`REFUSED: ${why}`);
+    console.error(`${state.pushAttempted ? "PUSH ATTEMPTED, then" : "REFUSED"}: ${why}`);
     return 1;
   };
   const dryRun = argv.includes("--dry-run");

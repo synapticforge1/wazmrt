@@ -7,7 +7,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathOf, plan, runner, status } from "./spawn.ts";
+import { cleanPath, pathOf, plan, runner, status } from "./spawn.ts";
 
 test("plan: elsewhere the child runs directly", () => {
   expect(plan("zig", ["build", "test"], "linux")).toEqual({ file: "zig", args: ["build", "test"], windowsVerbatimArguments: false });
@@ -30,6 +30,31 @@ test("plan: a resolved path that is relative, a batch file, or holds % ! is refu
   expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\shims\\zig.cmd")).toThrow("the batch file");
   expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\shims\\ZIG.BAT")).toThrow("the batch file");
   expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\Users\\a!b\\zig.exe")).toThrow("zig resolves to C:\\Users\\a!b\\zig.exe, whose path holds");
+});
+
+test("plan: a path rooted without a drive is drive-relative: refused; UNC and drive paths pass (round 8)", () => {
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "\\tools\\zig.exe")).toThrow("a relative path");
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "/tools/zig.exe")).toThrow("a relative path");
+  expect(plan("zig", [], "win32", "cmd.exe", () => "\\\\server\\share\\zig.exe").missing).toBeUndefined();
+  expect(plan("zig", [], "win32", "cmd.exe", () => "C:/tools/zig.exe").missing).toBeUndefined();
+});
+
+test("cleanPath: quoted and padded PATH entries read as cmd.exe reads them (round 8)", () => {
+  expect(cleanPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toBe("C:\\a b\\shims;C:\\x;D:\\y");
+});
+
+test("end to end: a command on a QUOTED PATH entry is found, not 'missing' (round 8, measured)", () => {
+  if (process.platform !== "win32") return;
+  const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  const saved = process.env[pathKey];
+  process.env[pathKey] = `"${stubDir}";${saved ?? ""}`;
+  try {
+    const r = runner(stubDir)("echo-argv", ["q"]);
+    expect(r.missing).toBe(false);
+    expect(r.out).toBe("[q]");
+  } finally {
+    process.env[pathKey] = saved;
+  }
 });
 
 test("pathOf: the first non-empty spelling of PATH (round 7)", () => {

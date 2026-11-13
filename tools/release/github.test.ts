@@ -27,6 +27,9 @@ interface MockOpts {
   readBackTagName?: string; // the by-tag read-back answers with this tag_name
   afterReleasePost?: (refs: Record<string, { type: string; sha: string }>) => void; // what else happened
   pageAppearsOnPost?: { draft: boolean }; // another run made the page just before our POST
+  lag?: Record<string, number>; // GET <exact path> answers 404 this many times first (a lagging read)
+  refLagAfterCreate?: number; // after POST /git/refs, the tag's GET answers 404 this many times
+  timeoutOn?: string; // "<METHOD> <path>": the fetch throws a TimeoutError
 }
 
 function mock(o: MockOpts = {}) {
@@ -35,11 +38,22 @@ function mock(o: MockOpts = {}) {
   const releases = { ...(o.releases ?? {}) };
   const writes: string[] = [];
   const bodies: any[] = [];
+  const lag = { ...(o.lag ?? {}) };
+  let refLag = 0;
   let n = 0;
   const reply = (status: number, json?: unknown) => new Response(json === undefined ? "" : JSON.stringify(json), { status });
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
     const path = url.replace("https://api.test/repos/o/r", "");
     const method = init.method ?? "GET";
+    if (o.timeoutOn === `${method} ${path}`) throw new DOMException("The operation timed out.", "TimeoutError");
+    if (method === "GET" && lag[path] > 0) {
+      lag[path]--;
+      return reply(404);
+    }
+    if (method === "GET" && refLag > 0 && path.startsWith("/git/ref/tags/")) {
+      refLag--;
+      return reply(404);
+    }
     if (method !== "GET") {
       writes.push(`${method} ${path}`);
       bodies.push(JSON.parse(String(init.body)));
@@ -74,6 +88,7 @@ function mock(o: MockOpts = {}) {
     if (method === "POST" && path === "/git/refs") {
       const b = bodies.at(-1);
       refs[b.ref.replace("refs/tags/", "")] = { type: "tag", sha: b.sha };
+      refLag = o.refLagAfterCreate ?? 0;
       o.afterRefPost?.(refs);
       return reply(201, {});
     }
@@ -114,6 +129,7 @@ function mock(o: MockOpts = {}) {
     dryRun: false,
     fetch,
     log: (l) => lines.push(l),
+    sleep: async () => {}, // retries without the real wait
     ...extra,
   });
   return { ctx, writes, bodies, lines, refs, releases };
@@ -341,10 +357,32 @@ describe("release", () => {
     });
     expect(await release(m.ctx(), TAG, "notes")).toBe(0);
   });
+  for (const [shape, body] of [
+    ["a custom code on tag_name", { message: "Validation Failed", errors: [{ resource: "Release", code: "custom", field: "tag_name", message: "tag_name was used by an immutable release" }] }],
+    ["only a top-level message", { message: "tag_name was used by an immutable release" }],
+  ] as const) {
+    test(`a tag held by an IMMUTABLE release (${shape}), the page there: done (round 8 — the shape is unmeasured, so either is read)`, async () => {
+      const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", pageAppearsOnPost: { draft: false }, failPostJson: body });
+      expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    });
+    test(`a tag held by an immutable release (${shape}) but NO page listed: a failure, never 'done'`, async () => {
+      const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", failPostJson: body });
+      expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    });
+  }
+  test("ANY code on tag_name re-reads the listing (round 8): a custom code, no 'immutable' wording, the page there: done", async () => {
+    const m = mock({
+      refs: { [TAG]: { type: "commit", sha: SHA } },
+      failPost: "/releases",
+      pageAppearsOnPost: { draft: false },
+      failPostJson: { message: "Validation Failed", errors: [{ resource: "Release", code: "custom", field: "tag_name", message: "held" }] },
+    });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+  });
   test("already_exists with no page found: a failure that says so", async () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", failPostJson: { message: "Validation Failed", errors: [{ code: "already_exists", field: "tag_name" }] } });
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
-    expect(m.lines.join("\n")).toContain("(already_exists) and no such page exists");
+    expect(m.lines.join("\n")).toContain("about the tag, and no page for it exists");
   });
   for (const draft of [false, true]) {
     test(`another run made the page (${draft ? "a draft" : "published"}) between our check and our POST: done (round 5)`, async () => {
@@ -380,6 +418,48 @@ describe("release", () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, afterReleasePost: (refs) => (refs[TAG] = { type: "commit", sha: OTHER }) });
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.lines.join("\n")).toContain(`peels to ${OTHER}`);
+  });
+});
+
+describe("lagging reads, timeouts and exact matches (round 8)", () => {
+  test("the page's read-back lags once: read again, done", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, lag: { [`/releases/tags/${TAG}`]: 1 } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    expect(m.lines.join("\n")).toContain("GitHub may lag");
+  });
+  test("the compare lags twice right after the push: read again, tagged", async () => {
+    const m = mock({ lag: { [`/compare/${SHA}...main`]: 2 } });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("the commit itself lags once (just pushed): read again, a release", async () => {
+    expect(await isRelease(mock({ lag: { [`/git/commits/${SHA}`]: 1 } }).ctx(), "5.0.1")).toBe(true);
+  });
+  test("the tag's read-back lags once after its create: read again, done", async () => {
+    const m = mock({ refLagAfterCreate: 1 });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("a read that never settles: a failure after the retries, never 'done'", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, lag: { [`/releases/tags/${TAG}`]: 99 } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.filter((l) => l.includes("GitHub may lag")).length).toBe(3);
+  });
+  test("a WRITE that times out says it may have been done, and that a re-run is safe", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, timeoutOn: "POST /releases" });
+    await expect(release(m.ctx(), TAG, "notes")).rejects.toThrow("it MAY have been done");
+  });
+  test("a READ that times out says only that it timed out", async () => {
+    const m = mock({ timeoutOn: `GET /git/ref/tags/${TAG}` });
+    const err = await peel(m.ctx(), TAG).catch((e) => e as Error);
+    expect(String(err)).toContain("no answer in 30 s");
+    expect(String(err)).not.toContain("MAY have been done");
+  });
+  test("a page for V5.0.1 is not the page for v5.0.1: tag names match exactly (round 8: untested)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, releases: { "V5.0.1": { draft: false } } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    expect(m.writes).toEqual(["POST /releases"]);
+  });
+  test("the subject is trimmed: `bump to v5.0.1` with a trailing CR or space is the bump (round 8: untested)", async () => {
+    expect(await isRelease(mock({ subject: "bump to v5.0.1 \r" }).ctx(), "5.0.1")).toBe(true);
   });
 });
 
