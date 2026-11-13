@@ -20,8 +20,10 @@ on:
 
 permissions: {}
 
+# Per ref AND commit (review round 1, C5): keyed on the commit alone, the same commit pushed to a
+# second branch shared main's group, and a third push of it cancelled main's PENDING run.
 concurrency:
-  group: release-${{ github.sha }}
+  group: release-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 env:
@@ -30,8 +32,13 @@ env:
   BUN_VERSION: "1.4.4"
   BUN_SHA256_WINDOWS: "cd2c0fccc78f3ede1f50ca827a15f063eda13d4d150a3d0674f4f6e323d864a5"
   BUN_SHA256_LINUX: "bf8ccbfb2b0b80159e0f9a6d15c55317add8077534dbc6130a3edb52fccb395c"
-  # The spec corpus lives in wasmtk; only that folder is fetched (S2 pins each file by content).
+  # The spec corpus lives in wasmtk; only that folder is fetched. 🔒 PINNED by commit AND by the
+  # folder's git tree (review round 1, C3): a moving branch could silently shrink coverage (S2 only
+  # compares files whose bytes are unchanged) or give a re-run a different verdict. Tree 76c86c6 is
+  # the corpus 5.0.1's conformance record was made from. Moving the pin is a deliberate commit.
   CORPUS_REPO: "https://github.com/synapticforge1/wasmtk.git"
+  CORPUS_COMMIT: "eae9f1c91e2968dc26dcd5f60f53e58a4cfa134f"
+  CORPUS_TREE: "76c86c66fa691a5a11e5671fcc9f8ffedc559624"
   CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
 
 jobs:
@@ -50,7 +57,11 @@ jobs:
     steps:
       - name: Clone this commit (no token)
         run: |
+          # 🔒 Every pwsh step sets both (review round 1, C1): without the second, a failing native
+          # command (git, zig, bun, the exe) does not stop the step, and only the LAST command's
+          # exit code decides it.
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           git init -q .
           git remote add origin "https://github.com/$env:GITHUB_REPOSITORY.git"
           git fetch -q --depth 1 origin $env:GITHUB_SHA
@@ -60,6 +71,7 @@ jobs:
       - name: Install Zig and Bun (pinned by sha256)
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           function Get-Pinned($url, $out, $sha) {
             for ($i = 1; $i -le 4; $i++) {
               try { Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 300; break }
@@ -77,6 +89,8 @@ jobs:
 
       - name: Release-tool self-tests
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           zig version
           bun --version
           bun test tools/release
@@ -104,11 +118,17 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $c = "$env:RUNNER_TEMP\corpus"
-          git clone -q --depth 1 --filter=blob:none --sparse $env:CORPUS_REPO $c
+          git init -q $c
+          git -C $c remote add origin $env:CORPUS_REPO
           git -C $c sparse-checkout set $env:CORPUS_PATH
+          git -C $c fetch -q --depth 1 --filter=blob:none origin $env:CORPUS_COMMIT
+          git -C $c checkout -q FETCH_HEAD
+          if ((git -C $c rev-parse HEAD) -ne $env:CORPUS_COMMIT) { throw "corpus HEAD is not $env:CORPUS_COMMIT" }
+          $tree = git -C $c rev-parse "HEAD:$env:CORPUS_PATH"
+          if ($tree -ne $env:CORPUS_TREE) { throw "corpus tree $tree, expected $env:CORPUS_TREE" }
           bun tools/release/gate.ts conformance "-Dtestsuite=$c\$env:CORPUS_PATH" "-Dbaseline=tools/conformance-baseline.txt"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
 
       - name: Size gate (the shipped config)
         if: ${{ !cancelled() }}
@@ -117,16 +137,23 @@ jobs:
       - name: The shipped exe is standalone
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $v = (Select-String -Path src\root.zig -Pattern '^pub const version: \[:0\]const u8 = "(.+)";$').Matches[0].Groups[1].Value
           $d = "$env:RUNNER_TEMP\standalone"
           New-Item -ItemType Directory $d | Out-Null
           Copy-Item zig-out\bin\wazmrt.exe $d
           Copy-Item examples\hello_wasi.wat $d
           $env:PATH = "$env:SystemRoot\System32"
-          $out = (& "$d\wazmrt.exe" --version | Select-Object -First 1)
+          # Each exe run: the stop setting OFF inside a scriptblock, so its output survives for the
+          # message, then its exit code checked explicitly (round 2, C2/C3: under the setting the
+          # assignment threw first and lost stdout; `| Select-Object -First 1` hid the code).
+          $ver = & { $PSNativeCommandUseErrorActionPreference = $false; & "$d\wazmrt.exe" --version }
+          if ($LASTEXITCODE -ne 0) { throw "--version exited $($LASTEXITCODE): '$($ver -join ' | ')'" }
+          $out = ($ver | Select-Object -First 1)
           if ($out -ne "wazmrt $v (abi 2)") { throw "version line '$out', expected 'wazmrt $v (abi 2)'" }
-          $hello = (& "$d\wazmrt.exe" "$d\hello_wasi.wat")
-          if ($LASTEXITCODE -ne 0 -or $hello -ne 'hello from wasi') { throw "hello_wasi: '$hello' (exit $LASTEXITCODE)" }
+          $hello = & { $PSNativeCommandUseErrorActionPreference = $false; & "$d\wazmrt.exe" "$d\hello_wasi.wat" }
+          # `-join`: on a multi-line output `-ne` FILTERS the array instead of comparing (C2).
+          if ($LASTEXITCODE -ne 0 -or ($hello -join "`n") -ne 'hello from wasi') { throw "hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)" }
           "standalone: $out; hello_wasi ok"
 
       - name: Is this a release?
@@ -203,12 +230,18 @@ jobs:
       - name: Clone the TAG as a user would (no token)
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $t = "${{ needs.checks.outputs.tag }}"
-          git clone -q --depth 1 --branch $t "https://github.com/$env:GITHUB_REPOSITORY.git" .
+          # The tag by its full ref (C6): `clone --branch` prefers a BRANCH of the same name.
+          git init -q .
+          git remote add origin "https://github.com/$env:GITHUB_REPOSITORY.git"
+          git fetch -q --depth 1 origin "refs/tags/${t}:refs/tags/${t}"
+          git checkout -q "refs/tags/$t"
           if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) { throw "$t peels to $(git rev-parse HEAD), expected $env:GITHUB_SHA" }
       - name: Install Zig (pinned by sha256)
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           $zip = "$env:RUNNER_TEMP\zig.zip"
           for ($i = 1; $i -le 4; $i++) {
             try { Invoke-WebRequest -Uri "https://ziglang.org/download/$env:ZIG_VERSION/zig-x86_64-windows-$env:ZIG_VERSION.zip" -OutFile $zip -TimeoutSec 300; break }
@@ -221,9 +254,13 @@ jobs:
       - name: Build the tag and run it
         run: |
           $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           zig build -Doptimize=small
-          $out = (& zig-out\bin\wazmrt.exe --version | Select-Object -First 1)
+          # The exe runs as in `checks`' standalone step: output kept, exit code checked (round 2).
+          $ver = & { $PSNativeCommandUseErrorActionPreference = $false; & zig-out\bin\wazmrt.exe --version }
+          if ($LASTEXITCODE -ne 0) { throw "--version exited $($LASTEXITCODE): '$($ver -join ' | ')'" }
+          $out = ($ver | Select-Object -First 1)
           if ($out -ne "wazmrt ${{ needs.checks.outputs.version }} (abi 2)") { throw "version line '$out'" }
-          $hello = (& zig-out\bin\wazmrt.exe examples\hello_wasi.wat)
-          if ($hello -ne 'hello from wasi') { throw "hello_wasi: '$hello'" }
+          $hello = & { $PSNativeCommandUseErrorActionPreference = $false; & zig-out\bin\wazmrt.exe examples\hello_wasi.wat }
+          if ($LASTEXITCODE -ne 0 -or ($hello -join "`n") -ne 'hello from wasi') { throw "hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)" }
           "read back as a user: $out; hello_wasi ok"

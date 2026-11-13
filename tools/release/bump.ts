@@ -3,17 +3,21 @@
 //
 //   bun tools/release/bump.ts <patch|minor|major>
 //
-// Refuses a dirty tree (untracked files count) and any branch but `main`. Moves the version in the
-// four places (`cmem/releasing.md` → WHERE THE NUMBER LIVES), each edit matching EXACTLY once, then
-// runs `zig build test`: the surface gate inside it refuses a level below the floor, and
-// `version_agreement` refuses places that disagree. On any failure the four files are restored.
-// It commits `bump to vX.Y.Z` and pushes nothing (that is `push.ts`). Set ZIG_LOCAL_CACHE_DIR to an
-// NTFS path when the repo is on the exFAT drive (`cmem/working-rules.md`).
+// Refuses a dirty tree (untracked files count), any branch but `main`, and a current version that
+// was never released (a second bump would skip a number). Moves the version in the four places
+// (`cmem/releasing.md` → WHERE THE NUMBER LIVES), each edit matching EXACTLY once, then runs
+// `zig build test`: the surface gate inside it refuses a level below the floor, and
+// `version_agreement` refuses places that disagree. 🔒 On ANY failure after the first write the four
+// files are restored, staged or not (review round 1, B4). It commits `bump to vX.Y.Z` and pushes
+// nothing (that is `push.ts`). Set ZIG_LOCAL_CACHE_DIR to an NTFS path when the repo is on the exFAT
+// drive (`cmem/working-rules.md`).
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export type Level = "patch" | "minor" | "major";
+export type Run = (cmd: string, args: string[], inherit?: boolean) => { ok: boolean; out: string; err: string; missing?: boolean; interrupted?: boolean };
 
 export function next(version: string, level: Level): string {
   const m = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -41,54 +45,139 @@ export function replaceOnce(text: string, old: string, neu: string, file: string
   return text.replace(old, neu);
 }
 
-function git(...args: string[]): string {
-  const r = spawnSync("git", args, { encoding: "utf8" });
-  if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr.trim()}`);
-  return r.stdout.trim();
+function runner(cwd: string): Run {
+  return (cmd, args, inherit = false) => {
+    const r = spawnSync(cmd, args, { cwd, encoding: "utf8", stdio: inherit ? "inherit" : "pipe" });
+    const missing = (r.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+    return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing, interrupted: childInterrupted(r.status, r.signal) };
+  };
 }
 
-function main(argv: string[]): number {
+/** Did the child end by Ctrl-C? POSIX: SIGINT. Windows: STATUS_CONTROL_C_EXIT (0xC000013A, either sign). */
+export function childInterrupted(status: number | null, signal: string | null): boolean {
+  return signal === "SIGINT" || status === 0xc000013a || status === -1073741510 || status === 130;
+}
+
+/** One turn of the event loop: where a Ctrl-C that arrived meanwhile is actually delivered. */
+const checkpoint = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+/**
+ * 🔒 Ctrl-C (review rounds 3 and 4). A signal handler runs only when the event loop turns, and
+ * `spawnSync` blocks it — so a handler registered around the gate alone never saw a real Ctrl-C
+ * (round 4, B1), and one outside that window let a Ctrl-C kill Bun mid-write (B2). Now: the handler
+ * covers the whole window from the first write to the commit; `main` yields at checkpoints (after the
+ * writes, after the gate, before the commit) so a Ctrl-C is SEEN there and refused + restored; the
+ * gate's own interrupt exit status counts too; a SECOND Ctrl-C restores at once and exits 130 (B3).
+ */
+export async function main(argv: string[], cwd = process.cwd(), run: Run = runner(cwd), exit: (code: number) => never = process.exit): Promise<number> {
+  const git = (...args: string[]) => {
+    const r = run("git", args);
+    if (!r.ok) throw new Error(`git ${args.join(" ")}: ${r.err}`);
+    return r.out;
+  };
+  const refuse = (why: string) => {
+    console.error(`REFUSED: ${why}`);
+    return 1;
+  };
   const level = argv[0] as Level;
   if (!["patch", "minor", "major"].includes(level)) {
     console.error("usage: bun tools/release/bump.ts <patch|minor|major>   (the level is the owner's; no default)");
     return 2;
   }
   const dirty = git("status", "--porcelain", "--untracked-files=all");
-  if (dirty) {
-    console.error(`REFUSED: the tree is not clean (untracked files count):\n${dirty}`);
-    return 1;
-  }
+  if (dirty) return refuse(`the tree is not clean (untracked files count):\n${dirty}`);
   const branch = git("rev-parse", "--abbrev-ref", "HEAD");
-  if (branch !== "main") {
-    console.error(`REFUSED: on ${branch}; a release is bumped on main, after the merge (U2)`);
-    return 1;
-  }
-  const from = readFileSync("src/root.zig", "utf8").match(/^pub const version: \[:0\]const u8 = "(\d+\.\d+\.\d+)";$/m)?.[1];
-  if (!from) throw new Error("src/root.zig: no version line");
+  if (branch !== "main") return refuse(`on ${branch}; a release is bumped on main, after the merge (U2)`);
+  const from = readFileSync(join(cwd, "src/root.zig"), "utf8").match(/^pub const version: \[:0\]const u8 = "(\d+\.\d+\.\d+)";$/m)?.[1];
+  if (!from) return refuse("src/root.zig: no version line");
+  if (!git("ls-remote", "--tags", "origin", `refs/tags/v${from}`))
+    return refuse(`v${from} was never released (no tag on origin); release it, or the next bump would skip a number`);
   const to = next(from, level);
   const plan = edits(from, to);
+  const files = plan.map((p) => p[0]);
 
   // Compute every edit before writing any, so a mismatch leaves all four files untouched.
-  const written = plan.map(([file, old, neu]) => [file, replaceOnce(readFileSync(file, "utf8"), old, neu, file)] as const);
-  for (const [file, text] of written) writeFileSync(file, text);
-  console.log(`bump: ${from} -> ${to} (${level}) in ${plan.map((p) => p[0]).join(", ")}`);
+  const originals = new Map(files.map((f) => [f, readFileSync(join(cwd, f), "utf8")] as const));
+  const written = plan.map(([file, old, neu]) => [file, replaceOnce(originals.get(file)!, old, neu, file)] as const);
+  // Restore on EVERY failure path, staged or not: unstage, then check out the committed text — and
+  // SAY whether it worked, by re-reading the files (round 2, B1). An unreadable file counts as
+  // still edited (round 3).
+  let restored = false;
+  const restore = () => {
+    if (restored) return;
+    restored = true;
+    const reset = run("git", ["reset", "-q", "--", ...files]);
+    const checkout = run("git", ["checkout", "--", ...files]);
+    const still = files.filter((f) => {
+      try {
+        return readFileSync(join(cwd, f), "utf8") !== originals.get(f);
+      } catch {
+        return true;
+      }
+    });
+    if (reset.ok && checkout.ok && still.length === 0) console.error("bump: the four places are restored");
+    else
+      console.error(
+        `bump: RESTORE FAILED — ${still.length ? `still edited: ${still.join(", ")}` : "the files read back unchanged, but git refused to unstage them"}` +
+          `${reset.ok ? "" : `\n  git reset: ${reset.err}`}${checkout.ok ? "" : `\n  git checkout: ${checkout.err}`}` +
+          `\n  fix by hand: git reset -q -- ${files.join(" ")} && git checkout -- ${files.join(" ")}`,
+      );
+  };
 
-  const gate = spawnSync("zig", ["build", "test", "--summary", "all"], { stdio: "inherit" });
-  if (gate.status !== 0) {
-    git("checkout", "--", ...plan.map((p) => p[0]));
-    console.error(`REFUSED: \`zig build test\` failed with ${to}; the four places are restored. A surface refusal is answered by a bigger level, never by editing a snapshot.`);
-    return 1;
-  }
-  for (const [file] of plan) {
-    if (readFileSync(file, "utf8").includes(`"${from}"`) && file !== "cmem/overview.md") {
-      console.error(`REFUSED: ${file} still names ${from}`);
-      return 1;
+  let interrupts = 0;
+  const onInterrupt = () => {
+    interrupts++;
+    if (interrupts >= 2) {
+      // A second Ctrl-C means "stop NOW" (round 4, B3): restore first, then leave.
+      console.error("bump: interrupted twice — restoring and stopping");
+      restore();
+      exit(130);
     }
+  };
+  const interruptedAt = async (where: string): Promise<string | null> => {
+    await checkpoint();
+    return interrupts > 0 ? `interrupted ${where}` : null;
+  };
+
+  let committed = false;
+  process.on("SIGINT", onInterrupt); // the WHOLE window, first write to commit (round 4, B2)
+  try {
+    for (const [file, text] of written) writeFileSync(join(cwd, file), text);
+    console.log(`bump: ${from} -> ${to} (${level}) in ${files.join(", ")}`);
+    let why = await interruptedAt("after the writes");
+    if (why) return refuse(why);
+    const gate = run("zig", ["build", "test", "--summary", "all"], true);
+    why = await interruptedAt("during the gate");
+    if (why || gate.interrupted) return refuse(why ?? "interrupted during the gate (zig ended by Ctrl-C)");
+    if (gate.missing) return refuse("`zig` is not on PATH");
+    if (!gate.ok)
+      return refuse(`\`zig build test\` failed with ${to}. A surface refusal is answered by a bigger level, never by editing a snapshot.`);
+    // Each place now holds the new version once and the old one not at all.
+    for (const [file, old, neu] of plan) {
+      const text = readFileSync(join(cwd, file), "utf8");
+      if (text.split(neu).length - 1 !== 1 || text.includes(old)) return refuse(`${file}: the version did not move cleanly`);
+    }
+    git("add", "--", ...files);
+    why = await interruptedAt("before the commit");
+    if (why) return refuse(why);
+    git("commit", "-m", `bump to v${to}`);
+    committed = true;
+  } catch (err) {
+    return refuse(err instanceof Error ? err.message : String(err));
+  } finally {
+    process.off("SIGINT", onInterrupt);
+    if (!committed) restore();
   }
-  git("add", "--", ...plan.map((p) => p[0]));
-  git("commit", "-m", `bump to v${to}`);
   console.log(`committed: ${git("log", "--oneline", "-1")}  (nothing pushed; next: bun tools/release/push.ts)`);
   return 0;
 }
 
-if (import.meta.main) process.exit(main(Bun.argv.slice(2)));
+if (import.meta.main) {
+  main(Bun.argv.slice(2)).then(
+    (code) => process.exit(code),
+    (err) => {
+      console.error(`bump.ts: ${err instanceof Error ? err.message : err}`);
+      process.exit(1);
+    },
+  );
+}

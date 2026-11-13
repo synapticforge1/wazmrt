@@ -1,17 +1,34 @@
 // Self-test for tools/release/github.ts against an in-memory GitHub (no network). Run: `bun test tools/release`.
-// Every refusal must send NO write; every success must read back.
+// Every refusal must send NO write; every success must read back; every guard has a case that fails
+// without it (review round 1, B8: six guards had none).
 import { describe, expect, test } from "bun:test";
-import { type Ctx, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
+import { type Ctx, call, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
 
 const SHA = "a".repeat(40);
 const OTHER = "b".repeat(40);
+const TAG = "v5.0.1";
 
-function mock(opts: { refs?: Record<string, { type: string; sha: string }>; tagObjs?: Record<string, string>; releases?: string[]; failPost?: string } = {}) {
-  const refs = { ...(opts.refs ?? {}) };
-  const tagObjs: Record<string, { type: string; sha: string }> = {};
-  for (const [k, v] of Object.entries(opts.tagObjs ?? {})) tagObjs[k] = { type: "commit", sha: v };
-  const releases = new Set(opts.releases ?? []);
+interface MockOpts {
+  refs?: Record<string, { type: string; sha: string }>;
+  tagObjs?: Record<string, { type: string; sha: string }>;
+  releases?: Record<string, { draft: boolean }>;
+  failPost?: string; // a write path answered 422
+  subject?: string; // the commit's subject (default: the bump commit)
+  compare?: string; // GitHub's compare status for SHA...main (default "identical")
+  refStatus?: number; // force a status on GET /git/ref/*
+  listStatus?: number; // force a status on GET /releases (the listing, drafts included)
+  padding?: number; // other releases listed BEFORE ours, to push it onto a later page
+  afterRefPost?: (refs: Record<string, { type: string; sha: string }>) => void; // what POST /git/refs really did
+  draftOnCreate?: boolean;
+  tagLookupShowsDrafts?: boolean; // model an API where the by-tag lookup DID return drafts
+}
+
+function mock(o: MockOpts = {}) {
+  const refs = { ...(o.refs ?? {}) };
+  const tagObjs = { ...(o.tagObjs ?? {}) };
+  const releases = { ...(o.releases ?? {}) };
   const writes: string[] = [];
+  const bodies: any[] = [];
   let n = 0;
   const reply = (status: number, json?: unknown) => new Response(json === undefined ? "" : JSON.stringify(json), { status });
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
@@ -19,10 +36,12 @@ function mock(opts: { refs?: Record<string, { type: string; sha: string }>; tagO
     const method = init.method ?? "GET";
     if (method !== "GET") {
       writes.push(`${method} ${path}`);
-      if (opts.failPost && path === opts.failPost) return reply(422, { message: "nope" });
+      bodies.push(JSON.parse(String(init.body)));
+      if (o.failPost && path === o.failPost) return reply(422, { message: "nope" });
     }
     let m: RegExpMatchArray | null;
     if (method === "GET" && (m = path.match(/^\/git\/ref\/tags\/(.+)$/))) {
+      if (o.refStatus) return reply(o.refStatus);
       const r = refs[decodeURIComponent(m[1])];
       return r ? reply(200, { object: r }) : reply(404);
     }
@@ -30,24 +49,43 @@ function mock(opts: { refs?: Record<string, { type: string; sha: string }>; tagO
       const t = tagObjs[m[1]];
       return t ? reply(200, { object: t }) : reply(404);
     }
+    // Keyed on the EXACT path (review round 2, A3): a lookup of another commit, or the compare
+    // reversed, gets a 404 here, so reading the wrong commit or the wrong direction cannot pass.
+    if (method === "GET" && path === `/git/commits/${SHA}`) {
+      return reply(200, { message: `${o.subject ?? `bump to ${TAG}`}\n\nbody` });
+    }
+    if (method === "GET" && path === `/compare/${SHA}...main`) return reply(200, { status: o.compare ?? "identical" });
     if (method === "POST" && path === "/git/tags") {
-      const b = JSON.parse(String(init.body));
+      const b = bodies.at(-1);
       const sha = `t${++n}`.padEnd(40, "0");
       tagObjs[sha] = { type: b.type, sha: b.object };
       return reply(201, { sha });
     }
     if (method === "POST" && path === "/git/refs") {
-      const b = JSON.parse(String(init.body));
+      const b = bodies.at(-1);
       refs[b.ref.replace("refs/tags/", "")] = { type: "tag", sha: b.sha };
+      o.afterRefPost?.(refs);
       return reply(201, {});
     }
+    // As GitHub: the by-tag lookup does NOT return drafts; the listing (with a write token) does.
     if (method === "GET" && (m = path.match(/^\/releases\/tags\/(.+)$/))) {
       const t = decodeURIComponent(m[1]);
-      return releases.has(t) ? reply(200, { tag_name: t, draft: false, html_url: `https://x/${t}` }) : reply(404);
+      const visible = releases[t] && (!releases[t].draft || o.tagLookupShowsDrafts);
+      return visible ? reply(200, { tag_name: t, draft: releases[t].draft, html_url: `https://x/${t}` }) : reply(404);
+    }
+    if (method === "GET" && (m = path.match(/^\/releases\?per_page=100&page=(\d+)$/))) {
+      if (o.listStatus) return reply(o.listStatus);
+      const all = [
+        ...Array.from({ length: o.padding ?? 0 }, (_, i) => ({ tag_name: `v0.0.${i}`, draft: false, html_url: `https://x/v0.0.${i}` })),
+        ...Object.entries(releases).map(([t, r]) => ({ tag_name: t, draft: r.draft, html_url: `https://x/${t}` })),
+      ];
+      const page = Number(m[1]);
+      return reply(200, all.slice((page - 1) * 100, page * 100));
     }
     if (method === "POST" && path === "/releases") {
-      const b = JSON.parse(String(init.body));
-      releases.add(b.tag_name);
+      const b = bodies.at(-1);
+      // What the request asked for, unless the test makes GitHub answer otherwise (round 3, A2).
+      releases[b.tag_name] = { draft: o.draftOnCreate ?? b.draft };
       return reply(201, { tag_name: b.tag_name });
     }
     return reply(500);
@@ -63,81 +101,191 @@ function mock(opts: { refs?: Record<string, { type: string; sha: string }>; tagO
     log: (l) => lines.push(l),
     ...extra,
   });
-  return { ctx, writes, lines, refs, releases };
+  return { ctx, writes, bodies, lines, refs, releases };
 }
 
 describe("peel", () => {
   test("a lightweight tag", async () => {
-    const m = mock({ refs: { v1: { type: "commit", sha: SHA } } });
-    expect(await peel(m.ctx(), "v1")).toBe(SHA);
+    expect(await peel(mock({ refs: { v1: { type: "commit", sha: SHA } } }).ctx(), "v1")).toBe(SHA);
   });
   test("an annotated tag is followed to its commit", async () => {
-    const m = mock({ refs: { v1: { type: "tag", sha: "x".repeat(40) } }, tagObjs: { ["x".repeat(40)]: SHA } });
-    expect(await peel(m.ctx(), "v1")).toBe(SHA);
+    const t = "x".repeat(40);
+    expect(await peel(mock({ refs: { v1: { type: "tag", sha: t } }, tagObjs: { [t]: { type: "commit", sha: SHA } } }).ctx(), "v1")).toBe(SHA);
   });
   test("an absent tag is null", async () => {
     expect(await peel(mock().ctx(), "v9.9.9")).toBeNull();
   });
+  test("a tag on a non-commit is refused", async () => {
+    await expect(peel(mock({ refs: { v1: { type: "tree", sha: SHA } } }).ctx(), "v1")).rejects.toThrow(/not a commit/);
+  });
+  test("an HTTP error is an error, never 'absent'", async () => {
+    await expect(peel(mock({ refStatus: 502 }).ctx(), "v1")).rejects.toThrow(/HTTP 502/);
+  });
 });
 
 describe("tag", () => {
-  test("absent: creates the annotated tag and reads it back", async () => {
+  test("absent: creates the annotated tag on the bump commit and reads it back", async () => {
     const m = mock();
-    expect(await tag(m.ctx(), "v5.0.1", "wazmrt 5.0.1")).toBe(0);
+    expect(await tag(m.ctx(), TAG, "wazmrt 5.0.1")).toBe(0);
     expect(m.writes).toEqual(["POST /git/tags", "POST /git/refs"]);
-    expect(await peel(m.ctx(), "v5.0.1")).toBe(SHA);
+    expect(await peel(m.ctx(), TAG)).toBe(SHA);
   });
   test("already at this commit: done, no write", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } } });
-    expect(await tag(m.ctx(), "v5.0.1", "x")).toBe(0);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } } });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+    expect(m.writes).toEqual([]);
+  });
+  test("already at this commit, but it is NOT the bump commit: refused, not 'done' (round 4, A1)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, subject: "docs: hand-tagged" });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
     expect(m.writes).toEqual([]);
   });
   test("at ANOTHER commit: refused, never moved, no write", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: OTHER } } });
-    expect(await tag(m.ctx(), "v5.0.1", "x")).toBe(1);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: OTHER } } });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
     expect(m.writes).toEqual([]);
+  });
+  test("not the bump commit: refused, no write (C4)", async () => {
+    const m = mock({ subject: "docs: something pushed after the bump" });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+    expect(m.writes).toEqual([]);
+  });
+  for (const status of ["diverged", "behind"]) {
+    test(`the bump commit is not on main (compare "${status}"): refused, no write (C4)`, async () => {
+      const m = mock({ compare: status });
+      expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+      expect(m.writes).toEqual([]);
+    });
+  }
+  test(`the bump commit with main moved on past it (compare "ahead"): tagged`, async () => {
+    const m = mock({ compare: "ahead" });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("a 422 on the ref with NO tag behind it is a failure, not a race (A4)", async () => {
+    const m = mock({ failPost: "/git/refs" });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+    expect(m.lines.join("\n")).toContain("no such tag exists");
   });
   test("dry run: no write", async () => {
     const m = mock();
-    expect(await tag(m.ctx({ dryRun: true }), "v5.0.1", "x")).toBe(0);
+    expect(await tag(m.ctx({ dryRun: true }), TAG, "x")).toBe(0);
     expect(m.writes).toEqual([]);
   });
-  test("a failed POST is a failure", async () => {
-    const m = mock({ failPost: "/git/tags" });
-    expect(await tag(m.ctx(), "v5.0.1", "x")).toBe(1);
+  test("a failed tag-object POST is a failure", async () => {
+    expect(await tag(mock({ failPost: "/git/tags" }).ctx(), TAG, "x")).toBe(1);
+  });
+  test("read-back: the ref created but peeling elsewhere is a failure", async () => {
+    const m = mock({ afterRefPost: (refs) => (refs[TAG] = { type: "commit", sha: OTHER }) });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+  });
+  test("a concurrent create at THIS commit (422 on the ref) is done (B7)", async () => {
+    const m = mock({ failPost: "/git/refs" });
+    const ctx = m.ctx();
+    // the racing run's ref appears between our check and our create
+    const realFetch = ctx.fetch;
+    ctx.fetch = async (url, init) => {
+      if ((init.method ?? "GET") === "POST" && url.endsWith("/git/refs")) m.refs[TAG] = { type: "commit", sha: SHA };
+      return realFetch(url, init);
+    };
+    expect(await tag(ctx, TAG, "x")).toBe(0);
+  });
+  test("a concurrent create at ANOTHER commit (422) is refused", async () => {
+    const m = mock({ failPost: "/git/refs" });
+    const ctx = m.ctx();
+    const realFetch = ctx.fetch;
+    ctx.fetch = async (url, init) => {
+      if ((init.method ?? "GET") === "POST" && url.endsWith("/git/refs")) m.refs[TAG] = { type: "commit", sha: OTHER };
+      return realFetch(url, init);
+    };
+    expect(await tag(ctx, TAG, "x")).toBe(1);
   });
 });
 
 describe("release", () => {
   test("tag missing: refused, no write (POST /releases would CREATE the tag)", async () => {
     const m = mock();
-    expect(await release(m.ctx(), "v5.0.1", "notes")).toBe(1);
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.writes).toEqual([]);
   });
   test("tag at another commit: refused, no write", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: OTHER } } });
-    expect(await release(m.ctx(), "v5.0.1", "notes")).toBe(1);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: OTHER } } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.writes).toEqual([]);
   });
   test("page already there: done, no write (re-run safe)", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } }, releases: ["v5.0.1"] });
-    expect(await release(m.ctx(), "v5.0.1", "notes")).toBe(0);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, releases: { [TAG]: { draft: false } } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
     expect(m.writes).toEqual([]);
   });
-  test("creates the page from the tag and reads it back", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } } });
-    expect(await release(m.ctx(), "v5.0.1", "notes")).toBe(0);
+  test("a page RETIRED to draft by the owner: done, no write — a re-run does not publish it again (round 4, A2)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, releases: { [TAG]: { draft: true } } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    expect(m.writes).toEqual([]);
+    expect(m.lines.join("\n")).toContain("DRAFT");
+  });
+  test("the page found on a LATER page of the listing: done, no write", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, releases: { [TAG]: { draft: true } }, padding: 150 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    expect(m.writes).toEqual([]);
+  });
+  test("an error listing the pages is a failure, not 'absent': no write", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, listStatus: 500 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.writes).toEqual([]);
+  });
+  test("a listing exactly a page long, ours absent: reads the next page before deciding 'none'", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, padding: 100 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
     expect(m.writes).toEqual(["POST /releases"]);
-    expect(m.releases.has("v5.0.1")).toBe(true);
+  });
+  test("creates the page pinned to the commit, not 'Latest' by force, and reads it back (B2)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+    expect(m.writes).toEqual(["POST /releases"]);
+    // The WHOLE request, not two fields of it (round 3, A2: `prerelease: true` passed every test).
+    expect(m.bodies[0]).toEqual({
+      tag_name: TAG,
+      target_commitish: SHA,
+      name: `wazmrt ${TAG}`,
+      body: "notes",
+      draft: false,
+      prerelease: false,
+      make_latest: "legacy",
+      generate_release_notes: true,
+    });
+  });
+  test("read-back: a page that came back as a draft is a failure (as GitHub: the by-tag lookup 404s)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, draftOnCreate: true });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+  });
+  test("read-back: a draft is a failure even if the by-tag lookup ever DID return drafts (the draft check itself)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, draftOnCreate: true, tagLookupShowsDrafts: true });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
   });
   test("dry run: no write", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } } });
-    expect(await release(m.ctx({ dryRun: true }), "v5.0.1", "notes")).toBe(0);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } } });
+    expect(await release(m.ctx({ dryRun: true }), TAG, "notes")).toBe(0);
+    expect(m.writes).toEqual([]);
+  });
+  test("the guard in `call` itself: a write in dry run throws and reaches nothing", async () => {
+    // a code path that forgot to check dryRun still cannot write
+    const m = mock();
+    await expect(call(m.ctx({ dryRun: true }), "POST", "/releases", {})).rejects.toThrow(/dry run/);
+    expect(m.writes).toEqual([]);
+  });
+  test("a hand-pushed tag on a NON-bump commit: no page, no write (round 4, A1)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, subject: "docs: not a bump" });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.writes).toEqual([]);
+  });
+  test("the tag's commit is no longer on main: no page, no write (round 4, A1)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, compare: "diverged" });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.writes).toEqual([]);
   });
   test("a 422 is a failure", async () => {
-    const m = mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } }, failPost: "/releases" });
-    expect(await release(m.ctx(), "v5.0.1", "notes")).toBe(1);
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases" });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
   });
 });
 
@@ -146,15 +294,25 @@ describe("version and notes", () => {
     expect(rootVersion('x\npub const version: [:0]const u8 = "5.0.1";\ny')).toBe("5.0.1");
     expect(() => rootVersion("pub const version = 5;")).toThrow();
   });
-  test("isRelease: true only while the tag is absent", async () => {
+  test("isRelease: true while the tag is absent", async () => {
     expect(await isRelease(mock().ctx(), "5.0.1")).toBe(true);
+  });
+  test("isRelease: true when the tag already peels to THIS commit — a half-finished release re-run (round 3, A1)", async () => {
+    expect(await isRelease(mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } } }).ctx(), "5.0.1")).toBe(true);
+  });
+  test("isRelease: false when the tag is on another commit (released before)", async () => {
     expect(await isRelease(mock({ refs: { "v5.0.0": { type: "commit", sha: OTHER } } }).ctx(), "5.0.0")).toBe(false);
   });
-  test("releaseNotes takes the version's summary paragraph from release.md", () => {
-    const md = "## Release History\n\n### `5.0.1` — 2026-11-12\n\nPatch. Zig 0.17.1.\nSecond line.\n\n> 🔒 detail\n\n### `5.0.0` — x\n\nOld.";
+  test("releaseNotes takes the version's summary paragraph, through a '#' that is not a heading", () => {
+    const md = "## Release History\n\n### `5.0.1` — 2026-11-12\n\nPatch. Zig 0.17.1.\n#42 fixed too.\n\n> 🔒 detail\n\n### `5.0.0` — x\n\nOld.";
     const n = releaseNotes(md, "5.0.1", "0.17.1");
-    expect(n.startsWith("Patch. Zig 0.17.1. Second line.")).toBe(true);
+    expect(n.startsWith("Patch. Zig 0.17.1. #42 fixed too.")).toBe(true);
     expect(n).toContain("Zig 0.17.1 or later");
     expect(n).not.toContain("Old.");
+  });
+  test("releaseNotes refuses a missing entry and an empty one (B3)", () => {
+    expect(() => releaseNotes("### `5.0.0` — x\n\nOld.", "9.9.9", "0.17.1")).toThrow(/no "### `9.9.9`" entry/);
+    expect(() => releaseNotes("### `5.0.1` — x\n\n> only a block\n", "5.0.1", "0.17.1")).toThrow(/no summary/);
+    expect(() => releaseNotes("### `5.0.10` — x\n\nTen.", "5.0.1", "0.17.1")).toThrow(/no "### `5.0.1`" entry/);
   });
 });

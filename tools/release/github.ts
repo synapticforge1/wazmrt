@@ -31,7 +31,7 @@ export interface Ctx {
 
 const TIMEOUT_MS = 30_000; // every request (workspace best-practices 7.21)
 
-async function call(ctx: Ctx, method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
+export async function call(ctx: Ctx, method: string, path: string, body?: unknown): Promise<{ status: number; json: any }> {
   if (method !== "GET" && ctx.dryRun) throw new Error(`dry run: refusing to ${method} ${path}`);
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
@@ -79,21 +79,55 @@ export function rootVersion(source: string): string {
   return m[1];
 }
 
-/** A version is a release when its tag does not exist yet. A tag elsewhere means "released before". */
+/**
+ * A version is a release when its tag does not exist yet, OR already peels to THIS commit — a
+ * half-finished release (tag made, page failed) re-run (review round 3, A1: it used to read
+ * "released", skip `tag` and `release`, and end green with no page; U12's "re-run failed jobs"
+ * could not finish it). `tag` and `release` are re-run safe, so they complete what is missing.
+ * A tag on ANOTHER commit means "released before".
+ */
 export async function isRelease(ctx: Ctx, version: string): Promise<boolean> {
-  return (await peel(ctx, `v${version}`)) === null;
+  const at = await peel(ctx, `v${version}`);
+  return at === null || at === ctx.sha;
 }
+
+/**
+ * 🔒 Only the BUMP commit, and only while it is on `main` (review round 1, C4). `push.ts` pushes
+ * exactly that commit, but a later push to `main`, or a re-run of an old run after a force-push,
+ * would otherwise tag whichever checked commit got here first. Returns why it refuses, or null.
+ */
+export async function bumpOnMain(ctx: Ctx, name: string): Promise<string | null> {
+  const c = await call(ctx, "GET", `/git/commits/${ctx.sha}`);
+  if (c.status !== 200) return `reading commit ${ctx.sha}: HTTP ${c.status}`;
+  const subject = String(c.json.message ?? "").split("\n")[0].trim();
+  if (subject !== `bump to ${name}`) return `${ctx.sha} is "${subject}", not the bump commit "bump to ${name}"`;
+  const cmp = await call(ctx, "GET", `/compare/${ctx.sha}...${MAIN}`);
+  if (cmp.status !== 200) return `comparing ${ctx.sha} with ${MAIN}: HTTP ${cmp.status}`;
+  if (cmp.json.status !== "ahead" && cmp.json.status !== "identical")
+    return `${ctx.sha} is not on ${MAIN} (compare: ${cmp.json.status})`;
+  return null;
+}
+
+const MAIN = "main";
 
 /** Create the annotated tag on ctx.sha. Exit code: 0 done (or already there), 1 refused / failed. */
 export async function tag(ctx: Ctx, name: string, message: string): Promise<number> {
   const at = await peel(ctx, name);
+  if (at !== null && at !== ctx.sha) {
+    ctx.log(`REFUSED: tag ${name} exists at ${at}, not ${ctx.sha}; a published tag never moves`);
+    return 1;
+  }
+  // 🔒 Before EVERY outcome, the early "done" included (review round 4, A1: once `isRelease`
+  // accepted a tag already at this commit, a hand-pushed tag on a non-bump commit reached here as
+  // "done" and `release` made its page).
+  const why = await bumpOnMain(ctx, name);
+  if (why) {
+    ctx.log(`REFUSED: ${why}`);
+    return 1;
+  }
   if (at === ctx.sha) {
     ctx.log(`tag ${name} already peels to ${ctx.sha}: done`);
     return 0;
-  }
-  if (at !== null) {
-    ctx.log(`REFUSED: tag ${name} exists at ${at}, not ${ctx.sha}; a published tag never moves`);
-    return 1;
   }
   if (ctx.dryRun) {
     ctx.log(`dry run: would create annotated tag ${name} on ${ctx.sha}`);
@@ -105,6 +139,22 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
     return 1;
   }
   const ref = await call(ctx, "POST", "/git/refs", { ref: `refs/tags/${name}`, sha: obj.json.sha });
+  if (ref.status === 422) {
+    // Another run created the ref between our check and our create (review round 1, B7): done if
+    // it is the same commit, refused if not — the same rule as the check at the top.
+    const raced = await peel(ctx, name);
+    if (raced === ctx.sha) {
+      ctx.log(`tag ${name} was created concurrently at ${ctx.sha}: done`);
+      return 0;
+    }
+    if (raced === null) {
+      // Not a race: GitHub refused the ref for another reason (review round 2, A4).
+      ctx.log(`creating ref refs/tags/${name}: HTTP 422 and no such tag exists (${JSON.stringify(ref.json)})`);
+      return 1;
+    }
+    ctx.log(`REFUSED: tag ${name} appeared at ${raced} while creating it; a published tag never moves`);
+    return 1;
+  }
   if (ref.status !== 201) {
     ctx.log(`creating ref refs/tags/${name}: HTTP ${ref.status}`);
     return 1;
@@ -118,6 +168,26 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
   return 0;
 }
 
+/**
+ * The page for `name`, published OR DRAFT, or null when there is none. Owner, 2026-11-13 (review
+ * round 4, A2, option 2): a page is RETIRED by switching it to draft, not by deleting it — and a
+ * draft must count as "there is a page", or a re-run (which finishes half-done releases, round 3 A1)
+ * would publish a new one. `GET /releases/tags/{tag}` does not return drafts, so the releases are
+ * listed (a token with `contents: write` sees drafts), every page of them.
+ */
+export async function findRelease(ctx: Ctx, name: string): Promise<{ draft: boolean; url: string } | null> {
+  for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {
+    const r = await call(ctx, "GET", `/releases?per_page=100&page=${page}`);
+    if (r.status !== 200 || !Array.isArray(r.json)) throw new Error(`listing releases (page ${page}): HTTP ${r.status}`);
+    const hit = r.json.find((x: any) => x.tag_name === name);
+    if (hit) return { draft: hit.draft === true, url: String(hit.html_url) };
+    if (r.json.length < 100) return null; // the last page
+  }
+  throw new Error(`listing releases: more than ${MAX_RELEASE_PAGES * 100}; refusing to guess`);
+}
+
+const MAX_RELEASE_PAGES = 50;
+
 /** Make the Release page from an existing tag (H32's order). Exit code as for `tag`. */
 export async function release(ctx: Ctx, name: string, body: string): Promise<number> {
   const at = await peel(ctx, name);
@@ -125,13 +195,21 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     ctx.log(`REFUSED: tag ${name} ${at === null ? "does not exist" : `peels to ${at}`}; expected ${ctx.sha}`);
     return 1;
   }
-  const existing = await call(ctx, "GET", `/releases/tags/${encodeURIComponent(name)}`);
-  if (existing.status === 200) {
-    ctx.log(`release ${name} already exists (${existing.json.html_url}): done`);
+  let existing: { draft: boolean; url: string } | null;
+  try {
+    existing = await findRelease(ctx, name);
+  } catch (err) {
+    ctx.log(`${err instanceof Error ? err.message : err}`);
+    return 1;
+  }
+  if (existing) {
+    ctx.log(`release ${name} already exists${existing.draft ? " as a DRAFT (retired by the owner)" : ""} (${existing.url}): done`);
     return 0;
   }
-  if (existing.status !== 404) {
-    ctx.log(`reading release ${name}: HTTP ${existing.status}`);
+  // The page is made only for the bump commit on main, whatever made the tag (round 4, A1).
+  const why = await bumpOnMain(ctx, name);
+  if (why) {
+    ctx.log(`REFUSED: ${why}`);
     return 1;
   }
   if (ctx.dryRun) {
@@ -140,10 +218,17 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
   }
   const made = await call(ctx, "POST", "/releases", {
     tag_name: name,
+    // 🔒 Pinned (review round 1, B2): if the tag vanished after the check above, GitHub would
+    // CREATE it — on this commit, never on the default branch's head. The read-back still checks.
+    target_commitish: ctx.sha,
     name: `wazmrt ${name}`,
     body,
     draft: false,
     prerelease: false,
+    // GitHub's documented meaning of "legacy": "the latest release should be determined based on the
+    // release creation date and higher semantic version". Not forced "true" (review round 1, B2);
+    // what GitHub does for an older line beyond that sentence is unmeasured (round 2, A5).
+    make_latest: "legacy",
     generate_release_notes: true,
   });
   if (made.status !== 201) {
@@ -164,21 +249,24 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
   return 0;
 }
 
-/** The release's summary from `cmem/release.md` § Release History, for the page body. */
+/**
+ * The release's summary from `cmem/release.md` § Release History, for the page body. THROWS when
+ * the version has no entry or the entry has no summary paragraph (review round 1, B3): a release
+ * whose notes were not written is not ready (U2), and an empty page is not a pass.
+ */
 export function releaseNotes(releaseMd: string, version: string, minZig: string): string {
   const head = `### \`${version}\``;
-  const at = releaseMd.indexOf(head);
-  let summary = "";
-  if (at >= 0) {
-    const rest = releaseMd.slice(at + head.length).split("\n").slice(1);
-    const para: string[] = [];
-    for (const line of rest) {
-      if (line.startsWith("#") || line.startsWith(">")) break;
-      if (line.trim() === "" && para.length) break;
-      if (line.trim() !== "") para.push(line.trim());
-    }
-    summary = para.join(" ");
+  const lines = releaseMd.split("\n");
+  const at = lines.findIndex((l) => l === head || l.startsWith(`${head} `));
+  if (at < 0) throw new Error(`cmem/release.md has no "${head}" entry; write the release notes first (U2)`);
+  const para: string[] = [];
+  for (const line of lines.slice(at + 1)) {
+    if (/^#{1,6}\s/.test(line) || line.startsWith(">")) break; // the next heading or the record block
+    if (line.trim() === "" && para.length) break;
+    if (line.trim() !== "") para.push(line.trim());
   }
+  const summary = para.join(" ");
+  if (!summary) throw new Error(`cmem/release.md's "${head}" entry has no summary paragraph`);
   return [
     summary,
     "",
@@ -201,7 +289,7 @@ async function main(argv: string[]): Promise<number> {
     log: (line) => console.log(line),
   };
   if (!/^[\w.-]+\/[\w.-]+$/.test(ctx.repo)) throw new Error("GITHUB_REPOSITORY must be owner/name");
-  if (cmd !== "is-release" && !/^[0-9a-f]{40}$/.test(ctx.sha)) throw new Error("GITHUB_SHA must be a full commit id");
+  if (!/^[0-9a-f]{40}$/.test(ctx.sha)) throw new Error("GITHUB_SHA must be a full commit id"); // is-release needs it too (A1)
   if (cmd !== "is-release" && !dryRun && !ctx.token) throw new Error("GITHUB_TOKEN is required to write (or pass --dry-run)");
 
   const version = rootVersion(readFileSync("src/root.zig", "utf8"));
