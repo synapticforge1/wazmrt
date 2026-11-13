@@ -85,10 +85,28 @@ export function rootVersion(source: string): string {
  * "released", skip `tag` and `release`, and end green with no page; U12's "re-run failed jobs"
  * could not finish it). `tag` and `release` are re-run safe, so they complete what is missing.
  * A tag on ANOTHER commit means "released before".
+ *
+ * And only the BUMP commit is a release (round 5): after a bump whose checks failed, every later push
+ * at the same, still-untagged version used to read "release", and `tag` then refused it — a red run
+ * for correct work. A commit that is not `bump to v<version>` is not a release (said in the log); an
+ * unreadable commit is an error, never "no". Whether the bump is on `main` is `tag`'s and `release`'s
+ * check, so a bump commit off main is still a RED run, as it should be.
  */
 export async function isRelease(ctx: Ctx, version: string): Promise<boolean> {
+  const subject = await subjectOf(ctx);
+  if (subject !== `bump to v${version}`) {
+    ctx.log(`not a release: ${ctx.sha} is "${subject}", not "bump to v${version}"`);
+    return false;
+  }
   const at = await peel(ctx, `v${version}`);
   return at === null || at === ctx.sha;
+}
+
+/** The first line of ctx.sha's commit message; THROWS when the commit cannot be read. */
+async function subjectOf(ctx: Ctx): Promise<string> {
+  const c = await call(ctx, "GET", `/git/commits/${ctx.sha}`);
+  if (c.status !== 200) throw new Error(`reading commit ${ctx.sha}: HTTP ${c.status}`);
+  return String(c.json.message ?? "").split("\n")[0].trim();
 }
 
 /**
@@ -97,9 +115,12 @@ export async function isRelease(ctx: Ctx, version: string): Promise<boolean> {
  * would otherwise tag whichever checked commit got here first. Returns why it refuses, or null.
  */
 export async function bumpOnMain(ctx: Ctx, name: string): Promise<string | null> {
-  const c = await call(ctx, "GET", `/git/commits/${ctx.sha}`);
-  if (c.status !== 200) return `reading commit ${ctx.sha}: HTTP ${c.status}`;
-  const subject = String(c.json.message ?? "").split("\n")[0].trim();
+  let subject: string;
+  try {
+    subject = await subjectOf(ctx);
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
   if (subject !== `bump to ${name}`) return `${ctx.sha} is "${subject}", not the bump commit "bump to ${name}"`;
   const cmp = await call(ctx, "GET", `/compare/${ctx.sha}...${MAIN}`);
   if (cmp.status !== 200) return `comparing ${ctx.sha} with ${MAIN}: HTTP ${cmp.status}`;
@@ -188,13 +209,8 @@ export async function findRelease(ctx: Ctx, name: string): Promise<{ draft: bool
 
 const MAX_RELEASE_PAGES = 50;
 
-/** Make the Release page from an existing tag (H32's order). Exit code as for `tag`. */
-export async function release(ctx: Ctx, name: string, body: string): Promise<number> {
-  const at = await peel(ctx, name);
-  if (at !== ctx.sha) {
-    ctx.log(`REFUSED: tag ${name} ${at === null ? "does not exist" : `peels to ${at}`}; expected ${ctx.sha}`);
-    return 1;
-  }
+/** 0 when a page for `name` exists (published or draft), 1 when the listing failed, undefined when none. */
+async function existingPage(ctx: Ctx, name: string): Promise<number | undefined> {
   let existing: { draft: boolean; url: string } | null;
   try {
     existing = await findRelease(ctx, name);
@@ -202,16 +218,27 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     ctx.log(`${err instanceof Error ? err.message : err}`);
     return 1;
   }
-  if (existing) {
-    ctx.log(`release ${name} already exists${existing.draft ? " as a DRAFT (retired by the owner)" : ""} (${existing.url}): done`);
-    return 0;
+  if (!existing) return undefined;
+  ctx.log(`release ${name} already exists${existing.draft ? " as a DRAFT (retired by the owner)" : ""} (${existing.url}): done`);
+  return 0;
+}
+
+/** Make the Release page from an existing tag (H32's order). Exit code as for `tag`. */
+export async function release(ctx: Ctx, name: string, body: string): Promise<number> {
+  const at = await peel(ctx, name);
+  if (at !== ctx.sha) {
+    ctx.log(`REFUSED: tag ${name} ${at === null ? "does not exist" : `peels to ${at}`}; expected ${ctx.sha}`);
+    return 1;
   }
-  // The page is made only for the bump commit on main, whatever made the tag (round 4, A1).
+  // The page is made only for the bump commit on main, whatever made the tag (round 4, A1) — checked
+  // before EVERY outcome, the early "done" included, as in `tag` (round 5).
   const why = await bumpOnMain(ctx, name);
   if (why) {
     ctx.log(`REFUSED: ${why}`);
     return 1;
   }
+  const existingNow = await existingPage(ctx, name);
+  if (existingNow !== undefined) return existingNow;
   if (ctx.dryRun) {
     ctx.log(`dry run: would create the Release page for ${name}`);
     return 0;
@@ -231,6 +258,14 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     make_latest: "legacy",
     generate_release_notes: true,
   });
+  if (made.status === 422) {
+    // Another run made the page between our check and our create (round 5) — the same rule as the
+    // check above; anything else GitHub refused stays a failure.
+    const raced = await existingPage(ctx, name);
+    if (raced !== undefined) return raced;
+    ctx.log(`creating release ${name}: HTTP 422 and no such page exists (${JSON.stringify(made.json)})`);
+    return 1;
+  }
   if (made.status !== 201) {
     ctx.log(`creating release ${name}: HTTP ${made.status}`);
     return 1;

@@ -1,5 +1,5 @@
 // Self-test for tools/release/gate.ts. Run: `bun test tools/release`.
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -10,6 +10,11 @@ test("exitCode: zig's own code passes through; a signal-killed child (null) is a
   expect(exitCode(0)).toBe(0);
   expect(exitCode(3)).toBe(3);
   expect(exitCode(null)).toBe(1);
+});
+
+test("exitCode: a failure whose low byte is 0 still fails, as Bun keeps only the low byte (round 5, A1)", () => {
+  for (const code of [256, 512, 0xc0000100, 2 ** 32, -256]) expect(exitCode(code)).not.toBe(0);
+  expect(exitCode(0xc0000005)).toBe(5); // what Bun would report anyway
 });
 
 test("childEnv withholds the command files, their folder and the runner's tokens, any case (round 2 A2, round 3 A5)", () => {
@@ -87,7 +92,7 @@ test("end to end: exit codes and the stop/resume frame", () => {
 const stubDir = mkdtempSync(join(tmpdir(), "wazmrt-gate-stub-"));
 afterAll(() => rmSync(stubDir, { recursive: true, force: true }));
 
-test("end to end with a stub zig: nothing withheld reaches the build; stderr framed; resume on its own line; exit 3", () => {
+beforeAll(() => {
   writeFileSync(
     join(stubDir, "stub.c"),
     `#include <stdio.h>
@@ -99,24 +104,24 @@ int main(void) {
   printf("stub ran\\n");
   fflush(stdout);
   fputs("stub: error: no newline at the end", stderr);
-  return 3;
+  const char *code = getenv("STUB_EXIT");
+  return code ? atoi(code) : 3;
 }
 `,
   );
   const exe = join(stubDir, process.platform === "win32" ? "zig.exe" : "zig");
   const cc = spawnSync("zig", ["cc", join(stubDir, "stub.c"), "-o", exe], { encoding: "utf8" });
-  expect(cc.status).toBe(0);
+  if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
+}, 120_000);
 
-  const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
-  const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
-  env[pathKey] = `${stubDir}${delimiter}${env[pathKey] ?? ""}`;
+test("end to end with a stub zig: nothing withheld reaches the build; stderr framed; resume on its own line; a failure", () => {
+  const env = stubEnv();
   Object.assign(env, {
     GITHUB_ENV: "e", github_path: "p", GITHUB_OUTPUT: "o", GITHUB_STATE: "s", GITHUB_STEP_SUMMARY: "m",
     GITHUB_TOKEN: "t", RUNNER_TEMP: "r", ACTIONS_RUNTIME_TOKEN: "a", ACTIONS_ID_TOKEN_REQUEST_URL: "u",
   });
   const r = spawnSync("bun", ["tools/release/gate.ts", "anything"], { encoding: "utf8", env });
-  expect(r.status).toBe(3);
+  expect(r.status).toBe(process.platform === "win32" ? 1 : 3); // Windows: spawn.ts maps any failure to 1
   expect(r.stdout).toContain("stub ran");
   expect(r.stdout).not.toContain("LEAK");
   expect(r.stderr).toBe("");
@@ -124,4 +129,20 @@ int main(void) {
   const token = lines.find((l) => l.startsWith("::stop-commands::"))!.slice("::stop-commands::".length);
   expect(lines).toContain(`::${token}::`); // a line of its own, not glued to the stub's last bytes
   expect(lines.some((l) => l.startsWith("::error title=") && l.includes("no newline at the end"))).toBe(true);
+}, 120_000);
+
+function stubEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+  const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  env[pathKey] = `${stubDir}${delimiter}${env[pathKey] ?? ""}`;
+  return env;
+}
+
+test("end to end: a build failing with exit 256 or 512 is a failed step, not a green one (round 5, A1)", () => {
+  for (const code of ["256", "512"]) {
+    const r = spawnSync("bun", ["tools/release/gate.ts", "anything"], { encoding: "utf8", env: { ...stubEnv(), STUB_EXIT: code } });
+    expect(r.stdout).toContain("stub ran");
+    expect(r.status).not.toBe(0);
+  }
 }, 120_000);

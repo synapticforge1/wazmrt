@@ -1,12 +1,20 @@
 // The release workflow's rules, held by a test (review round 1: C1, C3, C5 and the U9 pins are
 // properties of `.github/workflows/release.yml`, which no unit test runs). Run: `bun test tools/release`.
 //
-// What this guards against: an EDIT that drops a rule — a setting deleted, moved, commented out or
-// overridden; an exit-code check removed; a step's shell changed; a write permission or a `uses:`
-// added. Rounds 2 and 3 found ways past earlier versions of it; each rule below now tests the SHAPE
-// it requires (the first lines of a step, the line after an exe run), not "somewhere in the text".
-// ⚠️ What it cannot do: judge a deliberately crafted workaround, or run the workflow. The workflow
-// runs only on GitHub, and a branch push of it is the rehearsal.
+// What it holds, in two layers (review round 5, A2: before it, only the exe-run shape and the
+// opening settings were held, and `continue-on-error`, `if: false`, a dropped `needs` or a check
+// turned into `Write-Host` all passed):
+//   1. the STRUCTURE, exactly — the jobs, their runs-on / needs / if / timeout and allowed keys; each
+//      job's steps by name and order, their `if` and `env`, their allowed keys; every line that
+//      CHECKS something (throws, verifies a hash, commit or tree, runs a gate) by its exact text.
+//      Any change to these is an edit of this file's tables too, where a review sees it;
+//   2. the RULES that hold even when the tables are edited with it — each pwsh step opens with the
+//      two settings and nothing undoes them (in any spelling these tests know); each exe run is
+//      followed by its exit check; no per-command -ErrorAction, `exit`, `return`, `trap`,
+//      Invoke-Expression, variable: drive or block comment; bash opens with `set -euo pipefail`.
+// ⚠️ What it cannot do: run the workflow (only GitHub does; a branch push is the rehearsal), prove a
+// check line is RIGHT (only that it is there), or foresee every crafted construct in a language as
+// large as pwsh — a new construct is a review finding, then a rule here.
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
@@ -65,8 +73,8 @@ test("every multi-line pwsh step OPENS with the two settings, and nothing later 
   expect(seen).toBeGreaterThan(5);
 });
 
-/** An assignment to either setting: any case, any scope prefix, any spacing. */
-const OVERRIDE = /\$(?:(?:global|script|local|private|using):)?(?:ErrorActionPreference|PSNativeCommandUseErrorActionPreference)\s*=/i;
+/** An assignment to either setting: any case, any scope prefix, braced or not, any spacing (round 5: `${…}`). */
+const OVERRIDE = /\$\{?(?:(?:global|script|local|private|using):)?(?:ErrorActionPreference|PSNativeCommandUseErrorActionPreference)\}?\s*=/i;
 /** The ONE sanctioned scoped override: `$x = & { …$false; & <path>wazmrt.exe <args> }`, nothing else on the line. */
 const EXE_RUN_LINE = /^\$\w+ = & \{ \$PSNativeCommandUseErrorActionPreference = \$false; & ("[^"]*"|\S+)wazmrt\.exe"? [^;{}|&]* \}$/;
 /** The exit-code check that must follow it: exactly these shapes, and it must throw. */
@@ -80,7 +88,13 @@ test("pwsh steps hold no other way to soften a failure (round 4: the crafted byp
   const forbidden: [RegExp, string][] = [
     [/\b(Set|New|Remove|Clear)-Variable\b|(^|[\s;(])(sv|nv|rv|clv)\s/i, "a *-Variable command (could rewrite a setting)"],
     [/\$PSDefaultParameterValues/i, "$PSDefaultParameterValues (could set -ErrorAction for every command)"],
-    [/-(ErrorAction|ea)\s+(SilentlyContinue|Ignore|Continue)\b/i, "-ErrorAction that does not stop"],
+    // ANY -ErrorAction, in any spelling pwsh accepts (round 5: `-ErrorAction:SilentlyContinue`, `-EA 0`,
+    // a prefix like `-ErrorA`): the step setting decides, never a per-command one.
+    [/(^|\s)-(ea|errora\w*)(\b|:)/i, "a per-command -ErrorAction"],
+    [/\bvariable:/i, "the variable: drive (Set-Item variable:… rewrites a setting; round 5)"],
+    [/\b(PSVariable|SessionState)\b/i, "a session-state API (rewrites a setting)"],
+    [/\b(Invoke-Expression|iex)\b/i, "Invoke-Expression (runs text these checks cannot read)"],
+    [/(^|[\s;{])(exit|return)\b/i, "exit / return (ends the step early, green, after the checks were skipped; round 5)"],
     [/(^|[\s;{])trap\b/i, "a trap (could swallow the stop)"],
     [/<#|#>/, "a block comment (hides lines from these checks)"],
   ];
@@ -136,7 +150,9 @@ test("every multi-line bash step OPENS with set -euo pipefail; a one-line one ch
       else expect(`${where}: ${lines[0]}`).toBe(`${where}: set -euo pipefail`);
       // Nothing later may soften it (round 4: `|| true` passed).
       for (const l of lines.slice(1)) {
-        const softens = /\|\|\s*(true|:|exit\s+0)\b|\|\|\s*:$/.test(l) || /\bset\s+\+[eou]/.test(l) || /(^|[\s;])trap\b/.test(l);
+        const softens =
+          /\|\|\s*(true|:|exit\s+0)\b|\|\|\s*:$/.test(l) || /\bset\s+\+[eou]/.test(l) || /(^|[\s;])trap\b/.test(l) ||
+          /(^|[\s;&|])(exit(?!\s+1\b)|return)\b/.test(l); // only `exit 1` (round 5: an early `exit 0` skips the rest, green)
         expect(`${where}: ${softens ? `softens a failure: ${l}` : "ok"}`).toBe(`${where}: ok`);
       }
     }
@@ -181,6 +197,194 @@ test("the corpus is pinned by commit and by tree, and the step checks both (C3)"
   expect(step.run).toContain("$env:CORPUS_COMMIT");
   expect(step.run).toContain("-ne $env:CORPUS_TREE");
   expect(step.run).not.toMatch(/clone[^\n]*--sparse/);
+});
+
+// ── The structure, held EXACTLY (round 5, A2: `continue-on-error`, `if: false`, `if: always()`, a
+// dropped `needs` or timeout, a step deleted — each passed every rule above). Changing any of it is a
+// deliberate edit of this table too, in the same commit, where a reviewer sees it.
+
+test("the workflow's top level: these keys, these triggers, no workflow-wide defaults", () => {
+  expect(Object.keys(wf).sort()).toEqual(["concurrency", "env", "jobs", "name", "on", "permissions"]);
+  expect(wf.on).toEqual({ push: { branches: ["**"] } });
+  expect(Object.keys(wf.env).sort()).toEqual(
+    ["BUN_SHA256_LINUX", "BUN_SHA256_WINDOWS", "BUN_VERSION", "CORPUS_COMMIT", "CORPUS_PATH", "CORPUS_REPO", "CORPUS_TREE", "ZIG_SHA256_WINDOWS", "ZIG_VERSION"],
+  );
+});
+
+const JOBS: Record<string, { runsOn: string; needs?: string | string[]; if?: string; timeout: number; steps: string[] }> = {
+  checks: {
+    runsOn: "windows-latest",
+    timeout: 60,
+    steps: [
+      "Clone this commit (no token)",
+      "Install Zig and Bun (pinned by sha256)",
+      "Release-tool self-tests",
+      "Unit suite (the surface gate inside it)",
+      "Safety suite (safe)",
+      "Shipped suite (small, safety off)",
+      "Sandbox security (a skip is a failure)",
+      "Feature combinations and the C ABI smoke",
+      "Spec conformance (S2 against the last release)",
+      "Size gate (the shipped config)",
+      "The shipped exe is standalone",
+      "Is this a release?",
+    ],
+  },
+  tag: {
+    runsOn: "ubuntu-latest",
+    needs: "checks",
+    if: "needs.checks.outputs.release == 'true' && github.ref == 'refs/heads/main'",
+    timeout: 15,
+    steps: ["Clone this commit (no token) and install Bun (pinned by sha256)", "Create the tag on the commit checks passed"],
+  },
+  release: {
+    runsOn: "ubuntu-latest",
+    needs: ["checks", "tag"],
+    timeout: 15,
+    steps: ["Clone this commit (no token) and install Bun (pinned by sha256)", "The Release page, from the tag"],
+  },
+  readback: {
+    runsOn: "windows-latest",
+    needs: ["checks", "release"],
+    timeout: 30,
+    steps: ["Clone the TAG as a user would (no token)", "Install Zig (pinned by sha256)", "Build the tag and run it"],
+  },
+};
+
+/** The only steps with an `if`: the gates after the first, so one run shows every failure (the job still fails). */
+const STEP_IF: Record<string, string> = Object.fromEntries(
+  [
+    "Safety suite (safe)",
+    "Shipped suite (small, safety off)",
+    "Sandbox security (a skip is a failure)",
+    "Feature combinations and the C ABI smoke",
+    "Spec conformance (S2 against the last release)",
+    "Size gate (the shipped config)",
+  ].map((s) => [`checks/${s}`, "${{ !cancelled() }}"]),
+);
+
+/** The only steps with an `env`: the three that call GitHub, with the job's token and nothing else. */
+const STEP_ENV: Record<string, Record<string, string>> = {
+  "checks/Is this a release?": { GITHUB_TOKEN: "${{ github.token }}" },
+  "tag/Create the tag on the commit checks passed": { GITHUB_TOKEN: "${{ github.token }}" },
+  "release/The Release page, from the tag": { GITHUB_TOKEN: "${{ github.token }}" },
+};
+
+test("the jobs, exactly: runs-on, needs, if, timeout, and no other key (no continue-on-error, env, strategy, container)", () => {
+  expect(Object.keys(wf.jobs)).toEqual(Object.keys(JOBS));
+  const allowed = new Set(["runs-on", "timeout-minutes", "permissions", "outputs", "defaults", "steps", "needs", "if"]);
+  for (const [name, want] of Object.entries(JOBS)) {
+    const job = wf.jobs[name];
+    for (const k of Object.keys(job)) expect(`${name}: ${allowed.has(k) ? "ok" : `key ${k}`}`).toBe(`${name}: ok`);
+    expect({ name, runsOn: job["runs-on"], needs: job.needs, if: job.if, timeout: job["timeout-minutes"] }).toEqual({
+      name,
+      runsOn: want.runsOn,
+      needs: want.needs,
+      if: want.if,
+      timeout: want.timeout,
+    });
+  }
+});
+
+test("the steps, exactly: names in order; `if` and `env` only where listed; no other key", () => {
+  const allowed = new Set(["name", "id", "run", "if", "env"]);
+  for (const [name, want] of Object.entries(JOBS)) {
+    const steps = wf.jobs[name].steps as any[];
+    expect({ name, steps: steps.map((s) => s.name) }).toEqual({ name, steps: want.steps });
+    for (const s of steps) {
+      const where = `${name}/${s.name}`;
+      for (const k of Object.keys(s)) expect(`${where}: ${allowed.has(k) ? "ok" : `key ${k}`}`).toBe(`${where}: ok`);
+      expect({ where, if: s.if }).toEqual({ where, if: STEP_IF[where] });
+      expect({ where, env: s.env }).toEqual({ where, env: STEP_ENV[where] });
+    }
+  }
+  expect(wf.jobs.checks.steps.find((s: any) => s.name === "Is this a release?").id).toBe("isrel");
+});
+
+/**
+ * Every line that CHECKS something — throws, verifies a hash, a commit or a tree, or runs a gate —
+ * by its exact text, in its step (round 5, A2: each could be turned into `Write-Host` or deleted and
+ * every rule above still passed). Removing or softening a check means editing this list.
+ */
+const CHECK_LINES: Record<string, string[]> = {
+  "checks/Clone this commit (no token)": [
+    "git fetch -q --depth 1 origin $env:GITHUB_SHA",
+    "git checkout -q FETCH_HEAD",
+    'if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) { throw "HEAD is not $env:GITHUB_SHA" }',
+  ],
+  "checks/Install Zig and Bun (pinned by sha256)": [
+    "catch { if ($i -eq 4) { throw }; Start-Sleep -Seconds (10 * $i) }",
+    "$h = (Get-FileHash $out -Algorithm SHA256).Hash.ToLower()",
+    'if ($h -ne $sha) { throw "$url sha256 $h, expected $sha" }',
+    'Get-Pinned "https://ziglang.org/download/$env:ZIG_VERSION/zig-x86_64-windows-$env:ZIG_VERSION.zip" "$env:RUNNER_TEMP\\zig.zip" $env:ZIG_SHA256_WINDOWS',
+    'Get-Pinned "https://github.com/oven-sh/bun/releases/download/bun-v$env:BUN_VERSION/bun-windows-x64.zip" "$env:RUNNER_TEMP\\bun.zip" $env:BUN_SHA256_WINDOWS',
+  ],
+  "checks/Release-tool self-tests": ["bun test tools/release"],
+  "checks/Unit suite (the surface gate inside it)": ["bun tools/release/gate.ts test --summary all"],
+  "checks/Safety suite (safe)": ["bun tools/release/gate.ts test-safe --summary all"],
+  "checks/Shipped suite (small, safety off)": ["bun tools/release/gate.ts test-shipped --summary all"],
+  "checks/Sandbox security (a skip is a failure)": ["bun tools/release/gate.ts test-security --summary all"],
+  "checks/Feature combinations and the C ABI smoke": ["bun tools/release/gate.ts features capi-smoke --summary all"],
+  "checks/Spec conformance (S2 against the last release)": [
+    "git -C $c fetch -q --depth 1 --filter=blob:none origin $env:CORPUS_COMMIT",
+    "git -C $c checkout -q FETCH_HEAD",
+    'if ((git -C $c rev-parse HEAD) -ne $env:CORPUS_COMMIT) { throw "corpus HEAD is not $env:CORPUS_COMMIT" }',
+    '$tree = git -C $c rev-parse "HEAD:$env:CORPUS_PATH"',
+    'if ($tree -ne $env:CORPUS_TREE) { throw "corpus tree $tree, expected $env:CORPUS_TREE" }',
+    'bun tools/release/gate.ts conformance "-Dtestsuite=$c\\$env:CORPUS_PATH" "-Dbaseline=tools/conformance-baseline.txt"',
+  ],
+  "checks/Size gate (the shipped config)": ["bun tools/release/gate.ts size -Doptimize=small"],
+  "checks/The shipped exe is standalone": [
+    "$env:PATH = \"$env:SystemRoot\\System32\"",
+    `if ($LASTEXITCODE -ne 0) { throw "--version exited $($LASTEXITCODE): '$($ver -join ' | ')'" }`,
+    `if ($out -ne "wazmrt $v (abi 2)") { throw "version line '$out', expected 'wazmrt $v (abi 2)'" }`,
+    `if ($LASTEXITCODE -ne 0 -or ($hello -join "\`n") -ne 'hello from wasi') { throw "hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)" }`,
+  ],
+  "checks/Is this a release?": ["bun tools/release/github.ts is-release"],
+  "tag/Clone this commit (no token) and install Bun (pinned by sha256)": [
+    'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+    '[ "$i" = 4 ] && exit 1; sleep $((10 * i))',
+    'echo "${BUN_SHA256_LINUX}  $RUNNER_TEMP/bun.zip" | sha256sum -c -',
+  ],
+  "tag/Create the tag on the commit checks passed": ['bun tools/release/github.ts tag "${{ needs.checks.outputs.tag }}"'],
+  "release/Clone this commit (no token) and install Bun (pinned by sha256)": [
+    'test "$(git rev-parse HEAD)" = "$GITHUB_SHA"',
+    '[ "$i" = 4 ] && exit 1; sleep $((10 * i))',
+    'echo "${BUN_SHA256_LINUX}  $RUNNER_TEMP/bun.zip" | sha256sum -c -',
+  ],
+  "release/The Release page, from the tag": ['bun tools/release/github.ts release "${{ needs.checks.outputs.tag }}"'],
+  "readback/Clone the TAG as a user would (no token)": [
+    'git fetch -q --depth 1 origin "refs/tags/${t}:refs/tags/${t}"',
+    'git checkout -q "refs/tags/$t"',
+    'if ((git rev-parse HEAD) -ne $env:GITHUB_SHA) { throw "$t peels to $(git rev-parse HEAD), expected $env:GITHUB_SHA" }',
+  ],
+  "readback/Install Zig (pinned by sha256)": [
+    "catch { if ($i -eq 4) { throw }; Start-Sleep -Seconds (10 * $i) }",
+    "$h = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()",
+    'if ($h -ne $env:ZIG_SHA256_WINDOWS) { throw "zig sha256 $h" }',
+  ],
+  "readback/Build the tag and run it": [
+    "zig build -Doptimize=small",
+    `if ($LASTEXITCODE -ne 0) { throw "--version exited $($LASTEXITCODE): '$($ver -join ' | ')'" }`,
+    `if ($out -ne "wazmrt \${{ needs.checks.outputs.version }} (abi 2)") { throw "version line '$out'" }`,
+    `if ($LASTEXITCODE -ne 0 -or ($hello -join "\`n") -ne 'hello from wasi') { throw "hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)" }`,
+  ],
+};
+
+test("every check line is present, exactly, in its step (round 5, A2)", () => {
+  const steps = new Map<string, string[]>();
+  for (const [name, job] of jobs) for (const s of job.steps) if (s.run) steps.set(`${name}/${s.name}`, code(s.run));
+  for (const [where, want] of Object.entries(CHECK_LINES)) {
+    const have = steps.get(where) ?? [];
+    for (const line of want) expect(`${where}: ${have.includes(line) ? "ok" : `missing: ${line}`}`).toBe(`${where}: ok`);
+  }
+  // ... and every line in the workflow that throws or verifies is on the list: a NEW check is added
+  // to the list, so removing it later is a visible edit too.
+  const listed = new Set(Object.values(CHECK_LINES).flat());
+  for (const [where, lines] of steps)
+    for (const l of lines)
+      if (/\bthrow\b|sha256sum|Get-FileHash|^test |gate\.ts|github\.ts|bun test/.test(l))
+        expect(`${where}: ${listed.has(l) ? "ok" : `a check not on the list: ${l}`}`).toBe(`${where}: ok`);
 });
 
 test("the tag job runs only on main, after checks", () => {

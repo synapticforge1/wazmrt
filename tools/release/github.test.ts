@@ -21,6 +21,11 @@ interface MockOpts {
   afterRefPost?: (refs: Record<string, { type: string; sha: string }>) => void; // what POST /git/refs really did
   draftOnCreate?: boolean;
   tagLookupShowsDrafts?: boolean; // model an API where the by-tag lookup DID return drafts
+  commitStatus?: number; // force a status on GET /git/commits/<sha>
+  listJson?: unknown; // the listing answers 200 with THIS body instead
+  readBackTagName?: string; // the by-tag read-back answers with this tag_name
+  afterReleasePost?: (refs: Record<string, { type: string; sha: string }>) => void; // what else happened
+  pageAppearsOnPost?: { draft: boolean }; // another run made the page just before our POST
 }
 
 function mock(o: MockOpts = {}) {
@@ -52,6 +57,7 @@ function mock(o: MockOpts = {}) {
     // Keyed on the EXACT path (review round 2, A3): a lookup of another commit, or the compare
     // reversed, gets a 404 here, so reading the wrong commit or the wrong direction cannot pass.
     if (method === "GET" && path === `/git/commits/${SHA}`) {
+      if (o.commitStatus) return reply(o.commitStatus);
       return reply(200, { message: `${o.subject ?? `bump to ${TAG}`}\n\nbody` });
     }
     if (method === "GET" && path === `/compare/${SHA}...main`) return reply(200, { status: o.compare ?? "identical" });
@@ -71,10 +77,11 @@ function mock(o: MockOpts = {}) {
     if (method === "GET" && (m = path.match(/^\/releases\/tags\/(.+)$/))) {
       const t = decodeURIComponent(m[1]);
       const visible = releases[t] && (!releases[t].draft || o.tagLookupShowsDrafts);
-      return visible ? reply(200, { tag_name: t, draft: releases[t].draft, html_url: `https://x/${t}` }) : reply(404);
+      return visible ? reply(200, { tag_name: o.readBackTagName ?? t, draft: releases[t].draft, html_url: `https://x/${t}` }) : reply(404);
     }
     if (method === "GET" && (m = path.match(/^\/releases\?per_page=100&page=(\d+)$/))) {
       if (o.listStatus) return reply(o.listStatus);
+      if (o.listJson !== undefined) return reply(200, o.listJson);
       const all = [
         ...Array.from({ length: o.padding ?? 0 }, (_, i) => ({ tag_name: `v0.0.${i}`, draft: false, html_url: `https://x/v0.0.${i}` })),
         ...Object.entries(releases).map(([t, r]) => ({ tag_name: t, draft: r.draft, html_url: `https://x/${t}` })),
@@ -84,8 +91,12 @@ function mock(o: MockOpts = {}) {
     }
     if (method === "POST" && path === "/releases") {
       const b = bodies.at(-1);
+      if (o.pageAppearsOnPost) releases[b.tag_name] = o.pageAppearsOnPost;
+      // As GitHub: a page for that tag already there (a draft too) is 422 "already_exists" (round 5).
+      if (releases[b.tag_name]) return reply(422, { message: "Validation Failed", errors: [{ code: "already_exists", field: "tag_name" }] });
       // What the request asked for, unless the test makes GitHub answer otherwise (round 3, A2).
       releases[b.tag_name] = { draft: o.draftOnCreate ?? b.draft };
+      o.afterReleasePost?.(refs);
       return reply(201, { tag_name: b.tag_name });
     }
     return reply(500);
@@ -120,6 +131,20 @@ describe("peel", () => {
   });
   test("an HTTP error is an error, never 'absent'", async () => {
     await expect(peel(mock({ refStatus: 502 }).ctx(), "v1")).rejects.toThrow(/HTTP 502/);
+  });
+  test("a tag-to-tag loop ends in a refusal, not a hang (the hop limit; round 5: untested)", async () => {
+    const t = "c".repeat(40);
+    const m = mock({ refs: { v1: { type: "tag", sha: t } }, tagObjs: { [t]: { type: "tag", sha: t } } });
+    const ctx = m.ctx();
+    let reads = 0;
+    const inner = ctx.fetch;
+    ctx.fetch = (url, init) => {
+      if (url.includes("/git/tags/")) reads++;
+      if (reads > 50) throw new Error("the hop limit did not stop the loop");
+      return inner(url, init);
+    };
+    await expect(peel(ctx, "v1")).rejects.toThrow(/too many tag-to-tag hops/);
+    expect(reads).toBeLessThanOrEqual(10);
   });
 });
 
@@ -283,9 +308,45 @@ describe("release", () => {
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.writes).toEqual([]);
   });
-  test("a 422 is a failure", async () => {
+  test("a 422 with no page behind it is a failure, not a race", async () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases" });
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("no such page exists");
+  });
+  for (const draft of [false, true]) {
+    test(`another run made the page (${draft ? "a draft" : "published"}) between our check and our POST: done (round 5)`, async () => {
+      const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, pageAppearsOnPost: { draft } });
+      expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+      expect(m.writes).toEqual(["POST /releases"]);
+      expect(m.lines.join("\n")).toContain("already exists");
+    });
+  }
+  test("a page already there on a NON-bump commit: refused, not 'done' — the bump check comes first (round 5)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, releases: { [TAG]: { draft: false } }, subject: "docs: not a bump" });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("REFUSED");
+  });
+  test("more releases than the listing reads, ours not among them: a failure, never 'absent' (the page cap; round 5)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, padding: 5000 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.writes).toEqual([]);
+    expect(m.lines.join("\n")).toContain("refusing to guess");
+  });
+  test("a listing that is not a list: a failure that SAYS so, no write (round 5)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, listJson: { message: "not a list" } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.writes).toEqual([]);
+    expect(m.lines.join("\n")).toContain("listing releases (page 1): HTTP 200");
+  });
+  test("read-back: a page for ANOTHER tag name is a failure (round 5: untested)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, readBackTagName: "v0.0.0" });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("READ-BACK FAILED");
+  });
+  test("read-back: the tag moved while the page was made is a failure (round 5: untested)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, afterReleasePost: (refs) => (refs[TAG] = { type: "commit", sha: OTHER }) });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain(`peels to ${OTHER}`);
   });
 });
 
@@ -301,7 +362,16 @@ describe("version and notes", () => {
     expect(await isRelease(mock({ refs: { "v5.0.1": { type: "commit", sha: SHA } } }).ctx(), "5.0.1")).toBe(true);
   });
   test("isRelease: false when the tag is on another commit (released before)", async () => {
-    expect(await isRelease(mock({ refs: { "v5.0.0": { type: "commit", sha: OTHER } } }).ctx(), "5.0.0")).toBe(false);
+    // The bump commit's subject, so only the tag can make it "no".
+    expect(await isRelease(mock({ refs: { "v5.0.0": { type: "commit", sha: OTHER } }, subject: "bump to v5.0.0" }).ctx(), "5.0.0")).toBe(false);
+  });
+  test("isRelease: false, and SAID, for a commit that is not the bump at an untagged version (round 5: was a red run)", async () => {
+    const m = mock({ subject: "fix: after a bump whose checks failed" });
+    expect(await isRelease(m.ctx(), "5.0.1")).toBe(false);
+    expect(m.lines.join("\n")).toContain("not a release");
+  });
+  test("isRelease: an unreadable commit is an error, never 'not a release' (round 5)", async () => {
+    await expect(isRelease(mock({ commitStatus: 502 }).ctx(), "5.0.1")).rejects.toThrow(/HTTP 502/);
   });
   test("releaseNotes takes the version's summary paragraph, through a '#' that is not a heading", () => {
     const md = "## Release History\n\n### `5.0.1` — 2026-11-12\n\nPatch. Zig 0.17.1.\n#42 fixed too.\n\n> 🔒 detail\n\n### `5.0.0` — x\n\nOld.";

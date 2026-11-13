@@ -3,13 +3,17 @@
 // machine's git config (no global, no system config), so a global `tag.gpgSign`, `core.hooksPath`
 // or `init.defaultBranch` cannot change a verdict. Each guard has a case that only it can refuse.
 // Run: `bun test tools/release`.
-import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, setDefaultTimeout, spyOn, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { childInterrupted, main as bump } from "./bump.ts";
+import { main as bump } from "./bump.ts";
 import { main as push, runner, type Run } from "./push.ts";
+
+// Real git, ~40-50 ms a call on Windows, 30+ calls a case: Bun's 5 s default was already close
+// (round 5: one case timed out at 5.0 s once the runner went through cmd.exe).
+setDefaultTimeout(60_000);
 
 const dirs: string[] = [];
 const savedEnv = { GIT_CONFIG_GLOBAL: process.env.GIT_CONFIG_GLOBAL, GIT_CONFIG_NOSYSTEM: process.env.GIT_CONFIG_NOSYSTEM };
@@ -240,15 +244,6 @@ describe("bump.ts", () => {
     expect(err).toContain("the four places are restored");
     expect(sh(work, "status", "--porcelain")).toBe("");
   });
-  test("childInterrupted reads both platforms' Ctrl-C endings, and nothing else", async () => {
-    expect(childInterrupted(null, "SIGINT")).toBe(true);
-    expect(childInterrupted(0xc000013a, null)).toBe(true);
-    expect(childInterrupted(-1073741510, null)).toBe(true);
-    expect(childInterrupted(130, null)).toBe(true);
-    expect(childInterrupted(1, null)).toBe(false);
-    expect(childInterrupted(0, null)).toBe(false);
-    expect(childInterrupted(null, "SIGTERM")).toBe(false);
-  });
   test("git refuses to unstage but the files read back clean: RESTORE FAILED says so (round 4: the untested branch)", async () => {
     const { work } = repo();
     const noReset = fake(work, "fail", (a) => (a[0] === "reset" ? FAIL : undefined));
@@ -273,6 +268,46 @@ describe("bump.ts", () => {
     // message proved nothing (its first version passed with the guard removed).
     expect(err).toMatch(/still edited: [^\n]*cmem\/overview\.md/);
   });
+  test("the Ctrl-C handler is STILL installed while the restore runs, and gone after (round 5, A3)", async () => {
+    const { work } = repo();
+    const baseline = process.listenerCount("SIGINT");
+    let duringRestore = -1;
+    const watch = fake(work, "fail", (a) => {
+      if (a[0] === "reset") duringRestore = process.listenerCount("SIGINT");
+    });
+    expect(await code(() => bump(["patch"], work, watch))).toBe(1);
+    expect(duringRestore).toBe(baseline + 1);
+    expect(process.listenerCount("SIGINT")).toBe(baseline);
+  });
+  test("a good bump: no restore, no RESTORE FAILED, and no handler left behind (round 5)", async () => {
+    const { work } = repo();
+    const baseline = process.listenerCount("SIGINT");
+    const [r, err] = await captured(() => bump(["patch"], work, fake(work)));
+    expect(r).toBe(0);
+    expect(err).not.toContain("RESTORE");
+    expect(err).not.toContain("restored");
+    expect(process.listenerCount("SIGINT")).toBe(baseline);
+  });
+  test("a REAL zig ended by Ctrl-C (a stub exiting STATUS_CONTROL_C_EXIT), through the real runner: interrupted (round 5)", async () => {
+    const { root, work } = repo();
+    const bin = join(root, "bin");
+    mkdirSync(bin);
+    writeFileSync(join(bin, "stub.c"), "int main(void) { return (int)0xC000013A; }\n");
+    const exe = join(bin, process.platform === "win32" ? "zig.exe" : "zig");
+    const cc = spawnSync("zig", ["cc", join(bin, "stub.c"), "-o", exe], { encoding: "utf8" });
+    expect(cc.status).toBe(0);
+    const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+    const saved = process.env[pathKey];
+    process.env[pathKey] = `${bin}${delimiter}${saved ?? ""}`;
+    try {
+      const [r, err] = await captured(() => bump(["patch"], work));
+      expect(r).toBe(1);
+      expect(err).toContain("zig ended by Ctrl-C");
+      expect(sh(work, "status", "--porcelain")).toBe("");
+    } finally {
+      process.env[pathKey] = saved;
+    }
+  }, 120_000);
   test("a place that did not move cleanly (the gate rewrote it): refused and restored (B4)", async () => {
     const { work } = repo();
     const run = fake(work);
@@ -492,6 +527,80 @@ describe("push.ts", () => {
     const { work } = await bumped();
     writeFileSync(join(work, "stray.txt"), "x");
     expect(await quiet(() => push([], work, fake(work)))).toBe(1);
+  });
+  test("a commit made on main DURING the gate: refused, nothing pushed (round 5)", async () => {
+    const { work } = await bumped();
+    const before = remoteMain(work);
+    const real = fake(work);
+    const sneaky: Run = (cmd, args, inh) => {
+      if (cmd === "zig") {
+        writeFileSync(join(work, "README.md"), "unchecked\n");
+        sh(work, "commit", "-q", "-am", "made while the gate ran");
+      }
+      return real(cmd, args, inh);
+    };
+    const [r, err] = await captured(() => push([], work, sneaky));
+    expect(r).toBe(1);
+    expect(err).toContain("HEAD moved during the gate");
+    expect(remoteMain(work)).toBe(before);
+  });
+  test("the tree changed during the gate: refused (the gate built something else)", async () => {
+    const { work } = await bumped();
+    const real = fake(work);
+    const dirtying: Run = (cmd, args, inh) => {
+      if (cmd === "zig") writeFileSync(join(work, "README.md"), "edited mid-gate\n");
+      return real(cmd, args, inh);
+    };
+    const [r, err] = await captured(() => push([], work, dirtying));
+    expect(r).toBe(1);
+    expect(err).toContain("the tree changed during the gate");
+  });
+  test("pushes the CHECKED commit by id: a commit made after the checks does not go up (round 5)", async () => {
+    const { work } = await bumped();
+    const checked = sh(work, "rev-parse", "HEAD");
+    const late = fake(work, "ok", (a) => {
+      if (a[0] === "push") {
+        // Main moves between the last check and the push; the push names the checked id anyway.
+        writeFileSync(join(work, "README.md"), "late\n");
+        sh(work, "commit", "-q", "-am", "late");
+      }
+    });
+    expect(await code(() => push([], work, late))).toBe(0);
+    expect(remoteMain(work).split(/\s+/)[0]).toBe(checked);
+  });
+  test("a bump that is not ONE level up (5.0.1 -> 5.0.9): refused (round 5)", async () => {
+    const { work } = repo();
+    for (const [f, body] of Object.entries(FILES)) writeFileSync(join(work, f), body("5.0.9"));
+    sh(work, "commit", "-q", "-am", "bump to v5.0.9");
+    const [r, err] = await captured(() => push([], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("not one level up");
+  });
+  test("the parent version's tag is on a commit outside the bump's history: refused (round 5)", async () => {
+    const { work } = repo("5.0.1", false);
+    sh(work, "checkout", "-q", "--orphan", "elsewhere");
+    writeFileSync(join(work, "README.md"), "unrelated\n");
+    sh(work, "add", "README.md");
+    sh(work, "commit", "-q", "-m", "unrelated");
+    sh(work, "tag", "-a", "v5.0.1", "-m", "made elsewhere");
+    sh(work, "push", "-q", "origin", "v5.0.1");
+    sh(work, "tag", "-d", "v5.0.1");
+    sh(work, "checkout", "-q", "-f", "main");
+    sh(work, "branch", "-q", "-D", "elsewhere");
+    sh(work, "clean", "-qfdx");
+    for (const [f, body] of Object.entries(FILES)) writeFileSync(join(work, f), body("5.0.2"));
+    sh(work, "commit", "-q", "-am", "bump to v5.0.2");
+    const [r, err] = await captured(() => push([], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("not in the bump commit's history");
+  });
+  test("a failed push says where origin/main now is (round 5: a hook can fail after the update)", async () => {
+    const { work } = await bumped();
+    const before = remoteMain(work).split(/\s+/)[0];
+    const failed = fake(work, "ok", (a) => (a[0] === "push" ? FAIL : undefined));
+    const [r, err] = await captured(() => push([], work, failed));
+    expect(r).toBe(1);
+    expect(err).toContain(`origin/main is now ${before}`);
   });
   test("--dry-run: every guard, nothing pushed", async () => {
     const { work } = await bumped();

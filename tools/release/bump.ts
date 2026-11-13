@@ -14,10 +14,10 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { spawnSync } from "node:child_process";
+import { type Run, runner } from "./spawn.ts";
 
 export type Level = "patch" | "minor" | "major";
-export type Run = (cmd: string, args: string[], inherit?: boolean) => { ok: boolean; out: string; err: string; missing?: boolean; interrupted?: boolean };
+export type { Run };
 
 export function next(version: string, level: Level): string {
   const m = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -43,19 +43,6 @@ export function replaceOnce(text: string, old: string, neu: string, file: string
   const count = text.split(old).length - 1;
   if (count !== 1) throw new Error(`${file}: expected exactly one "${old}", found ${count}`);
   return text.replace(old, neu);
-}
-
-function runner(cwd: string): Run {
-  return (cmd, args, inherit = false) => {
-    const r = spawnSync(cmd, args, { cwd, encoding: "utf8", stdio: inherit ? "inherit" : "pipe" });
-    const missing = (r.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
-    return { ok: r.status === 0, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing, interrupted: childInterrupted(r.status, r.signal) };
-  };
-}
-
-/** Did the child end by Ctrl-C? POSIX: SIGINT. Windows: STATUS_CONTROL_C_EXIT (0xC000013A, either sign). */
-export function childInterrupted(status: number | null, signal: string | null): boolean {
-  return signal === "SIGINT" || status === 0xc000013a || status === -1073741510 || status === 130;
 }
 
 /** One turn of the event loop: where a Ctrl-C that arrived meanwhile is actually delivered. */
@@ -120,7 +107,8 @@ export async function main(argv: string[], cwd = process.cwd(), run: Run = runne
       console.error(
         `bump: RESTORE FAILED — ${still.length ? `still edited: ${still.join(", ")}` : "the files read back unchanged, but git refused to unstage them"}` +
           `${reset.ok ? "" : `\n  git reset: ${reset.err}`}${checkout.ok ? "" : `\n  git checkout: ${checkout.err}`}` +
-          `\n  fix by hand: git reset -q -- ${files.join(" ")} && git checkout -- ${files.join(" ")}`,
+          `\n  fix by hand: git reset -q -- ${files.join(" ")} && git checkout -- ${files.join(" ")}` +
+          `\n  (if git says .git/index.lock exists and no git is running, a killed git left it: delete it first)`,
       );
   };
 
@@ -165,8 +153,10 @@ export async function main(argv: string[], cwd = process.cwd(), run: Run = runne
   } catch (err) {
     return refuse(err instanceof Error ? err.message : String(err));
   } finally {
-    process.off("SIGINT", onInterrupt);
+    // Restore FIRST, with the handler still installed (round 5, A3): with no listener, a Ctrl-C
+    // during the restore takes Bun's default action and kills it, leaving the files edited, unsaid.
     if (!committed) restore();
+    process.off("SIGINT", onInterrupt);
   }
   console.log(`committed: ${git("log", "--oneline", "-1")}  (nothing pushed; next: bun tools/release/push.ts)`);
   return 0;

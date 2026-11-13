@@ -5,7 +5,8 @@
 // A job's log needs a signed-in reader, but a check run's annotations are public: on failure the
 // error lines of the output (Zig's `error:`, a failed `expect`, a test name, a panic) are emitted as
 // `::error::` annotations, so a failure can be diagnosed with no token (no `gh`: Tooling rule 9).
-// The output is also streamed to the log as it runs. Exit status is zig's.
+// The output is also streamed to the log as it runs. Exit status: 0 when zig passed, non-zero when
+// not (on Windows as `spawn.ts` maps it, since Bun alone reads only the low byte — round 5, A1).
 //
 // 🔒 The streamed output is wrapped in `::stop-commands::<random>` (review round 1, B5), so what a
 // build or a test PRINTS cannot act as a workflow command (`::add-mask::`, a `::stop-commands::` of
@@ -19,6 +20,7 @@
 
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
+import { type Plan, plan } from "./spawn.ts";
 
 const MAX_ANNOTATIONS = 40;
 
@@ -64,9 +66,15 @@ export function childEnv(env: Record<string, string | undefined>): Record<string
   return out;
 }
 
-/** zig's exit code as ours; a child killed by a signal has none and is a failure (round 4: untested). */
+/**
+ * zig's exit code as ours; a child killed by a signal has none and is a failure (round 4: untested).
+ * 🔒 Bun's `process.exit(n)` keeps only n's LOW BYTE (measured, Bun 1.4.4 on Windows: 256, 512 and
+ * 0xC0000100 all exit 0) — so any failure whose low byte is 0 becomes 1, never a green step (round 5, A1).
+ */
 export function exitCode(code: number | null): number {
-  return code === null ? 1 : code;
+  if (code === 0) return 0;
+  if (code === null) return 1;
+  return code & 0xff || 1;
 }
 
 /** The lines this tool prints around the build output and after a failure. */
@@ -88,10 +96,19 @@ if (import.meta.main) {
     console.error("usage: bun tools/release/gate.ts <zig build args...>");
     process.exit(2);
   }
+  // Through spawn.ts's `plan` (round 5, A1): Bun alone would read a zig exit of 256 as 0, a pass.
+  // Planned BEFORE the frame opens: a refused argument is a plain error, not one hidden inside it.
+  let p: Plan;
+  try {
+    p = plan("zig", ["build", ...args]);
+  } catch (err) {
+    console.error(`gate.ts: ${err instanceof Error ? err.message : err}`);
+    process.exit(2);
+  }
   const token = randomBytes(16).toString("hex");
   const title = `zig build ${args.join(" ")}`;
   console.log(`::stop-commands::${token}`);
-  const child = spawn("zig", ["build", ...args], { stdio: ["ignore", "pipe", "pipe"], env: childEnv(process.env) });
+  const child = spawn(p.file, p.args, { stdio: ["ignore", "pipe", "pipe"], env: childEnv(process.env), windowsVerbatimArguments: p.windowsVerbatimArguments });
   // Decode at the stream, not per chunk: a UTF-8 character split across chunks stays whole (B6).
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
