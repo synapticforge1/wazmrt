@@ -28,6 +28,8 @@ no tags and publishes to no registry, so no published artifact names an old id.
 
 ```text
 wazmrt/
+├── .github/workflows/
+│   └── release.yml        # Release CI: checks on every push; on main, a new version → CI tag → Release page → read-back
 ├── build.zig              # Build graph: CLI exe, C-ABI static lib, wasm target, tests
 ├── build.zig.zon          # Package manifest (name .wazmrt, v5.0.1, min zig 0.17.1)
 ├── cmem/                  # Portable project memory (this folder)
@@ -54,6 +56,8 @@ wazmrt/
 │   └── c_smoke.c          # C smoke test exercising the wasm-c-api surface (zig cc)
 ├── third_party/
 │   └── LICENSES.md        # Compliance ledger (EMPTY — nothing vendored) + adoption checklist
+├── tools/                 # Build-step tools (Zig: size, conformance, surface, CLI behaviour) + Bun scripts
+│   └── release/           # bump.ts, push.ts (local); github.ts, gate.ts (CI); their self-tests
 ├── LICENSE-MIT · LICENSE-APACHE · NOTICE
 └── README.md              # Public, user-facing doc
 ```

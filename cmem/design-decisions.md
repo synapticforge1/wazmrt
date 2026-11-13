@@ -625,8 +625,9 @@ Load-bearing choices and gotchas that must not be silently reverted. Dated; newe
     ceilings were over — exe +22,016, lib +24,628, dll +19,456 — left by the R1 commits of
     2026-08-12, which grew the artifacts without invoking the step. **A gate only gates the commits
     that run it; a gate with no trigger is a preference, exactly like a goal with no gate.** Until
-    something invokes it automatically, run `zig build size -Doptimize=ReleaseSmall` before any
-    commit that touches `src/`. **Attribute an overshoot before paying for it** — build the parent
+    something invokes it automatically, run `zig build size -Doptimize=small` (`ReleaseSmall` before
+    Zig 0.17) before any commit that touches `src/`. *(Since 2026-11-12 the release CI runs it on
+    every push — `release.md`; locally the rule stands.)* **Attribute an overshoot before paying for it** — build the parent
     commit in a `git worktree` and diff, rather than assuming the growth is yours; R2's true share
     of that overshoot was +5,120 / +1,068 / **+0**, while R3's was **all of it** (+6,144 / +8,258 /
     +7,168). Both answers are only worth having because the parent was actually measured. R4 then

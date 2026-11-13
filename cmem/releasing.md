@@ -316,10 +316,13 @@ as long as nobody acted on the note directly underneath it.)*
 release notes go into `release.md` § Release History on `main` first; then
 **`bun tools/release/bump.ts <level>`** does step 9 (the four places, the surface floor, the bump
 commit) and **`bun tools/release/push.ts`** pushes `main`. CI (`.github/workflows/release.yml`) then
-re-runs steps 2–8 on that commit — conformance from a sparse clone of wasmtk's corpus — and only
-when they are green tags it, makes the Release page and builds the tag as a user. **No local tag,
-ever.** Step 9a stays a local commit after the release. The steps below remain the definition of
-the gate, and are still run locally before the bump.
+re-runs steps 2–7 and the RUN half of step 8 on that commit — conformance from a pinned sparse
+clone of wasmtk's corpus; the exe in an empty directory with a reduced `PATH` — and only when they
+are green tags it, makes the Release page and builds the tag as a user. **No local tag, ever.**
+⚠️ **Step 8's import check (only `ntdll` / `KERNEL32`) is NOT in CI** — it stays a local step
+before the bump (🔁 review round 4, C: this paragraph said CI re-ran "steps 2–8"). Step 9a stays a
+local commit after the release. The steps below remain the definition of the gate, and are still
+run locally before the bump.
 
 Every gate below already exists as a build step; this list adds no machinery, it only says which gates a
 version bump requires. ⚠️ **Run with `ZIG_LOCAL_CACHE_DIR` on NTFS** — a `D:` cache is poisoned after
@@ -346,17 +349,34 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
    formality: wasmrt's CLI silently needed a toolchain DLL for weeks while every dev-box test passed.
 9. **Bump the four places**, then grep for the old string. 🆕 **Then `zig build surface`** (also part of
    `zig build test`): it must accept the new number against `tools/surface/released.txt`'s floor. A
-   refusal is answered by a bigger bump, never by editing a snapshot. If the release breaks anything
-   (the four kinds above), add its **⚠️ Breaking Changes** row to `README.md` in the same commit.
-9a. 🆕 **After the release commit, in its own commit: `zig build surface -Dsurface=release`** and
+   refusal is answered by a bigger bump, never by editing a snapshot. **The real order** (🔁 review
+   round 3, C6 — the round-2 text hid the retry): the level is the owner's, and whether a release
+   breaks anything is first SEEN when `bump.ts` runs the surface gate. So: (1) the owner's level;
+   (2) run `bun tools/release/bump.ts <level>`; (3) if the gate refuses the level, `bump.ts` has
+   already restored the four files — merge the **⚠️ Breaking Changes** row (`README.md`) and the
+   bigger level's notes to `main` in their own commit, then (4) run `bump.ts` again with the bigger
+   level. A release known to be breaking beforehand lands its row before step (2). The bump commit
+   is the four places and nothing else (workspace U2; `push.ts` refuses a fifth file).
+   *🔁 2026-11-13 (round 2, B4): this once said the row went "in the same commit" as the bump.*
+9a. 🆕 **Only after CI's run is read back GREEN** (the tag peels to the bump commit, the page exists,
+   the read-back passed — the same condition as step 10's second commit, and in that order: 9a's
+   commit first, then step 10's; 🔁 review round 4, C: the order was implicit, and a baseline
+   recorded before a red run would bake an unreleased surface in) — **and held back on a red run**
+   until the fix is released — **in its own commit: `zig build surface -Dsurface=release`** and
    **`zig build conformance -Dtestsuite=… -Dbaseline=… -Drecord-released=true`**, which record the
    released surface (S1 included) and the released per-file conformance results (S2) as the next
    release's baselines. 🔒 **Order (owner): S1 (`surface`, inside `test`) → S2 (step 4) → S3 (the
    local wide net, `probes/carry-forward.ts`). Stop at the first that finds an issue until it is
    resolved; an INTENDED change is resolved by a deliberate re-baseline with the major it demands.**
-10. **Sync `cmem/` in the same commit** — `roadmap.md` (track → ✅), `testing.md` (the score), this file's
-    ladder, and `open-work.md`'s Status line (the only one — letter H3, 2026-09-21). A doc pass scheduled "after the release" is a doc pass that
-    does not happen.
+10. **Memory, in two commits around the release** (🔁 review round 3, C6: the round-2 text had memory
+    say "released" before CI had passed):
+    - **BEFORE the bump, with the release notes:** `release.md`'s entry (its summary is the Release
+      page), `testing.md`'s score, this file's ladder. Nothing here claims the release happened.
+    - **AFTER CI's run is read back** (the tag peels to the bump commit, the page exists, the
+      read-back passed), in a memory commit of its own, as 9a is: the run's record in `release.md`,
+      `roadmap.md`'s row, and `open-work.md`'s Status line saying it is released (the only one —
+      letter H3, 2026-09-21). A red run means this commit is not made; fix and re-run (U12).
+    A doc pass scheduled for anything else "after the release" is a doc pass that does not happen.
 11. 🗄️ **RETIRED 2026-10-23** (owner: *"we are officially out of lock step now due to differences"*;
     `interop.md` v33, §1e). wazmrt releases on its own checklist. The contract stays the shared
     reference, and a coordination pass is still the right move before a change to an in-scope row,

@@ -130,7 +130,7 @@ from the exFAT `D:` drive.
 | [testing.md](testing.md) | How to run every gate, what each can see, and **the dated counts** (the one place they are recorded). |
 | [known-issues.md](known-issues.md) | The defect log: fixed-with-root-cause and deferred-with-surfacing-condition. |
 | [releasing.md](releasing.md) | The version (the one place it is recorded), SemVer and the compatibility gate (`zig build surface`, with S1/S2 behaviour carried forward), what counts as breaking, the binding per-release checklist. |
-| [release.md](release.md) | 📦 **Every release, newest first** (§ "Release History", the one place — H33 / D3), and the release process against the workspace's U1–U12 shape: what wazmrt meets, what it builds after the Zig 0.17.1 migration. |
+| [release.md](release.md) | 📦 **Every release, newest first** (§ "Release History", the one place — H33 / D3), and the release process against the workspace's U1–U12 shape: `tools/release/` (bump, push, the CI's GitHub client) and `.github/workflows/release.yml` (checks → CI tag → Release page → read-back), first used for `5.0.1`. |
 | [best-practices.md](best-practices.md) | METHOD rules, one bold rule + the incident that paid for it. |
 | [text-toolchain.md](text-toolchain.md) | The `.wat`/`.wast` assembler and script runner: spellings accepted, encoding decisions. |
 | [licensing.md](licensing.md) | Why `MIT OR Apache-2.0`, the zero-dependency verification, the reference-code obligations. |

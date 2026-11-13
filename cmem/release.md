@@ -25,7 +25,7 @@ Built 2026-11-12, after the Zig 0.17.1 migration (owner: "Migrate, build CI, the
 | U9 pins | ✅ no `uses:` at all; token-less `git` clones; Zig 0.17.1 and Bun 1.4.4 by version + sha256 (each hash from two sources); `permissions: {}` at the top; per-commit concurrency, never cancelled |
 | U10 read back as a user | ✅ `readback` job: a token-less clone of the TAG (must peel to the checked commit), `zig build -Doptimize=small`, `--version` and `hello_wasi.wat`; locally the checklist's standalone step stays |
 | U11 record it | ✅ this file |
-| U12 failure | ✅ every job is re-run safe (an existing tag or page is "done"): re-run failed jobs; never a new or moved tag for the same code |
+| U12 failure | ✅ every job is re-run safe (an existing tag or page is "done"); a re-run also FINISHES a half-done release — tag made, page failed (review round 3, A1). Re-run failed jobs; never a new or moved tag for the same code. 🔒 **To retire a Release page, switch it to DRAFT — do not delete it** (owner, 2026-11-13, review round 4, A2, option 2). The page check lists the releases with the job's token, which sees drafts, so a re-run finds the retired page and writes nothing. A page DELETED outright looks like one that failed to publish, and a re-run of that release's run would make it again |
 
 ✅ **Measured on a real release: `5.0.1`, run `43296106417` — `tag`, `release` and `readback`
 ran for the first time and each passed in one attempt** (the record is in 5.0.1's entry below).
@@ -63,7 +63,10 @@ Patch (owner). Builds with Zig 0.17.1, which is now the minimum (it was 0.16.0):
 > (read back). CI then:
 > - `checks`: every gate (the release self-tests; `test`, `test-safe`, `test-shipped`,
 >   `test-security`; `features` + `capi-smoke`; conformance 288 / 64,092 / 0 / 0 with S2 vs `5.0.0`;
->   size EXACT; the standalone exe), then "is this a release?" → yes;
+>   size not over any ceiling (🔁 2026-11-13: first written "size EXACT", an inference — the gate
+>   also passes "under", the log needs a sign-in, and the `.lib` size follows the cache path, so
+>   CI's `.lib` is not EXACT evidence; review round 1, A2); the standalone exe), then "is this a
+>   release?" → yes;
 > - `tag`: annotated `v5.0.1` by `github-actions[bot]` ("wazmrt 5.0.1"), peeling to `e801dc2`;
 > - `release`: the page, by `github-actions[bot]`, published 2026-11-12 20:09:35Z, not a draft;
 > - `readback`: a token-less clone of the tag, built `small`, `wazmrt 5.0.1 (abi 2)` and

@@ -80,8 +80,15 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 ## ⏳ Waiting on something outside this repo
 
-- 🗓️ **OWNER: the rehearsal branch `ci-release`** is still on GitHub (it equals `main`'s history
-  up to `65f4717`; nothing to keep). Deleting it is the owner's call.
+- 🔍 **REVIEW IN PROGRESS (owner, 2026-11-13: "review" on `v5.0.0..v5.0.1`).** Round 1: 3
+  reviewers, 17 findings; groups A, B, C fixed (owner: "proceed with A, B, and C") in the working
+  tree, UNCOMMITTED — ledger: `known-issues.md` § REVIEW 2026-11-13. Round 2: 3 fresh reviewers,
+  13 findings, all fixed (owner: "proceed with round 2 fixes"). Round 3 (on Sonnet): 11 findings,
+  all fixed (owner: "fix all"). Round 4: 12 findings, all fixed (owner: "Fix everything"; A2 by
+  option 2 — retire a Release page by switching it to DRAFT). Committed 2026-11-13 (owner:
+  "commit"; not pushed). **Next: round 5** on round 4's fixes; the review stops at the first round
+  that finds nothing. A2 (the `.lib`
+  size follows the cache path) was found and left out of scope.
 - 🔜 **Letter H35 — the review process (owner, 2026-11-12), NOT started.** (1) Add "review",
   "security review", "hardening review" to `working-rules.md` § Owner commands, pointing at the
   workspace `review-process.md`; (2) fill wazmrt's slots (§ 7 there): private-data paths, the
@@ -318,9 +325,17 @@ for wazmrt (INDEX). Remnants:
   of `0edbc5c` from a `git archive` failed `wazmrt.lib` by +116 bytes over its ceiling. Measured
   here 2026-10-27 (`zig build size -Doptimize=ReleaseSmall`, same `src/`, in the repo): all three
   EXACT at ceiling, delta 0. Only the `.lib` moved and only from another directory, so the
-  HYPOTHESIS is that the static library records the build location (archive member / object
-  paths) — which would make the `.lib` ceiling depend on where the tree sits. UNMEASURED: build the
-  same tree from two directories of different path length and compare the `.lib` sizes.
+  HYPOTHESIS was that the static library records the build location (archive member / object
+  paths) — which would make the `.lib` ceiling depend on where the tree sits.
+  🔁 **CONFIRMED (2026-11-13, review round 1, finding A2), and a claim written here the same day
+  was wrong.** The `.lib` embeds the absolute path of its object file in the Zig cache
+  (`<cache>\o\<hash>\wazmrt_zcu.obj`, read out of `zig-out/lib/wazmrt.lib`), so its size follows
+  the cache path's length: the reviewer's 14-character-longer cache gave **lib +36, OVER**, exe and
+  dll 0. That is wasmrt's +116. The ceiling was set with `--cache-dir C:\zig-cache\wazmrt`.
+  ⚠️ **The note this replaces said "the size gate was EXACT on all three in CI" — an INFERENCE from
+  the step's success, never read:** the gate also passes "under", and the job log needs a sign-in.
+  CI proves only "not over" for the `.lib`. Same root as the roadmap item "the static library
+  embeds the Zig cache path" (fix before any binary is published).
 
 - **H10**: stages A and B are done, and `--features` takes D2's meanings (3.0.0). What remains
   is DONE on wazmrt's side: D2 2.2.0's `typeRules` closed the 22-case type-rule gap (contract v39;

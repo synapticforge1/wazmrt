@@ -13,6 +13,130 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 4 — round 3's fixes (owner: "Fix everything"; A2: "2")
+
+Three fresh reviewers on Sonnet. **12 findings; none tags or releases an unchecked commit through
+the normal flow — but two came from round 3's own fixes.** All fixed (A2 by the owner's option 2).
+`bun test tools/release` 95 → **111** (measured at the commit).
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | a write path skipped the bump check (made by round 3's A1) | `tag`'s early "done" and `release` now run `bumpOnMain` first: a hand-pushed tag on a non-bump commit gets no page | R4A-1a/b; three cases |
+| **A2** | a re-run republished a page retired on purpose | 🔒 owner's option 2: retire = switch to DRAFT; the page check LISTS releases (drafts included, every page) | R4A-2a–d; four cases. Rule in `release.md` U12 |
+| **B1–B3** | Ctrl-C (made by round 3's fix): a synchronous `main` let no handler run before it returned; outside the gate a Ctrl-C killed Bun mid-write; a second Ctrl-C was swallowed | `bump.ts` `main` async with checkpoints after the writes, after the gate, before the commit; the handler over the whole window; zig's own Ctrl-C exit status counts; a second Ctrl-C restores and exits 130 | K9–K17; the tests deliver Ctrl-C ASYNCHRONOUSLY (`setImmediate`), as a console does |
+| **C1** | the rule test passed accident-shaped and crafted bypasses | case-insensitive, scope-prefixed override detection; only the exact wazmrt.exe run line may turn the setting off, followed by an exact throwing exit check; no `*-Variable`, `$PSDefaultParameterValues`, non-stopping `-ErrorAction`, `trap`, block comments; `try` only around `Invoke-WebRequest` with a re-throwing `catch`; no folded `run: >`; bash: no `\|\| true`, `set +e`, `trap`; one-liners chain nothing | W19–W33 |
+| **C2** | the checklist overstated CI; 9a's order implicit | intro: step 8's import check stays local; 9a only after a GREEN read-back, before step 10's second commit, held back on red | 🔁 in place |
+| low | a signal-killed child's exit; the "git refused to unstage" branch | `exitCode()`; a case | G15, G16; a case |
+
+🎓 **A fix is new code — and two of round 3's opened round 4's findings** (A1's re-run rule opened
+the unchecked page path; the Ctrl-C handler could not run in a synchronous `main`). The rounds
+caught both, which is what the rounds are for.
+
+---
+
+## 🔍 REVIEW 2026-11-13, round 3 — round 2's fixes (owner: "fix all")
+
+Three fresh reviewers, **on Sonnet** (owner's `/usage` decision, the same day). **11 findings; none
+tags or releases a wrong commit, none in the new pwsh logic.** All fixed; every mutant from three
+rounds caught (**github.ts 24, gate.ts 14, push.ts 21, bump.ts 11, workflow 18 + the `shellOf`
+helper**). `bun test tools/release` 85 → **95**. Uncommitted.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | a re-run could not finish a half-done release | tag made, page failed → the re-run read "released", skipped `tag`/`release`, green with no page. "Is this a release?" is now also yes when the tag peels to THIS commit; the jobs are re-run safe | R3A-1a/b; two `isRelease` cases |
+| **A3** | a partial last line swallowed the resume | `frame` ends an unterminated line before `::<token>::` | G10; stub-zig end to end |
+| **B1** | the content check compared TRIMMED text | raw `git show` output compared (`runner().raw`) | P19; a whitespace-only case |
+| **A2** | the mock ignored most of the POST body | the whole body asserted; the mock honours the requested `draft` | R3A-2a–d |
+| **A4** | the spawn wiring held by a source-text match | an end-to-end test with a stub `zig` (built by `zig cc`) first on PATH, which reports any withheld variable it can see | G11 |
+| **A5** | the build still saw runner tokens and the command-file folder | `ACTIONS_*`, `GITHUB_TOKEN`, `RUNNER_TEMP` withheld too (case-insensitive) | G12–G14 |
+| **C1–C5** | `workflow.test.ts` still foolable (workflow-level `defaults.shell` unread; exit-code checks unpinned; native-command detection with gaps; textual setting checks; a weak bash rule) | every multi-line pwsh step must OPEN with the two settings and nothing later may undo them; every scriptblock exe run must be followed DIRECTLY by its exit-code check; multi-line bash opens with `set -euo pipefail`; one-liners chain nothing; `shellOf` reads workflow defaults. Its header states what it cannot do | W11–W18 |
+| **C6** | the checklist hid a retry and said "released" too early | steps 9/10: the bump-refusal retry spelled out; memory in two commits — notes before the bump, "released" only after CI's run is read back | 🔁 in place |
+| edge | Ctrl-C mid-bump skipped the restore; an unreadable file crashed the restore; `push.ts` didn't check the parent was released; a missing parent root crashed `push.ts` | a SIGINT handler during the gate (refuse + restore); an unreadable file counts as still edited; the parent's tag required; a clean refusal | K9–K11, P20, P21 |
+
+🎓 **Two of my own tests passed with their guard removed** this round (K11: the assertion matched a
+file name the fix-by-hand line always prints; P16 in round 2: the mutant removed the wrong line).
+A test is only proven by the mutant that re-creates the BUG it names — write that mutant, not the
+easiest one. ⚠️ Still unseen by any test: the stream-level UTF-8 decoding (B6, round 1); a real
+console Ctrl-C (simulated with `process.emit`).
+
+---
+
+## 🔍 REVIEW 2026-11-13, round 2 — round 1's fixes (owner: "proceed with round 2 fixes")
+
+Three FRESH reviewers on round 1's uncommitted fixes: `github.ts` + `gate.ts`; `push.ts` +
+`bump.ts`; the workflow + `workflow.test.ts` + the size gate. **13 findings, none tags or releases a
+wrong commit; the theme: guards and TESTS that checked less than they claimed.** All fixed as their
+class; every mutant from both rounds is caught (**github.ts 18, gate.ts 9, push.ts 19, bump.ts 8,
+workflow 10**). `bun test tools/release` 64 → **85**. Uncommitted.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **B1** | a guard reports success it did not check | `bump.ts`'s restore said "restored" while a held `index.lock` left the files edited → it re-reads the four files against their originals and says RESTORE FAILED (with the fix-by-hand command) otherwise | K7; a case with a failing reset/checkout |
+| **B2** | a failed push skipped the tag comparison | origin's tags compared whether or not the push succeeded (a hook can publish and then fail) | P16′ (the old order re-created); a hook case |
+| **B3** | "the four places" checked by NAME only | the bump commit must equal the parent with exactly its four edits, file by file, and change no mode | P14, P15; a smuggled-code case, a chmod case |
+| **A1** | the frame on stdout, the build's errors on stderr — two pipes, no order between them | the child's stderr goes to our stdout | G7; end to end: zig's stderr arrives on stdout inside the frame |
+| **A3** | the mock answered any path | the mock answers only `GET /compare/<sha>...main` and `GET /git/commits/<sha>` | R2-M1–M3 (accept "behind", reversed compare, wrong commit): all caught now |
+| **C1** | `workflow.test.ts` passed on broken workflows | every Windows-job step must be `pwsh`; the two settings on uncommented lines BEFORE the first native command; `;` one-liners count as multi-command; `write-all` counts as write; job-level `uses:` refused | W6–W10 |
+| **B5** | guards with no test; tests on the machine's git config | read-back, ancestor, fetch, branch (both scripts), the pattern-mismatch "nothing written" path, the restore failure — each with a case; git isolated (`GIT_CONFIG_GLOBAL` empty, `GIT_CONFIG_NOSYSTEM`); setup commands checked | P10–P13, K6 |
+| **B4** | the checklist contradicted the guard | `releasing.md` steps 9/10: the Breaking Changes row and the memory sync land BEFORE the bump (U2) | 🔁 marked in place |
+| **A2** | the build could write the runner's command FILES | `GITHUB_ENV/PATH/OUTPUT/STATE/STEP_SUMMARY` withheld from the child; the header claims only what holds | G8, G9; a source check of the wiring |
+| **C2/C3** | an exe's exit code hidden by a pipe; checks made dead, output lost | each exe run in a scriptblock with the setting off, output kept, exit code checked; dead lines removed | verified on 5.1: exit 3 caught, output kept |
+| **A4/A5** | a misleading log; an overclaiming comment | a 422 with no tag says so; `make_latest` quotes GitHub's own sentence | a 422-no-tag case |
+| **B6** | misleading messages, a push elsewhere | origin's tag checked before the local one; push URL must equal fetch URL; a missing `zig` named; "unpushed commits ride along" stated | P17, P18 |
+
+**Not fixed, said:** a false ALERT if someone else pushes a tag in the seconds of a push (loud,
+harmless); the four-places content check compares git's trimmed output, so a change made ONLY in
+trailing whitespace is invisible to it; the UTF-8 stream decoding is still unseen by any test.
+
+---
+
+## 🔍 REVIEW 2026-11-13, round 1 — `v5.0.0..v5.0.1` (owner: "review"; fixes: "proceed with A, B, and C")
+
+Three fresh read-only reviewers (workspace `review-process.md` § 2): **A** the Zig 0.17.1 migration
++ `osTmpDir` + the CLI-gate fix; **B** `tools/release/*.ts`; **C** `.github/workflows/release.yml`.
+17 findings; none releases an unchecked commit; the engine, validator, C ABI and sandbox code came
+through the migration clean (A checked every rename). Each finding re-verified before any change;
+each fix made as its CLASS, with a test that fails without it: **35 mutants, every one caught**
+(github.ts 15, push.ts 9, bump.ts 5, gate.ts 6) + 5 on the workflow (`workflow.test.ts`), and A1
+inverted by a real gate run. `bun test tools/release` 23 → **64**. Uncommitted at the time of
+writing (a review never commits).
+
+| # | class | found → fixed | test |
+| --- | --- | --- | --- |
+| **B1** | a push publishes more than `main` | `push.followTags=true` published every local annotated tag (reproduced: a stray `v9.9.9` went out). `push.ts` pushes `refs/heads/main` alone with `--no-follow-tags`, and alerts if origin's tags changed at all | `scripts.test.ts`, P1, P2 |
+| **C1** | a failing native command mid-step is not the step's result (pwsh) | every multi-command pwsh step sets `$PSNativeCommandUseErrorActionPreference = $true`; the read-back's `zig build` also checks its code | `workflow.test.ts` (W1) |
+| **C2** | `-ne` on an array filters instead of comparing | both `hello from wasi` checks compare joined text | W2 |
+| **B3** | a release with no notes | `releaseNotes` throws on a missing or empty entry; only a real heading ends the summary | M13–M15 |
+| **B2** | `POST /releases` could create the tag elsewhere; "Latest" forced | `target_commitish` = the checked commit; `make_latest: "legacy"` | M11, M12 |
+| **A1** | the size gate grades a directory the artifact was not installed to | `.install_bin` / `.install_lib` (follow `--prefix-exe-dir` / `--prefix-lib-dir`) | real run: fixed → exe 1,042,944 `ok`; old line → the planted 5-byte file `under` |
+| **B8** | guards no test could see | each guard has a failing case; `push.ts` / `bump.ts` driven end to end in a throwaway repo; `gate.ts` end to end with real zig | the 35 mutants |
+| **C4** | a checked but WRONG commit tagged | `tag` refuses unless the commit is `bump to vX.Y.Z` AND still on `main` (compare API) | M7, M8 |
+| **C5** | a pending `main` run cancelled by a push of the same commit elsewhere | concurrency per ref + commit | W3 |
+| **C3** | the corpus moved under the checks | pinned by wasmtk commit `eae9f1c` AND the folder's tree `76c86c6`, both verified | W4 |
+| **B7** | two runs racing to create one tag | a 422 re-reads: same commit → done, elsewhere → refused | M9, M10 |
+| **B4** | `bump.ts` left half-done | restore (unstage + checkout) on EVERY failure path; the last check is per place (new once, old gone); a git failure is a refusal | K1, K3, three cases |
+| **B5** | build output acting as workflow commands | output wrapped in `::stop-commands::<random>`, resumed by token before the annotations | G1, G2 |
+| **B6** | title escaped as a message, not a property; UTF-8 split across chunks | `escapeProperty` (`:` `,`); decoding at the stream | G3; ⚠️ the stream decoding is **unseen** by any test (a split character is not reproducible here) |
+| **C6** | `clone --branch` prefers a branch over the tag | the read-back fetches `refs/tags/<tag>` | W5 |
+| **A3** | pre-0.17 mode names in instructions | `size-ceilings.txt` header, three step descriptions | — (text) |
+| minor | `push.ts` checked only the subject; `bump.ts` could skip a number | the bump commit must change exactly the four places; a bump refuses while the current version has no tag | P3, P4, K2 |
+
+**Found and NOT fixed (owner's scope):** **A2** — the `.lib` embeds the absolute path of its object
+file in the Zig cache, so its size follows the cache path's length. **Reproduced here 2026-11-13:**
+this machine's environment sets `ZIG_LOCAL_CACHE_DIR` to a path other than the one the ceilings were
+measured in, and `zig build size -Doptimize=small` reads **lib +22, OVER**; with `--cache-dir
+C:\zig-cache\wazmrt` (the `working-rules.md` convention) all three are EXACT. Same root as the
+roadmap item "the static library embeds the Zig cache path". Until it is fixed, run the size gate
+with that `--cache-dir`.
+
+🎓 **A repair the round needed:** a one-time verification script round-tripped `build.zig` through
+Windows PowerShell 5.1 (`Get-Content -Raw` → `WriteAllText`), which decoded UTF-8 as ANSI and wrote
+the mojibake back. Caught by its own check ("restored: False"); `build.zig` was restored from `HEAD`
+and the round's edits re-applied with the editor. **Never round-trip a source file through PS 5.1's
+default encodings; edits go through the editor** (`working-rules.md` § Tooling already says it).
+
+---
+
 ## ✅ FIXED 2026-11-12 — `zig build test` failed in any checkout without an absolute local cache
 
 **What it was:** the CLI-behaviour gate (`tools/cli_behaviour.zig`, inside `zig build test` since
