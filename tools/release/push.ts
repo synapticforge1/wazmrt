@@ -28,15 +28,20 @@ const VERSION_LINE = /^pub const version: \[:0\]const u8 = "(\d+\.\d+\.\d+)";$/m
 
 /** Every failure ends in one `REFUSED:` line, a failed git command included (review round 7). */
 export function main(argv: string[], cwd = process.cwd(), run: Run = runner(cwd)): number {
+  const state = { pushAttempted: false };
   try {
-    return checkedPush(argv, run); // every read is through git, at one commit id (round 5)
+    return checkedPush(argv, run, state); // every read is through git, at one commit id (round 5)
   } catch (err) {
-    console.error(`REFUSED: ${err instanceof Error ? err.message : err}`);
+    const why = err instanceof Error ? err.message : String(err);
+    // After `git push` ran, "REFUSED" would claim nothing happened (round 7): say what is unknown.
+    if (state.pushAttempted)
+      console.error(`PUSH ATTEMPTED, then: ${why}\n  origin/main may have moved and CI may be running — read it: git ls-remote origin refs/heads/main`);
+    else console.error(`REFUSED: ${why}`);
     return 1;
   }
 }
 
-function checkedPush(argv: string[], run: Run): number {
+function checkedPush(argv: string[], run: Run, state: { pushAttempted: boolean }): number {
   const git = (...args: string[]) => {
     const r = run("git", args);
     if (!r.ok) throw new Error(`git ${args.join(" ")}: ${r.err}`);
@@ -130,6 +135,7 @@ function checkedPush(argv: string[], run: Run): number {
     return 0;
   }
   const tagsBefore = git("ls-remote", "--tags", "origin");
+  state.pushAttempted = true;
   const push = run("git", ["push", "--no-follow-tags", "origin", `${head}:refs/heads/main`], true);
   // Compared whether or not the push succeeded: a hook can publish a tag and then fail (B2).
   const tagsAfter = git("ls-remote", "--tags", "origin");

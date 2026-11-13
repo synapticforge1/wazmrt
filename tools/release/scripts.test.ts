@@ -128,6 +128,28 @@ describe("bump.ts", () => {
     expect(await code(() => bump(["patch"], work, fake(work)))).toBe(1);
     expect(read(work, "src/root.zig")).toBe(FILES["src/root.zig"]("5.0.1"));
   });
+  test("the restore's git THROWS (not just fails): still RESTORE FAILED, and the handler is removed (round 7)", async () => {
+    const { work } = repo();
+    const baseline = process.listenerCount("SIGINT");
+    const real = fake(work, "fail");
+    const throwing: Run = (cmd, args, inh) => {
+      if (cmd === "git" && (args[0] === "reset" || args[0] === "checkout")) throw new Error("cannot start cmd.exe (test)");
+      return real(cmd, args, inh);
+    };
+    const [r, err] = await captured(() => bump(["patch"], work, throwing));
+    expect(r).toBe(1);
+    expect(err).toContain("RESTORE FAILED");
+    expect(err).toContain("cannot start cmd.exe (test)");
+    expect(process.listenerCount("SIGINT")).toBe(baseline);
+  });
+  test("the final `git log` failing after a GOOD commit: exit 0, no REFUSED (round 7)", async () => {
+    const { work } = repo();
+    const noLog = fake(work, "ok", (a) => (a[0] === "log" ? FAIL : undefined));
+    const [r, err] = await captured(() => bump(["patch"], work, noLog));
+    expect(r).toBe(0);
+    expect(err).not.toContain("REFUSED");
+    expect(sh(work, "log", "-1", "--format=%s")).toBe("bump to v5.0.2");
+  });
   test("a git command failing before any write: a REFUSED line, not a thrown error (round 7)", async () => {
     const { work } = repo();
     const noStatus = fake(work, "ok", (a) => (a[0] === "status" ? FAIL : undefined));
@@ -598,6 +620,19 @@ describe("push.ts", () => {
     const [r, err] = await captured(() => push([], work, fake(work)));
     expect(r).toBe(1);
     expect(err).toContain("not in the bump commit's history");
+  });
+  test("a read failing AFTER the push: 'PUSH ATTEMPTED', never 'REFUSED' (round 7)", async () => {
+    const { work } = await bumped();
+    let pushed = false;
+    const flaky = fake(work, "ok", (a) => {
+      if (a[0] === "push") pushed = true;
+      if (pushed && a[0] === "ls-remote") return FAIL;
+    });
+    const [r, err] = await captured(() => push([], work, flaky));
+    expect(r).toBe(1);
+    expect(err).toContain("PUSH ATTEMPTED");
+    expect(err).not.toContain("REFUSED");
+    expect(remoteMain(work).split(/\s+/)[0]).toBe(sh(work, "rev-parse", "HEAD")); // it did go up
   });
   test("a failed push says where origin/main now is (round 5: a hook can fail after the update)", async () => {
     const { work } = await bumped();

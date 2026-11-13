@@ -19,6 +19,7 @@
 // whether a DELIBERATE edit is safe — layers 2 and 3 catch the forms they list, and a crafted edit
 // that passes them is caught only by the review of the commit that moves the pin.
 import { readdirSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
@@ -42,7 +43,7 @@ const EXE_RUN = "& { $PSNativeCommandUseErrorActionPreference = $false;"; // the
  * To change the workflow: edit it, run this test, review the diff of release.yml, then put the new
  * value printed below here — in the same commit, whose message says what changed and why.
  */
-const RELEASE_YML_SHA256 = "c97b767d2227e26b4ef6b7ffa5ec97f5da7009742d48f39febe847c3af3ba2a7";
+const RELEASE_YML_SHA256 = "5456487ec1abbca3801f9abb07745b20c83cc33491272edaa8aaf866795c1dfe"; // round 7: the self-test summary check
 
 test("release.yml is exactly the reviewed text: any edit moves this pin, in the same commit (round 6)", () => {
   const text = readFileSync(".github/workflows/release.yml", "utf8").replace(/\r\n/g, "\n");
@@ -54,6 +55,11 @@ test("release.yml is the only workflow: no second file can tag or release (round
   expect(readdirSync(".github/workflows")).toEqual(["release.yml"]);
 });
 
+test("the COMMIT holds exactly one file under .github: release.yml (round 7: a case variant like RELEASE.yml checks out as one file on Windows, but GitHub runs both)", () => {
+  const r = spawnSync("git", ["ls-tree", "-r", "--name-only", "HEAD", "--", ".github"], { encoding: "utf8" });
+  expect(r.status).toBe(0);
+  expect(r.stdout.trim().split(/\r?\n/)).toEqual([".github/workflows/release.yml"]);
+});
 test("shellOf reads the workflow-level default (round 3, C1)", () => {
   const winJob = { "runs-on": "windows-latest" };
   expect(shellOf(winJob, {}, { defaults: { run: { shell: "cmd" } } })).toBe("cmd");
@@ -87,7 +93,7 @@ test("every multi-line pwsh step OPENS with the two settings, and nothing later 
         // Any later assignment to either setting, in ANY case and with any scope prefix (round 4:
         // `$erroractionpreference`, `$global:…` passed) — except the one exact exe-run line.
         const assigns = OVERRIDE.test(l);
-        const sanctioned = EXE_RUN_LINE.test(l);
+        const sanctioned = EXE_RUN_LINE.test(l) || l === BUN_TEST_LINE;
         expect(`${where}: ${assigns && !sanctioned ? `later override: ${l}` : "ok"}`).toBe(`${where}: ok`);
       }
     }
@@ -98,6 +104,8 @@ test("every multi-line pwsh step OPENS with the two settings, and nothing later 
 const OVERRIDE = /\$\{?(?:(?:global|script|local|private|using):)?(?:ErrorActionPreference|PSNativeCommandUseErrorActionPreference)\}?\s*=/i;
 /** The ONE sanctioned scoped override: `$x = & { …$false; & <path>wazmrt.exe <args> }`, nothing else on the line. */
 const EXE_RUN_LINE = /^\$\w+ = & \{ \$PSNativeCommandUseErrorActionPreference = \$false; & ("[^"]*"|\S+)wazmrt\.exe"? [^;{}|&]* \}$/;
+/** The one other sanctioned scoped override: the self-test run, its output kept for the summary check (round 7, A1). */
+const BUN_TEST_LINE = "$t = & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 }";
 /** The exit-code check that must follow it: exactly these shapes, and it must throw. */
 const EXIT_CHECK = /^if \(\$LASTEXITCODE -ne 0( -or \(\$hello -join "`n"\) -ne 'hello from wasi')?\) \{ throw "[^"]*" \}$/;
 
@@ -153,7 +161,8 @@ test("every exe run with the setting off is followed DIRECTLY by its exit-code c
         seen++;
         // The line is exactly the sanctioned shape (a wazmrt.exe run, nothing else on it), and the
         // next is an exit-code check of an exact shape that throws (round 4: `-or $true { }` passed).
-        expect(`${name}/${step.name}: ${EXE_RUN_LINE.test(l) ? "ok" : `not the exe-run shape: ${l}`}`).toBe(`${name}/${step.name}: ok`);
+        const shaped = EXE_RUN_LINE.test(l) || l === BUN_TEST_LINE;
+        expect(`${name}/${step.name}: ${shaped ? "ok" : `not the exe-run shape: ${l}`}`).toBe(`${name}/${step.name}: ok`);
         const next = lines[i + 1] ?? "(end)";
         expect(`${name}/${step.name}: ${EXIT_CHECK.test(next) ? "ok" : `not an exit-code check that throws: ${next}`}`).toBe(`${name}/${step.name}: ok`);
       });
@@ -228,7 +237,7 @@ test("the workflow's top level: these keys, these triggers, no workflow-wide def
   expect(Object.keys(wf).sort()).toEqual(["concurrency", "env", "jobs", "name", "on", "permissions"]);
   expect(wf.on).toEqual({ push: { branches: ["**"] } });
   expect(Object.keys(wf.env).sort()).toEqual(
-    ["BUN_SHA256_LINUX", "BUN_SHA256_WINDOWS", "BUN_VERSION", "CORPUS_COMMIT", "CORPUS_PATH", "CORPUS_REPO", "CORPUS_TREE", "ZIG_SHA256_WINDOWS", "ZIG_VERSION"],
+    ["BUN_SHA256_LINUX", "BUN_SHA256_WINDOWS", "BUN_VERSION", "CORPUS_COMMIT", "CORPUS_PATH", "CORPUS_REPO", "CORPUS_TREE", "RELEASE_TESTS_MIN", "ZIG_SHA256_WINDOWS", "ZIG_VERSION"],
   );
 });
 
@@ -340,7 +349,13 @@ const CHECK_LINES: Record<string, string[]> = {
     'Get-Pinned "https://ziglang.org/download/$env:ZIG_VERSION/zig-x86_64-windows-$env:ZIG_VERSION.zip" "$env:RUNNER_TEMP\\zig.zip" $env:ZIG_SHA256_WINDOWS',
     'Get-Pinned "https://github.com/oven-sh/bun/releases/download/bun-v$env:BUN_VERSION/bun-windows-x64.zip" "$env:RUNNER_TEMP\\bun.zip" $env:BUN_SHA256_WINDOWS',
   ],
-  "checks/Release-tool self-tests": ["bun test tools/release"],
+  "checks/Release-tool self-tests": [
+    BUN_TEST_LINE,
+    'if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }',
+    "$s = ($t | ForEach-Object { \"$_\" }) -join \"`n\"",
+    "$pass = [regex]::Match($s, '(?m)^\\s*(\\d+) pass\\s*$')",
+    `if (-not $pass.Success -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $s -notmatch '(?m)^\\s*0 fail\\s*$') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }`,
+  ],
   "checks/Unit suite (the surface gate inside it)": ["bun tools/release/gate.ts test --summary all"],
   "checks/Safety suite (safe)": ["bun tools/release/gate.ts test-safe --summary all"],
   "checks/Shipped suite (small, safety off)": ["bun tools/release/gate.ts test-shipped --summary all"],

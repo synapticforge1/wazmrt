@@ -40,6 +40,9 @@ env:
   CORPUS_COMMIT: "eae9f1c91e2968dc26dcd5f60f53e58a4cfa134f"
   CORPUS_TREE: "76c86c66fa691a5a11e5671fcc9f8ffedc559624"
   CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
+  # The fewest release-tool tests the self-test step accepts (review round 7, A1): raise it when
+  # tests are added — with the workflow pin, in the same commit.
+  RELEASE_TESTS_MIN: "164"
 
 jobs:
   checks:
@@ -93,7 +96,14 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           zig version
           bun --version
-          bun test tools/release
+          # 🔒 The summary is checked HERE, outside `bun test` (review round 7, A1): a test file or a
+          # preload that exits early ends the run with 0 having run nothing; only the summary shows it.
+          $t = & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 }
+          if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }
+          $s = ($t | ForEach-Object { "$_" }) -join "`n"
+          $s
+          $pass = [regex]::Match($s, '(?m)^\s*(\d+) pass\s*$')
+          if (-not $pass.Success -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $s -notmatch '(?m)^\s*0 fail\s*$') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }
 
       # One gate per step, each through gate.ts: a failure names its step and publishes its error
       # lines as annotations (public; the log needs a sign-in).

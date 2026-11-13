@@ -139,6 +139,17 @@ function stubEnv(): Record<string, string> {
   return env;
 }
 
+test("end to end: no zig on PATH is refused by name, exit 2, before the frame opens (round 7: untested)", () => {
+  const env = stubEnv();
+  const pathKey = Object.keys(env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  // Only bun's own folder: no zig there.
+  env[pathKey] = join(process.execPath, "..");
+  const r = spawnSync(process.execPath, ["tools/release/gate.ts", "anything"], { encoding: "utf8", env });
+  expect(r.status).toBe(2);
+  expect(r.stderr).toContain("`zig` is not on PATH");
+  expect(r.stdout).not.toContain("::stop-commands::");
+});
+
 test("end to end: a build failing with exit 256 or 512 is a failed step, not a green one (round 5, A1)", () => {
   for (const code of ["256", "512"]) {
     const r = spawnSync("bun", ["tools/release/gate.ts", "anything"], { encoding: "utf8", env: { ...stubEnv(), STUB_EXIT: code } });

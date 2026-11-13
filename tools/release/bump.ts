@@ -105,8 +105,17 @@ async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: n
   const restore = () => {
     if (restored) return;
     restored = true;
-    const reset = run("git", ["reset", "-q", "--", ...files]);
-    const checkout = run("git", ["checkout", "--", ...files]);
+    // A runner that THROWS (cmd.exe gone, a refused argument) is a failed step here, never an
+    // escape past the RESTORE FAILED message (round 7).
+    const attempt = (args: string[]) => {
+      try {
+        return run("git", args);
+      } catch (err) {
+        return { ok: false, out: "", err: err instanceof Error ? err.message : String(err) };
+      }
+    };
+    const reset = attempt(["reset", "-q", "--", ...files]);
+    const checkout = attempt(["checkout", "--", ...files]);
     const still = files.filter((f) => {
       try {
         return readFileSync(join(cwd, f), "utf8") !== originals.get(f);
@@ -167,10 +176,22 @@ async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: n
   } finally {
     // Restore FIRST, with the handler still installed (round 5, A3): with no listener, a Ctrl-C
     // during the restore takes Bun's default action and kills it, leaving the files edited, unsaid.
-    if (!committed) restore();
-    process.off("SIGINT", onInterrupt);
+    try {
+      if (!committed) restore();
+    } finally {
+      process.off("SIGINT", onInterrupt);
+    }
   }
-  console.log(`committed: ${git("log", "--oneline", "-1")}  (nothing pushed; next: bun tools/release/push.ts)`);
+  // The commit is MADE: nothing after this may say REFUSED (round 7) — a failing `git log` only
+  // loses the summary line.
+  let summary: string;
+  try {
+    const r = run("git", ["log", "--oneline", "-1"]);
+    summary = r.ok ? r.out : `bump to v${to} (git log failed: ${r.err})`;
+  } catch (err) {
+    summary = `bump to v${to} (git log failed: ${err instanceof Error ? err.message : err})`;
+  }
+  console.log(`committed: ${summary}  (nothing pushed; next: bun tools/release/push.ts)`);
   return 0;
 }
 

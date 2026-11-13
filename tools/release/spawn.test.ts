@@ -3,17 +3,17 @@
 // real runner: what Bun alone reads as 0 must be a failure, and Ctrl-C must read as interrupted.
 // Run: `bun test tools/release`.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { plan, runner, status } from "./spawn.ts";
+import { pathOf, plan, runner, status } from "./spawn.ts";
 
 test("plan: elsewhere the child runs directly", () => {
   expect(plan("zig", ["build", "test"], "linux")).toEqual({ file: "zig", args: ["build", "test"], windowsVerbatimArguments: false });
 });
 
-const asIs = (c: string) => c; // a resolver that finds everything, as itself
+const asIs = (c: string) => `C:\\bin\\${c}.exe`; // a resolver that finds everything, absolute
 
 test("plan: on Windows through cmd.exe, the RESOLVED command and every argument quoted, the exit code mapped", () => {
   const p = plan("git", ["commit", "-m", "bump to v5.0.2"], "win32", "C:\\Windows\\system32\\cmd.exe", () => "C:\\Git\\cmd\\git.exe");
@@ -23,6 +23,34 @@ test("plan: on Windows through cmd.exe, the RESOLVED command and every argument 
   expect(p.args[4]).toBe(
     `""C:\\Git\\cmd\\git.exe" "commit" "-m" "bump to v5.0.2" & if !errorlevel!==-1073741510 (exit 130) else if not !errorlevel!==0 (exit 1)"`,
   );
+});
+
+test("plan: a resolved path that is relative, a batch file, or holds % ! is refused BY NAME (round 7)", () => {
+  expect(() => plan("git", [], "win32", "cmd.exe", () => ".\\git.exe")).toThrow("a relative path");
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\shims\\zig.cmd")).toThrow("the batch file");
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\shims\\ZIG.BAT")).toThrow("the batch file");
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "C:\\Users\\a!b\\zig.exe")).toThrow("zig resolves to C:\\Users\\a!b\\zig.exe, whose path holds");
+});
+
+test("pathOf: the first non-empty spelling of PATH (round 7)", () => {
+  expect(pathOf({ PATH: "", Path: "B" })).toBe("B");
+  expect(pathOf({ Path: "A" })).toBe("A");
+  expect(pathOf({})).toBe("");
+});
+
+test("end to end: a batch file found on PATH is refused, not run (round 7: its own `exit 256` read as a pass)", () => {
+  if (process.platform !== "win32") return;
+  const dir = join(stubDir, "bat");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "wazmrt-shim-xyz.cmd"), "@exit 256\r\n");
+  const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  const saved = process.env[pathKey];
+  process.env[pathKey] = `${dir};${saved ?? ""}`;
+  try {
+    expect(() => runner(stubDir)("wazmrt-shim-xyz", [])).toThrow("the batch file");
+  } finally {
+    process.env[pathKey] = saved;
+  }
 });
 
 test("plan: a command that does not resolve is MISSING, and nothing is planned to run (round 7)", () => {

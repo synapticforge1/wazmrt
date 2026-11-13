@@ -322,6 +322,25 @@ describe("release", () => {
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.lines.join("\n")).not.toContain("already exists");
   });
+  test("already_exists on ANOTHER field is not a page race: a failure even with a page there (round 7)", async () => {
+    const m = mock({
+      refs: { [TAG]: { type: "commit", sha: SHA } },
+      failPost: "/releases",
+      pageAppearsOnPost: { draft: false },
+      failPostJson: { message: "Validation Failed", errors: [{ code: "already_exists", field: "name" }] },
+    });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).not.toContain("already exists (");
+  });
+  test("already_exists on tag_name, the page there: done (the real race shape)", async () => {
+    const m = mock({
+      refs: { [TAG]: { type: "commit", sha: SHA } },
+      failPost: "/releases",
+      pageAppearsOnPost: { draft: true },
+      failPostJson: { message: "Validation Failed", errors: [{ resource: "Release", code: "already_exists", field: "tag_name" }] },
+    });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+  });
   test("already_exists with no page found: a failure that says so", async () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", failPostJson: { message: "Validation Failed", errors: [{ code: "already_exists", field: "tag_name" }] } });
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);

@@ -25,6 +25,7 @@
 // cmd's limit is refused by name.
 
 import { spawnSync } from "node:child_process";
+import { win32 } from "node:path";
 
 export const EXIT_INTERRUPTED = 130;
 const CMD_UNSAFE = /["%!\r\n]|\\$/;
@@ -36,7 +37,8 @@ const CMD_MAX_LINE = 8000; // cmd.exe's limit is 8191 characters, the mapping in
  * `process.env` at run time — it would resolve a command the child itself would not run.
  */
 export function pathOf(env: Record<string, string | undefined>): string {
-  const key = Object.keys(env).find((k) => k.toUpperCase() === "PATH");
+  // The first NON-EMPTY spelling (round 7: `{PATH: "", Path: "B"}` gave "").
+  const key = Object.keys(env).find((k) => k.toUpperCase() === "PATH" && env[k]);
   return (key && env[key]) || "";
 }
 
@@ -53,7 +55,14 @@ export function plan(
   if (platform !== "win32") return { file: cmd, args, windowsVerbatimArguments: false };
   const exe = resolve(cmd);
   if (exe === null) return { file: cmd, args, windowsVerbatimArguments: true, missing: true };
-  for (const a of [exe, ...args])
+  // 🔒 Round 7 (both RUN by the reviewer): a RELATIVE result (a `.` or relative PATH entry) is
+  // resolved against THIS process's directory but would run in the child's — another file; and a
+  // batch file (`.cmd` / `.bat`) runs INSIDE our cmd line, where its own `exit N` ends cmd before
+  // the mapping, so a 256 reads as a pass again. Both refused; zig, git and bun are `.exe`.
+  if (!win32.isAbsolute(exe)) throw new Error(`${cmd} resolves to ${exe}, a relative path (a relative PATH entry); refusing to guess which file runs`);
+  if (/\.(cmd|bat)$/i.test(exe)) throw new Error(`${cmd} resolves to the batch file ${exe}; its own \`exit\` would bypass the exit-code mapping — put the real .exe first on PATH`);
+  if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds " % or !, which cmd.exe would change; install it on a path without them`);
+  for (const a of args)
     if (CMD_UNSAFE.test(a))
       throw new Error(`cannot pass ${JSON.stringify(a)} to ${cmd} through cmd.exe unchanged: it holds " % ! a line break, or ends in a backslash`);
   const line = [exe, ...args].map((a) => `"${a}"`).join(" ");

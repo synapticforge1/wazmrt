@@ -263,7 +263,7 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     // `already_exists` on `tag_name`, and ONLY that (round 7): any other 422 is GitHub refusing
     // THIS request, a failure even if a page happens to exist.
     const errors: any[] = Array.isArray(made.json?.errors) ? made.json.errors : [];
-    const already = errors.some((e) => e?.code === "already_exists");
+    const already = errors.some((e) => e?.code === "already_exists" && e?.field === "tag_name"); // round 7: the field too
     const raced = already ? await existingPage(ctx, name) : undefined;
     if (raced !== undefined) return raced;
     ctx.log(`creating release ${name}: HTTP 422${already ? " (already_exists) and no such page exists" : ""} (${JSON.stringify(made.json)})`);

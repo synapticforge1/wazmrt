@@ -13,6 +13,34 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 7 — round 6's fixes and the three items (A1: "Check the summary")
+
+Three fresh reviewers on Sonnet (`spawn.ts` + `gate.ts`; the workflow pin; `github.ts` /
+`push.ts` / `bump.ts`). **No tag or page for an unchecked commit; five ways a failure or a wrong
+program could pass, each needing a planted file or an unusual setup; four misleading endings.** All
+fixed. `bun test tools/release` 154 → **164**; 9 mutants, all caught (R8S3 survived first — its
+test matched only the message's tail, which the mutant kept; the test now names the command).
+Committed and pushed 2026-11-13 — the push is also the CI rehearsal of the new self-test step.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | 🔒 the CI self-test could run NOTHING and pass | RUN by the reviewer: a test file calling `process.exit(0)`, or a `bunfig.toml` preload, ends `bun test tools/release` with exit 0 and no test run — the pin check inside it never runs either; no check INSIDE `bun test` can stop that. **Owner's option: check the summary** — the pinned self-test step keeps the output and throws unless it shows `0 fail` and at least `RELEASE_TESTS_MIN` passes (a pinned workflow value, raised with the tests) | the step's check run by hand (Windows PowerShell 5.1) on real captures: the real suite accepted at 164, refused at 165; an early-exit suite (bun exits 0, prints only its banner) refused. ⚠️ pwsh 7's `2>&1` capture and `$LASTEXITCODE` there are CI's half — rehearsed by the push |
+| **A2** | the single-workflow check read the DISK | `RELEASE.yml` beside `release.yml` checks out as ONE file on Windows, but GitHub runs both. The commit's own tree is now listed (`git ls-tree -r HEAD -- .github`): exactly `release.yml` | a case (case-colliding tree by reasoning + the reviewer's run) |
+| **A3** | a batch file runs INSIDE our cmd line | RUN: a `.cmd` shim doing `exit 256` ends cmd before the mapping → read as a pass. A resolved `.cmd` / `.bat` is refused (zig, git and bun are `.exe`) | R8S2; an end-to-end case with a real `.cmd` on PATH |
+| **A4** | a relative PATH entry ran ANOTHER file | RUN: `Bun.which` resolves `.` against this process's directory, the child ran in another. A non-absolute resolution is refused | R8S1 |
+| **A5** | `restore()` could throw past its own message | a runner that throws (cmd.exe gone) skipped RESTORE FAILED and the handler removal. Each git call in the restore is caught as a failed step; the handler is removed in its own `finally` | R8K1; a case |
+| **B1** | `push.ts` said REFUSED after a push that may have landed | a read failing after `git push` now says PUSH ATTEMPTED and how to read `origin/main` | R8P1; a case where the push lands |
+| **B2** | `bump.ts` said REFUSED after the commit was made | a failing `git log` after the commit only loses the summary line; exit 0 | R8K2; a case |
+| **B3** | gate.ts's missing-zig refusal untested | a case: no zig on PATH → exit 2, named, before the frame | R8A1 |
+| **B4** | an install path holding `%` / `!` refused generically | still refused (cmd would change it), now naming the resolved path | R8S3 |
+| **C** | small | a 422 is a page race only for `already_exists` on `tag_name`; `pathOf` takes the first NON-EMPTY spelling | R8G1, R8S4 |
+
+**Not fixed, with reasons:** whether GitHub answers a tag held by an IMMUTABLE release with a
+`custom` 422 is unmeasured (it would now be a loud failure, not "done" — the safe side); a real
+console Ctrl-C through a batch shim is moot (batch targets are refused).
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 6 — round 5's fixes (owner: "then round 6"; B: "Pin all of it")
 
 Three fresh reviewers on Sonnet (`spawn.ts`; `workflow.test.ts` + `release.yml`; `github.ts` /
