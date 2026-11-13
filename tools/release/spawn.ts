@@ -11,25 +11,33 @@
 // and when `cmd.exe` ITSELF is ended by the Ctrl-C (before its mapping runs) Bun reads 58, which the
 // mapping never produces — so 58 also means "interrupted". Elsewhere the child runs directly.
 //
-// `cmd.exe` would read some characters as its own syntax, so an argument holding one is REFUSED,
-// never quoted around (every argument these tools pass is a git ref, a path, a flag or a version).
+// An argument that would not reach the child EXACTLY is REFUSED, never quoted around (round 6,
+// measured with a stub that prints its argv): `"` ends the quoting; `%` and `!` are expanded by
+// cmd (`/v:on`); CR / LF end the line; a TRAILING backslash escapes the closing quote, so
+// `C:\dir\` arrives as `C:\dir" next` (two arguments merged). Inside the quotes `( ) & | < > ^` arrive
+// unchanged and are allowed (round 6: `Program Files (x86)` was refused for nothing). A line past
+// cmd's limit is refused by name.
 
 import { spawnSync } from "node:child_process";
 
 export const EXIT_INTERRUPTED = 130;
 export const EXIT_MISSING = 127;
-const CMD_SPECIAL = /["%!^&|<>()\r\n]/;
+const CMD_UNSAFE = /["%!\r\n]|\\$/;
+const CMD_MAX_LINE = 8000; // cmd.exe's limit is 8191 characters, the mapping included
 
 export type Plan = { file: string; args: string[]; windowsVerbatimArguments: boolean };
 
 export function plan(cmd: string, args: string[], platform: string = process.platform, comspec = process.env.ComSpec): Plan {
   if (platform !== "win32") return { file: cmd, args, windowsVerbatimArguments: false };
   for (const a of [cmd, ...args])
-    if (CMD_SPECIAL.test(a)) throw new Error(`cannot pass ${JSON.stringify(a)} to ${cmd} through cmd.exe: it holds one of " % ! ^ & | < > ( )`);
+    if (CMD_UNSAFE.test(a))
+      throw new Error(`cannot pass ${JSON.stringify(a)} to ${cmd} through cmd.exe unchanged: it holds " % ! a line break, or ends in a backslash`);
   const line = [cmd, ...args].map((a) => `"${a}"`).join(" ");
   const map =
     "if !errorlevel!==-1073741510 (exit 130) else if !errorlevel!==9009 (exit 127) else if not !errorlevel!==0 (exit 1)";
-  return { file: comspec || "cmd.exe", args: ["/d", "/v:on", "/s", "/c", `"${line} & ${map}"`], windowsVerbatimArguments: true };
+  const full = `"${line} & ${map}"`;
+  if (full.length > CMD_MAX_LINE) throw new Error(`the command line for ${cmd} is ${full.length} characters; cmd.exe takes at most ${CMD_MAX_LINE} here`);
+  return { file: comspec || "cmd.exe", args: ["/d", "/v:on", "/s", "/c", full], windowsVerbatimArguments: true };
 }
 
 /** The child's status, as these tools read it: did it pass, was it interrupted, was it missing? */
@@ -50,6 +58,8 @@ export function runner(cwd: string): Run {
     const r = spawnSync(p.file, p.args, { cwd, encoding: "utf8", stdio: inherit ? "inherit" : "pipe", windowsVerbatimArguments: p.windowsVerbatimArguments });
     const s = status(r.status, r.signal);
     const enoent = (r.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
+    // On Windows the process started is cmd.exe: its absence is not "<cmd> is missing" (round 6).
+    if (enoent && p.windowsVerbatimArguments) throw new Error(`cannot start cmd.exe (${p.file}); check ComSpec`);
     return { ok: s.ok && !r.error, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing: s.missing || enoent, interrupted: s.interrupted, raw: r.stdout ?? "" };
   };
 }

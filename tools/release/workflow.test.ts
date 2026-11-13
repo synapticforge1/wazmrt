@@ -1,20 +1,24 @@
 // The release workflow's rules, held by a test (review round 1: C1, C3, C5 and the U9 pins are
 // properties of `.github/workflows/release.yml`, which no unit test runs). Run: `bun test tools/release`.
 //
-// What it holds, in two layers (review round 5, A2: before it, only the exe-run shape and the
-// opening settings were held, and `continue-on-error`, `if: false`, a dropped `needs` or a check
-// turned into `Write-Host` all passed):
-//   1. the STRUCTURE, exactly — the jobs, their runs-on / needs / if / timeout and allowed keys; each
-//      job's steps by name and order, their `if` and `env`, their allowed keys; every line that
-//      CHECKS something (throws, verifies a hash, commit or tree, runs a gate) by its exact text.
-//      Any change to these is an edit of this file's tables too, where a review sees it;
-//   2. the RULES that hold even when the tables are edited with it — each pwsh step opens with the
-//      two settings and nothing undoes them (in any spelling these tests know); each exe run is
-//      followed by its exit check; no per-command -ErrorAction, `exit`, `return`, `trap`,
-//      Invoke-Expression, variable: drive or block comment; bash opens with `set -euo pipefail`.
-// ⚠️ What it cannot do: run the workflow (only GitHub does; a branch push is the rehearsal), prove a
-// check line is RIGHT (only that it is there), or foresee every crafted construct in a language as
-// large as pwsh — a new construct is a review finding, then a rule here.
+// What it holds, in three layers:
+//   1. 🔒 THE WHOLE FILE, pinned (owner, 2026-11-13, review round 6: "pin all of it"). Rounds 2–6
+//      each found edits that made a check useless while every rule passed — a line rewriting the
+//      value a check compares, a check made unreachable, an early exit, a setting reset in a new
+//      spelling. pwsh is too large to list every such form, so ANY edit to release.yml fails here
+//      until `RELEASE_YML_SHA256` is updated IN THE SAME COMMIT — a visible, deliberate edit that
+//      the commit's review must approve. And release.yml must be the only workflow file;
+//   2. the STRUCTURE, by name — jobs, runs-on / needs / if / timeout, allowed keys, steps in order,
+//      their `if` and `env`, and every CHECK line by its exact text (round 5, A2). These say WHAT
+//      the pinned text must keep, so an update of the pin cannot quietly drop one;
+//   3. the RULES, for the edits a reviewer might miss — each pwsh step opens with the two settings
+//      and nothing undoes them (in the spellings listed); each exe run is followed by its exit
+//      check; no per-command -ErrorAction, `exit`, `return`, `trap`, Invoke-Expression, variable:
+//      drive or block comment; bash opens with `set -euo pipefail`.
+// ⚠️ What it cannot do: run the workflow (only GitHub does; a branch push is the rehearsal), or judge
+// whether a DELIBERATE edit is safe — layers 2 and 3 catch the forms they list, and a crafted edit
+// that passes them is caught only by the review of the commit that moves the pin.
+import { readdirSync } from "node:fs";
 import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
@@ -32,6 +36,23 @@ const code = (run: string) => run.split("\n").map((l) => l.trim()).filter((l) =>
 const STOP = "$ErrorActionPreference = 'Stop'";
 const NATIVE_ON = "$PSNativeCommandUseErrorActionPreference = $true";
 const EXE_RUN = "& { $PSNativeCommandUseErrorActionPreference = $false;"; // the one sanctioned scoped override
+
+/**
+ * The sha256 of release.yml's text, CRLF read as LF (a Windows checkout may convert line endings).
+ * To change the workflow: edit it, run this test, review the diff of release.yml, then put the new
+ * value printed below here — in the same commit, whose message says what changed and why.
+ */
+const RELEASE_YML_SHA256 = "c97b767d2227e26b4ef6b7ffa5ec97f5da7009742d48f39febe847c3af3ba2a7";
+
+test("release.yml is exactly the reviewed text: any edit moves this pin, in the same commit (round 6)", () => {
+  const text = readFileSync(".github/workflows/release.yml", "utf8").replace(/\r\n/g, "\n");
+  const got = new Bun.CryptoHasher("sha256").update(text).digest("hex");
+  expect(`release.yml sha256 ${got}`).toBe(`release.yml sha256 ${RELEASE_YML_SHA256}`);
+});
+
+test("release.yml is the only workflow: no second file can tag or release (round 6)", () => {
+  expect(readdirSync(".github/workflows")).toEqual(["release.yml"]);
+});
 
 test("shellOf reads the workflow-level default (round 3, C1)", () => {
   const winJob = { "runs-on": "windows-latest" };

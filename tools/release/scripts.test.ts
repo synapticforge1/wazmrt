@@ -602,6 +602,18 @@ describe("push.ts", () => {
     expect(r).toBe(1);
     expect(err).toContain(`origin/main is now ${before}`);
   });
+  test("the documented way out of a bump whose CI checks failed: revert, fix, bump again, push (round 6)", async () => {
+    const { work } = await bumped();
+    expect(await code(() => push([], work, fake(work)))).toBe(0); // pushed; CI went red; no tag made
+    expect(await code(() => bump(["patch"], work, fake(work)))).toBe(1); // v5.0.2 untagged: refused
+    sh(work, "revert", "--no-edit", "HEAD");
+    writeFileSync(join(work, "README.md"), "the fix\n");
+    sh(work, "commit", "-q", "-am", "fix: what the checks found");
+    expect(await code(() => bump(["patch"], work, fake(work)))).toBe(0);
+    expect(read(work, "src/root.zig")).toBe(FILES["src/root.zig"]("5.0.2"));
+    expect(await code(() => push([], work, fake(work)))).toBe(0);
+    expect(remoteMain(work).split(/\s+/)[0]).toBe(sh(work, "rev-parse", "HEAD"));
+  });
   test("--dry-run: every guard, nothing pushed", async () => {
     const { work } = await bumped();
     const before = remoteMain(work);
