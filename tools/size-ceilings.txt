@@ -1,4 +1,5 @@
-# Size ceilings for the SHIPPED artifacts — checked by `zig build size -Doptimize=ReleaseSmall`.
+# Size ceilings for the SHIPPED artifacts — checked by `zig build size -Doptimize=small`
+# (`ReleaseSmall` before Zig 0.17).
 #
 # Format: <artifact-name> <ceiling-bytes>    (blank lines and `#` comments ignored)
 #

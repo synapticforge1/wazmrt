@@ -244,7 +244,7 @@ pub fn build(b: *std.Build) void {
         });
         const run_bench = b.addRunArtifact(bench);
         run_bench.addPassthruArgs(); // `zig build bench -- out.wasm` emits the module
-        const bench_step = b.step("bench", "Run the interpreter microbenchmark (ReleaseFast)");
+        const bench_step = b.step("bench", "Run the interpreter microbenchmark (fast)");
         bench_step.dependOn(&run_bench.step);
 
         // ---- Engine-pipeline breakdown (`zig build phases -Dmodules=<a,b,c>`)
@@ -517,7 +517,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = .safe,
         }) });
-        const test_safe_step = b.step("test-safe", "Run the test suite under ReleaseSafe (optimized + safety checks kept)");
+        const test_safe_step = b.step("test-safe", "Run the test suite under safe (optimized + safety checks kept)");
         test_safe_step.dependOn(&b.addRunArtifact(mod_tests_safe).step);
         test_safe_step.dependOn(&b.addRunArtifact(capi_tests_safe).step);
         test_safe_step.dependOn(&b.addRunArtifact(cli_tests_safe).step);
@@ -564,7 +564,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = .small,
         }) });
-        const test_shipped_step = b.step("test-shipped", "Run the test suite under ReleaseSmall (the SHIPPED config — safety checks off)");
+        const test_shipped_step = b.step("test-shipped", "Run the test suite under small (the SHIPPED config — safety checks off)");
         test_shipped_step.dependOn(&b.addRunArtifact(mod_tests_small).step);
         test_shipped_step.dependOn(&b.addRunArtifact(capi_tests_small).step);
         test_shipped_step.dependOn(&b.addRunArtifact(cli_tests_small).step);
@@ -650,9 +650,12 @@ pub fn build(b: *std.Build) void {
         // The Track 2c feature flags, for the same reason as the mode: `zig-out` has no record of
         // which FLAGS produced what is in it, and a gated artifact grading as "under" is a false win.
         run_size.addArg(b.fmt("{s},{s}", .{ if (want_wat) "wat" else "nowat", if (want_wasi) "wasi" else "nowasi" }));
-        // Zig 0.17 dropped `b.getInstallPath`; the install dirs are `.install_prefix` LazyPaths now.
-        run_size.addDirectoryArg2(b.graph.path(.install_prefix, "bin"), .{});
-        run_size.addDirectoryArg2(b.graph.path(.install_prefix, "lib"), .{});
+        // Zig 0.17 dropped `b.getInstallPath`. 🔒 The exe and lib dirs are `.install_bin` and
+        // `.install_lib`, which follow `--prefix-exe-dir` / `--prefix-lib-dir` (review round 1, A1):
+        // hard-coding `<prefix>/bin` and `<prefix>/lib` graded a STALE file there when either was
+        // given, and an old file graded "under" passed. The dll's dir is a custom subdir of the prefix.
+        run_size.addDirectoryArg2(b.graph.path(.install_bin, ""), .{});
+        run_size.addDirectoryArg2(b.graph.path(.install_lib, ""), .{});
         run_size.addDirectoryArg2(b.graph.path(.install_prefix, "dll"), .{});
         run_size.has_side_effects = true; // measure what is on disk NOW, never a cached verdict
         run_size.step.dependOn(&install_exe.step);
