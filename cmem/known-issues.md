@@ -13,6 +13,37 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 5 — round 4's fixes (owner: "proceed"; fixes: "Fix all")
+
+Three fresh reviewers on Sonnet (`github.ts`; `bump.ts` + `push.ts`; `release.yml` +
+`workflow.test.ts` + `gate.ts`). **Findings in three groups; none tagged or released a wrong commit
+in the normal flow, but two could turn a FAILURE GREEN.** All fixed. `bun test tools/release`
+111 → **142**; 60 mutants, all caught (workflow 32, `github.ts` 9, `spawn.ts` 7, `push.ts` 6,
+`bump.ts` 4, `gate.ts` 2). Committed and pushed 2026-11-13.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | 🔒 **a child's failure read as success** — Bun reads only the LOW BYTE of an exit code | measured (Bun 1.4.4, Windows 11): `process.exit(256 \| 512 \| 0xC0000100)` exits 0, and `spawnSync`, `spawn` and `Bun.spawn` alike read a child's 256 as **0** (PowerShell sees 256) and `STATUS_CONTROL_C_EXIT` as **58** — so `bump.ts`'s check for zig's Ctrl-C exit could NEVER match (round 4's `childInterrupted`). The reviewer found the `gate.ts` half; the class was every child of these tools. New `tools/release/spawn.ts`: on Windows each child runs through `cmd.exe`, which reads the whole code and maps it — 0 → 0, Ctrl-C → 130, not found → 127, any other → 1 (58 = cmd itself ended by Ctrl-C); an argument cmd would read as syntax is REFUSED. `gate.ts`, `bump.ts`, `push.ts` use it; `gate.ts`'s own exit maps a zero low byte to 1 | `spawn.test.ts` runs a real stub exe exiting 256 / 512 / 0xC0000100 / 0xC000013A through the real runner; `gate.test.ts` end to end with a stub zig exiting 256 and 512; `scripts.test.ts` runs `bump.ts` with a REAL stub zig ending in Ctrl-C. R5S1–S7, R5A1–A2 |
+| **A2** | the workflow rule test did not hold the workflow | `continue-on-error`, `if: false`, `if: always()`, a dropped `needs` or timeout, a deleted step, a hash / HEAD / tree check turned into `Write-Host` — all passed. Now held EXACTLY: top-level keys and triggers; each job's runs-on / needs / if / timeout and allowed keys; each job's steps by name and order, their `if`, `env` and allowed keys; every CHECK line by its exact text, and every line that throws or verifies must be on that list. Plus: braced `${…}` overrides, the `variable:` drive, any `-ErrorAction` spelling, session-state APIs, Invoke-Expression, `exit` / `return` in pwsh, any bash `exit` but `exit 1`. The header says what it holds and what it cannot | R5W1–W32 |
+| **A3** | `bump.ts` removed its Ctrl-C handler BEFORE restoring | a Ctrl-C during the restore then took Bun's default action and could leave the files edited, unsaid. The restore now runs with the handler installed | R5K1–K3 (K2: a stale handler catches a later case's Ctrl-C and ends the run with 130 — red by crash, not by an assertion) |
+| **B** | guards no test could see | `github.ts`: the release-listing cap, the second peel after the page, the read-back's `tag_name`, the listing's array check, the hop limit; `bump.ts`: the handler removal, "restore only if not committed" (a good bump printed a false RESTORE FAILED), zig's interrupt wiring | R5G5–G9, R5K2–K4 |
+| **C1** | a red run for correct work | `isRelease` said "release" for ANY commit at an untagged version; after a bump whose checks failed, every later push to `main` went red at `tag`. Now only the bump commit is a release (said in the log); an unreadable commit is an error, never "no" | R5G1, R5G2 |
+| **C2** | `push.ts` pushed the branch NAME after a minutes-long gate | a commit made meanwhile went up unchecked. Now every check reads one commit id taken at the start, the gate must leave HEAD and the tree unchanged, and THAT id is pushed; the version must move ONE level from the released parent version, whose released commit is in its history; a failed push says where `origin/main` now is | R5P1–P6 |
+| **C3** | `release()` | the bump check now comes before the early "already there" too (as in `tag`); GitHub's 422 for a page made concurrently is re-read (done if the page is there, draft or not); the mock now answers 422 for an existing page, as GitHub does | R5G3, R5G4 |
+| low | the "fix by hand" line | names a stale `.git/index.lock` | — |
+
+**Not fixed, with reasons:** the compare against bare `main` (GitHub's acceptance of `heads/main` is
+unmeasured, and no tag `main` exists); a false ALERT if CI tagged during the push window (CI checks
+for many minutes first); ⚠️ a real console Ctrl-C is still unseen by any test (simulated with
+`process.emit`; the stub-zig case covers zig's own Ctrl-C exit).
+
+🎓 **Measure the platform, not just the code**: the reviewer's finding was `process.exit` in one file;
+the measurement showed Bun's child APIs truncate too, which made round 4's Ctrl-C check dead code
+that every test passed (its tests injected `interrupted: true`). A fake runner cannot see what the
+real one reads.
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 4 — round 3's fixes (owner: "Fix everything"; A2: "2")
 
 Three fresh reviewers on Sonnet. **12 findings; none tags or releases an unchecked commit through
