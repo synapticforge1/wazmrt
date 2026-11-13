@@ -82,11 +82,11 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
 
 - 🔍 **REVIEW IN PROGRESS (owner, 2026-11-13: "review" on `v5.0.0..v5.0.1`).** Round 1: 3
   reviewers, 17 findings; groups A, B, C fixed (owner: "proceed with A, B, and C") in the working
-  tree, UNCOMMITTED — ledger: `known-issues.md` § REVIEW 2026-11-13. Round 2: 3 fresh reviewers,
+  tree — ledger: `known-issues.md` § REVIEW 2026-11-13. Round 2: 3 fresh reviewers,
   13 findings, all fixed (owner: "proceed with round 2 fixes"). Round 3 (on Sonnet): 11 findings,
   all fixed (owner: "fix all"). Round 4: 12 findings, all fixed (owner: "Fix everything"; A2 by
-  option 2 — retire a Release page by switching it to DRAFT). Committed 2026-11-13 (owner:
-  "commit"; not pushed). **Next: round 5** on round 4's fixes; the review stops at the first round
+  option 2 — retire a Release page by switching it to DRAFT). Committed and pushed to `main`
+  2026-11-13 (owner: "commit", then "push"). **Next: round 5** on round 4's fixes; the review stops at the first round
   that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.
 - 🔜 **Letter H35 — the review process (owner, 2026-11-12), NOT started.** (1) Add "review",
