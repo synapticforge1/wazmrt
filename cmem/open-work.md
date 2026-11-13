@@ -88,8 +88,11 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   option 2 — retire a Release page by switching it to DRAFT). Committed and pushed to `main`
   2026-11-13 (owner: "commit", then "push"). Round 5 (on Sonnet): three groups, incl. a failure
   read as success (Bun reads only an exit code's low byte → `tools/release/spawn.ts`); all fixed
-  (owner: "Fix all"); committed and pushed 2026-11-13 (owner: "commit first then push").
-  **Next: round 6** on round 5's fixes; the review stops at the
+  (owner: "Fix all"); committed and pushed 2026-11-13 (owner: "commit first then push"). Round 6:
+  `spawn.ts` argument edge cases; the workflow test bypassed again → release.yml PINNED by sha256
+  (owner: "Pin all of it"); the way out of a red bump documented and tested; committed and
+  pushed 2026-11-13.
+  **Next: round 7** on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.
 - 🔜 **Letter H35 — the review process (owner, 2026-11-12), NOT started.** (1) Add "review",

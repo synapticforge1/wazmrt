@@ -13,6 +13,33 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 6 — round 5's fixes (owner: "then round 6"; B: "Pin all of it")
+
+Three fresh reviewers on Sonnet (`spawn.ts`; `workflow.test.ts` + `release.yml`; `github.ts` /
+`push.ts` / `bump.ts`). **The third found nothing silent; the first found one latent silent
+alteration; the second found the workflow rule test still bypassable, the fifth round running.**
+All fixed. `bun test tools/release` 142 → **148**; 18 new mutants, all caught (workflow 14,
+`spawn.ts` 4), plus the second-workflow check inverted by hand. Committed and pushed 2026-11-13.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A** | an argument ALTERED in transit (latent: no caller passes one) | measured with a stub that prints its argv: a TRAILING backslash escapes the closing quote — `C:\dir\` arrives as `C:\dir" next`, two arguments merged. Now refused | R6S1; an end-to-end case |
+| **B** | 🔒 the workflow rule test, bypassed again | a line rewriting the value a check compares (`$sha = $h`), a check made unreachable (`if ($false) {…}`), `[Environment]::Exit(0)`, `$(exit 0)`, `(Get-Variable …).Value =`, `set`, `-=`, bash `exec true`, a job's `outputs` / `defaults`, workflow `env` values — all green. **Owner's option: pin all of it** — the test holds release.yml's sha256 (CRLF as LF); ANY edit fails until the pin moves in the same commit, which that commit's review must approve; release.yml must be the only workflow file. The structure tables and rules stay as layers 2 and 3; the header says a crafted edit is caught only by the review of the commit that moves the pin | R6W1–W14 (every bypass the reviewer ran); a stray second workflow file fails (by hand) |
+| **C1** | an undocumented dead end | checks red on the bump commit for a REAL defect: a fix on top is not a release (round 5, C1) and `bump.ts` refuses while the version is untagged. The way out — revert the bump, fix, bump again — written in `releasing.md` step 10 and U12 | an end-to-end case runs exactly that and pushes |
+| **C2** | a red re-run after a force-push of `main` | intended (round 5, C3) and now said in U12 | 🔁 in place |
+| **C3** | `spawn.ts` refused too much; unclear messages | measured: `( ) & \| < > ^` arrive unchanged inside the quotes → allowed (`Program Files (x86)` was refused); a line past cmd's limit refused BY NAME; a cmd.exe that cannot start (`ComSpec`) is said so, not reported as "`zig` is not on PATH" | R6S2–S4; an end-to-end case passes 12 awkward arguments exactly |
+
+**Not fixed, with reasons:** a real child exit of 9009 reads as "missing" (no tool here exits 9009);
+the 422 mock does not distinguish 422 causes (harmless: the tag and bump checks have passed by then);
+the reviewer's "`push.ts` prints a stack trace when `git fetch` fails" — not reproduced: `main`'s
+caller catches and prints `push.ts: <message>`.
+
+🎓 **A rule list cannot hold a language as large as pwsh** — five rounds each found a new spelling.
+Pinning the whole file turns "find the bypass" into "get the pin moved past a review", which is
+where a deliberate change belongs.
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 5 — round 4's fixes (owner: "proceed"; fixes: "Fix all")
 
 Three fresh reviewers on Sonnet (`github.ts`; `bump.ts` + `push.ts`; `release.yml` +

@@ -375,7 +375,13 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
     - **AFTER CI's run is read back** (the tag peels to the bump commit, the page exists, the
       read-back passed), in a memory commit of its own, as 9a is: the run's record in `release.md`,
       `roadmap.md`'s row, and `open-work.md`'s Status line saying it is released (the only one —
-      letter H3, 2026-09-21). A red run means this commit is not made; fix and re-run (U12).
+      letter H3, 2026-09-21). A red run means this commit is not made (U12):
+      - a FLAKE (the same commit would pass): re-run the failed jobs;
+      - a REAL defect in the bump commit's code: a fix pushed on top is NOT a release (CI releases
+        only the commit titled `bump to vX.Y.Z` — review round 5, C1), and `bump.ts` refuses while
+        that version is untagged. 🔒 **The way out (review round 6): `git revert` the bump commit**
+        (the version returns to the released one), land the fix, then run steps 9–10 again — the
+        new bump commit has the released parent `push.ts` requires.
     A doc pass scheduled for anything else "after the release" is a doc pass that does not happen.
 11. 🗄️ **RETIRED 2026-10-23** (owner: *"we are officially out of lock step now due to differences"*;
     `interop.md` v33, §1e). wazmrt releases on its own checklist. The contract stays the shared
