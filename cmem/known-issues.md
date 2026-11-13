@@ -29,10 +29,17 @@ All fixed. `bun test tools/release` 142 → **148**; 18 new mutants, all caught 
 | **C2** | a red re-run after a force-push of `main` | intended (round 5, C3) and now said in U12 | 🔁 in place |
 | **C3** | `spawn.ts` refused too much; unclear messages | measured: `( ) & \| < > ^` arrive unchanged inside the quotes → allowed (`Program Files (x86)` was refused); a line past cmd's limit refused BY NAME; a cmd.exe that cannot start (`ComSpec`) is said so, not reported as "`zig` is not on PATH" | R6S2–S4; an end-to-end case passes 12 awkward arguments exactly |
 
-**Not fixed, with reasons:** a real child exit of 9009 reads as "missing" (no tool here exits 9009);
-the 422 mock does not distinguish 422 causes (harmless: the tag and bump checks have passed by then);
-the reviewer's "`push.ts` prints a stack trace when `git fetch` fails" — not reproduced: `main`'s
-caller catches and prints `push.ts: <message>`.
+**Left at first, then fixed (owner: "fix the three items", after the round-6 push):**
+- **A real exit of 9009 (or 127 on Linux) read as "missing".** "Missing" is no longer read from
+  any exit code: on Windows the command is RESOLVED first (`Bun.which`, given the PATH the child
+  inherits — measured, its default did not see a PATH changed at run time) and cmd is handed the
+  absolute path, so a same-named file in the current directory is never run; elsewhere it is the
+  spawn's ENOENT. R7S1–S4; end-to-end cases for 9009 / 127 and the current directory.
+- **Any 422 from `POST /releases` was read as "another run made the page".** Only GitHub's
+  `already_exists` is; any other 422 is a failure even if a page exists. R7G1; three cases.
+- **A failed git command left `main` by an error, not a refusal** (the reviewer's "stack trace" was
+  not reproduced, but the ending differed from every other refusal). `push.ts` and `bump.ts` now end
+  every failure in one `REFUSED:` line. R7P1, R7K1.
 
 🎓 **A rule list cannot hold a language as large as pwsh** — five rounds each found a new spelling.
 Pinning the whole file turns "find the bypass" into "get the pin moved past a review", which is

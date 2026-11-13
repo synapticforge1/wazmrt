@@ -13,33 +13,43 @@ test("plan: elsewhere the child runs directly", () => {
   expect(plan("zig", ["build", "test"], "linux")).toEqual({ file: "zig", args: ["build", "test"], windowsVerbatimArguments: false });
 });
 
-test("plan: on Windows through cmd.exe, every argument quoted, the exit code mapped", () => {
-  const p = plan("git", ["commit", "-m", "bump to v5.0.2"], "win32", "C:\\Windows\\system32\\cmd.exe");
+const asIs = (c: string) => c; // a resolver that finds everything, as itself
+
+test("plan: on Windows through cmd.exe, the RESOLVED command and every argument quoted, the exit code mapped", () => {
+  const p = plan("git", ["commit", "-m", "bump to v5.0.2"], "win32", "C:\\Windows\\system32\\cmd.exe", () => "C:\\Git\\cmd\\git.exe");
   expect(p.file).toBe("C:\\Windows\\system32\\cmd.exe");
   expect(p.windowsVerbatimArguments).toBe(true);
   expect(p.args.slice(0, 4)).toEqual(["/d", "/v:on", "/s", "/c"]);
-  expect(p.args[4]).toStartWith(`""git" "commit" "-m" "bump to v5.0.2" & if !errorlevel!==-1073741510 (exit 130)`);
+  expect(p.args[4]).toBe(
+    `""C:\\Git\\cmd\\git.exe" "commit" "-m" "bump to v5.0.2" & if !errorlevel!==-1073741510 (exit 130) else if not !errorlevel!==0 (exit 1)"`,
+  );
+});
+
+test("plan: a command that does not resolve is MISSING, and nothing is planned to run (round 7)", () => {
+  const p = plan("zig", ["build"], "win32", "cmd.exe", () => null);
+  expect(p.missing).toBe(true);
 });
 
 test("plan: an argument that would not arrive EXACTLY is refused, never quoted around (rounds 5, 6)", () => {
   for (const bad of ['a"b', "%PATH%", "a!b", "a\nb", "a\rb", "C:\\dir\\", "x\\\\"])
-    expect(() => plan("git", ["log", bad], "win32", "cmd.exe")).toThrow("cannot pass");
+    expect(() => plan("git", ["log", bad], "win32", "cmd.exe", asIs)).toThrow("cannot pass");
   expect(() => plan("git", ["log", "a%b"], "linux")).not.toThrow(); // only cmd.exe reads them
 });
 
 test("plan: a command line past cmd.exe's limit is refused by name (round 6)", () => {
-  expect(() => plan("git", ["x".repeat(9000)], "win32", "cmd.exe")).toThrow("cmd.exe takes at most");
+  expect(() => plan("git", ["x".repeat(9000)], "win32", "cmd.exe", asIs)).toThrow("cmd.exe takes at most");
 });
 
-test("status: pass, interrupted (SIGINT, 130, and Windows' 58 = cmd ended by Ctrl-C), missing", () => {
-  expect(status(0, null)).toEqual({ ok: true, interrupted: false, missing: false });
+test("status: pass, interrupted (SIGINT, 130, and Windows' 58 = cmd ended by Ctrl-C) — and no exit code means 'missing' (round 7)", () => {
+  expect(status(0, null)).toEqual({ ok: true, interrupted: false });
   expect(status(1, null).ok).toBe(false);
   expect(status(null, "SIGINT").interrupted).toBe(true);
   expect(status(130, null).interrupted).toBe(true);
   expect(status(58, null, "win32").interrupted).toBe(true);
   expect(status(58, null, "linux").interrupted).toBe(false);
-  expect(status(null, "SIGTERM")).toEqual({ ok: false, interrupted: false, missing: false });
-  expect(status(127, null).missing).toBe(true);
+  expect(status(null, "SIGTERM")).toEqual({ ok: false, interrupted: false });
+  expect(status(127, null)).toEqual({ ok: false, interrupted: false });
+  expect(status(9009, null)).toEqual({ ok: false, interrupted: false });
 });
 
 const stubDir = mkdtempSync(join(tmpdir(), "wazmrt-spawn-stub-"));
@@ -104,4 +114,19 @@ test("end to end: a command that does not exist reads as missing", () => {
   const r = runner(stubDir)("wazmrt-no-such-command-xyz", []);
   expect(r.ok).toBe(false);
   expect(r.missing).toBe(true);
+});
+
+test("end to end: a REAL exit of 9009 or 127 is a failure, not 'missing' (round 7)", () => {
+  for (const code of ["9009", "127"]) {
+    const r = runner(stubDir)(stub, [code]);
+    expect({ code, ok: r.ok, missing: r.missing }).toEqual({ code, ok: false, missing: false });
+  }
+});
+
+test("end to end: a same-named program in the CURRENT directory is not run — only what PATH resolves (round 7)", () => {
+  if (process.platform !== "win32") return;
+  // echo-argv.exe sits in the cwd (stubDir) but not on PATH: cmd alone could search the cwd first.
+  const r = runner(stubDir)("echo-argv", ["x"]);
+  expect(r.missing).toBe(true);
+  expect(r.out).toBe("");
 });

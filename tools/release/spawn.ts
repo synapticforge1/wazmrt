@@ -6,10 +6,16 @@
 // Windows every child of these tools runs through `cmd.exe`, which reads the whole code and maps it
 // to one Bun reads exactly:
 //
-//   0 → 0 · STATUS_CONTROL_C_EXIT → 130 · "not recognized" (9009) → 127 · any other → 1
+//   0 → 0 · STATUS_CONTROL_C_EXIT → 130 · any other → 1
 //
 // and when `cmd.exe` ITSELF is ended by the Ctrl-C (before its mapping runs) Bun reads 58, which the
 // mapping never produces — so 58 also means "interrupted". Elsewhere the child runs directly.
+//
+// "Missing" is never read from an exit code (round 7: a real exit of 9009 — cmd's "not recognized"
+// — or 127 read as missing). On Windows the command is RESOLVED first (`Bun.which`, PATH and
+// PATHEXT) and cmd is handed that absolute path — so a same-named file in the current directory,
+// which cmd would search first, is never the one run; unresolved, it is missing and nothing runs.
+// Elsewhere, missing is the spawn's ENOENT.
 //
 // An argument that would not reach the child EXACTLY is REFUSED, never quoted around (round 6,
 // measured with a stub that prints its argv): `"` ends the quoting; `%` and `!` are expanded by
@@ -21,29 +27,46 @@
 import { spawnSync } from "node:child_process";
 
 export const EXIT_INTERRUPTED = 130;
-export const EXIT_MISSING = 127;
 const CMD_UNSAFE = /["%!\r\n]|\\$/;
 const CMD_MAX_LINE = 8000; // cmd.exe's limit is 8191 characters, the mapping included
 
-export type Plan = { file: string; args: string[]; windowsVerbatimArguments: boolean };
+/**
+ * The PATH the child will inherit, found case-insensitively (Windows spells it `Path`). Passed to
+ * `Bun.which` explicitly: measured (round 7), its default did not see a PATH changed in
+ * `process.env` at run time — it would resolve a command the child itself would not run.
+ */
+export function pathOf(env: Record<string, string | undefined>): string {
+  const key = Object.keys(env).find((k) => k.toUpperCase() === "PATH");
+  return (key && env[key]) || "";
+}
 
-export function plan(cmd: string, args: string[], platform: string = process.platform, comspec = process.env.ComSpec): Plan {
+/** What runs: `missing` when the command does not resolve (Windows) — then nothing may run. */
+export type Plan = { file: string; args: string[]; windowsVerbatimArguments: boolean; missing?: boolean };
+
+export function plan(
+  cmd: string,
+  args: string[],
+  platform: string = process.platform,
+  comspec = process.env.ComSpec,
+  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: pathOf(process.env) }),
+): Plan {
   if (platform !== "win32") return { file: cmd, args, windowsVerbatimArguments: false };
-  for (const a of [cmd, ...args])
+  const exe = resolve(cmd);
+  if (exe === null) return { file: cmd, args, windowsVerbatimArguments: true, missing: true };
+  for (const a of [exe, ...args])
     if (CMD_UNSAFE.test(a))
       throw new Error(`cannot pass ${JSON.stringify(a)} to ${cmd} through cmd.exe unchanged: it holds " % ! a line break, or ends in a backslash`);
-  const line = [cmd, ...args].map((a) => `"${a}"`).join(" ");
-  const map =
-    "if !errorlevel!==-1073741510 (exit 130) else if !errorlevel!==9009 (exit 127) else if not !errorlevel!==0 (exit 1)";
+  const line = [exe, ...args].map((a) => `"${a}"`).join(" ");
+  const map = "if !errorlevel!==-1073741510 (exit 130) else if not !errorlevel!==0 (exit 1)";
   const full = `"${line} & ${map}"`;
   if (full.length > CMD_MAX_LINE) throw new Error(`the command line for ${cmd} is ${full.length} characters; cmd.exe takes at most ${CMD_MAX_LINE} here`);
   return { file: comspec || "cmd.exe", args: ["/d", "/v:on", "/s", "/c", full], windowsVerbatimArguments: true };
 }
 
-/** The child's status, as these tools read it: did it pass, was it interrupted, was it missing? */
+/** The child's status, as these tools read it: did it pass, was it interrupted? (Never "missing": see the header.) */
 export function status(code: number | null, signal: string | null, platform: string = process.platform) {
   const interrupted = signal === "SIGINT" || code === EXIT_INTERRUPTED || (platform === "win32" && code === 58);
-  return { ok: code === 0, interrupted, missing: code === EXIT_MISSING };
+  return { ok: code === 0, interrupted };
 }
 
 // `out` is trimmed for convenience; `raw` is the stdout exactly as written, for comparing file
@@ -55,11 +78,12 @@ export type Run = (cmd: string, args: string[], inherit?: boolean) => Result;
 export function runner(cwd: string): Run {
   return (cmd, args, inherit = false) => {
     const p = plan(cmd, args);
+    if (p.missing) return { ok: false, out: "", err: `${cmd}: not found on PATH`, missing: true, interrupted: false, raw: "" };
     const r = spawnSync(p.file, p.args, { cwd, encoding: "utf8", stdio: inherit ? "inherit" : "pipe", windowsVerbatimArguments: p.windowsVerbatimArguments });
     const s = status(r.status, r.signal);
     const enoent = (r.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
     // On Windows the process started is cmd.exe: its absence is not "<cmd> is missing" (round 6).
     if (enoent && p.windowsVerbatimArguments) throw new Error(`cannot start cmd.exe (${p.file}); check ComSpec`);
-    return { ok: s.ok && !r.error, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing: s.missing || enoent, interrupted: s.interrupted, raw: r.stdout ?? "" };
+    return { ok: s.ok && !r.error, out: (r.stdout ?? "").trim(), err: (r.stderr ?? "").trim(), missing: enoent, interrupted: s.interrupted, raw: r.stdout ?? "" };
   };
 }

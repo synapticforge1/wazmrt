@@ -26,7 +26,17 @@ export { type Run, runner };
 
 const VERSION_LINE = /^pub const version: \[:0\]const u8 = "(\d+\.\d+\.\d+)";$/m;
 
+/** Every failure ends in one `REFUSED:` line, a failed git command included (review round 7). */
 export function main(argv: string[], cwd = process.cwd(), run: Run = runner(cwd)): number {
+  try {
+    return checkedPush(argv, run); // every read is through git, at one commit id (round 5)
+  } catch (err) {
+    console.error(`REFUSED: ${err instanceof Error ? err.message : err}`);
+    return 1;
+  }
+}
+
+function checkedPush(argv: string[], run: Run): number {
   const git = (...args: string[]) => {
     const r = run("git", args);
     if (!r.ok) throw new Error(`git ${args.join(" ")}: ${r.err}`);

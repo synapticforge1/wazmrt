@@ -13,6 +13,7 @@ interface MockOpts {
   tagObjs?: Record<string, { type: string; sha: string }>;
   releases?: Record<string, { draft: boolean }>;
   failPost?: string; // a write path answered 422
+  failPostJson?: unknown; // ... with this body (default: a 422 for some other reason)
   subject?: string; // the commit's subject (default: the bump commit)
   compare?: string; // GitHub's compare status for SHA...main (default "identical")
   refStatus?: number; // force a status on GET /git/ref/*
@@ -42,7 +43,10 @@ function mock(o: MockOpts = {}) {
     if (method !== "GET") {
       writes.push(`${method} ${path}`);
       bodies.push(JSON.parse(String(init.body)));
-      if (o.failPost && path === o.failPost) return reply(422, { message: "nope" });
+      if (o.failPost && path === o.failPost) {
+        if (o.pageAppearsOnPost && path === "/releases") releases[bodies.at(-1).tag_name] = o.pageAppearsOnPost;
+        return reply(422, o.failPostJson ?? { message: "nope" });
+      }
     }
     let m: RegExpMatchArray | null;
     if (method === "GET" && (m = path.match(/^\/git\/ref\/tags\/(.+)$/))) {
@@ -308,10 +312,20 @@ describe("release", () => {
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.writes).toEqual([]);
   });
-  test("a 422 with no page behind it is a failure, not a race", async () => {
+  test("a 422 for another reason is a failure, not a race (round 7)", async () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases" });
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
-    expect(m.lines.join("\n")).toContain("no such page exists");
+    expect(m.lines.join("\n")).toContain('"message":"nope"');
+  });
+  test("a 422 for another reason while a page DOES exist is still a failure, not 'done' (round 7)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", pageAppearsOnPost: { draft: false } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).not.toContain("already exists");
+  });
+  test("already_exists with no page found: a failure that says so", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", failPostJson: { message: "Validation Failed", errors: [{ code: "already_exists", field: "tag_name" }] } });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("(already_exists) and no such page exists");
   });
   for (const draft of [false, true]) {
     test(`another run made the page (${draft ? "a draft" : "published"}) between our check and our POST: done (round 5)`, async () => {

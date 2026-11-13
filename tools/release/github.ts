@@ -259,11 +259,14 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     generate_release_notes: true,
   });
   if (made.status === 422) {
-    // Another run made the page between our check and our create (round 5) — the same rule as the
-    // check above; anything else GitHub refused stays a failure.
-    const raced = await existingPage(ctx, name);
+    // Another run made the page between our check and our create (round 5) — GitHub's
+    // `already_exists` on `tag_name`, and ONLY that (round 7): any other 422 is GitHub refusing
+    // THIS request, a failure even if a page happens to exist.
+    const errors: any[] = Array.isArray(made.json?.errors) ? made.json.errors : [];
+    const already = errors.some((e) => e?.code === "already_exists");
+    const raced = already ? await existingPage(ctx, name) : undefined;
     if (raced !== undefined) return raced;
-    ctx.log(`creating release ${name}: HTTP 422 and no such page exists (${JSON.stringify(made.json)})`);
+    ctx.log(`creating release ${name}: HTTP 422${already ? " (already_exists) and no such page exists" : ""} (${JSON.stringify(made.json)})`);
     return 1;
   }
   if (made.status !== 201) {

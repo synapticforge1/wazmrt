@@ -105,6 +105,10 @@ if (import.meta.main) {
     console.error(`gate.ts: ${err instanceof Error ? err.message : err}`);
     process.exit(2);
   }
+  if (p.missing) {
+    console.error("gate.ts: `zig` is not on PATH");
+    process.exit(2);
+  }
   const token = randomBytes(16).toString("hex");
   const title = `zig build ${args.join(" ")}`;
   console.log(`::stop-commands::${token}`);

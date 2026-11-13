@@ -57,6 +57,18 @@ const checkpoint = () => new Promise<void>((resolve) => setImmediate(resolve));
  * gate's own interrupt exit status counts too; a SECOND Ctrl-C restores at once and exits 130 (B3).
  */
 export async function main(argv: string[], cwd = process.cwd(), run: Run = runner(cwd), exit: (code: number) => never = process.exit): Promise<number> {
+  // Every failure ends in one `REFUSED:` line — one before the first write (a git command, a place
+  // without its pattern) included (review round 7). After the first write, `checkedBump` refuses and
+  // restores itself.
+  try {
+    return await checkedBump(argv, cwd, run, exit);
+  } catch (err) {
+    console.error(`REFUSED: ${err instanceof Error ? err.message : err}`);
+    return 1;
+  }
+}
+
+async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: number) => never): Promise<number> {
   const git = (...args: string[]) => {
     const r = run("git", args);
     if (!r.ok) throw new Error(`git ${args.join(" ")}: ${r.err}`);

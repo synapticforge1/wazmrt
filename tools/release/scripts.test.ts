@@ -128,6 +128,13 @@ describe("bump.ts", () => {
     expect(await code(() => bump(["patch"], work, fake(work)))).toBe(1);
     expect(read(work, "src/root.zig")).toBe(FILES["src/root.zig"]("5.0.1"));
   });
+  test("a git command failing before any write: a REFUSED line, not a thrown error (round 7)", async () => {
+    const { work } = repo();
+    const noStatus = fake(work, "ok", (a) => (a[0] === "status" ? FAIL : undefined));
+    const [r, err] = await captured(() => bump(["patch"], work, noStatus));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: git status");
+  });
   test("not on main: refused", async () => {
     const { work } = repo();
     sh(work, "checkout", "-q", "-b", "side");
@@ -143,14 +150,9 @@ describe("bump.ts", () => {
     const { work } = repo();
     writeFileSync(join(work, "include/wazmrt.h"), "/* no version here */\n");
     sh(work, "commit", "-q", "-am", "drop the header example");
-    const [r] = await captured(async () => {
-      try {
-        return await bump(["patch"], work, fake(work));
-      } catch (e) {
-        return `threw: ${e}`;
-      }
-    });
-    expect(String(r)).toContain("expected exactly one");
+    const [r, err] = await captured(() => bump(["patch"], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: include/wazmrt.h: expected exactly one"); // a refusal, not a throw (round 7)
     expect(sh(work, "status", "--porcelain")).toBe("");
   });
   test("the gate fails: the four files are restored, nothing staged, no commit, and it SAYS restored (B4)", async () => {
@@ -486,7 +488,10 @@ describe("push.ts", () => {
     const { work } = await bumped();
     const before = remoteMain(work);
     const noFetch = fake(work, "ok", (a) => (a[0] === "fetch" ? FAIL : undefined));
-    expect(() => push([], work, noFetch)).toThrow(/git fetch/);
+    // A REFUSED line, not a thrown error (round 7).
+    const [r, err] = await captured(() => push([], work, noFetch));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: git fetch origin");
     expect(remoteMain(work)).toBe(before);
   });
   test("the read-back disagrees: refused", async () => {

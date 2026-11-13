@@ -91,7 +91,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   (owner: "Fix all"); committed and pushed 2026-11-13 (owner: "commit first then push"). Round 6:
   `spawn.ts` argument edge cases; the workflow test bypassed again → release.yml PINNED by sha256
   (owner: "Pin all of it"); the way out of a red bump documented and tested; committed and
-  pushed 2026-11-13.
+  pushed 2026-11-13. Then the three items left in round 6 (owner: "fix the three items"): missing
+  resolved by PATH, not by exit code; only `already_exists` is a page race; every failure a
+  `REFUSED:` line — committed and pushed 2026-11-13 (owner: "commit then push"); round 7
+  reviews them with round 6's fixes.
   **Next: round 7** on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.
