@@ -13,6 +13,41 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 12 — then CLASS BY CLASS (owner: "fix C and retest for that class … then Class B then Class A")
+
+Round 12's three reviewers (`checkPath` measured against cmd.exe; the release-notes checks and the
+write messages; the documents and the portability rule) found three classes. 🔒 **The owner changed
+the method** (2026-11-13: the open-ended rounds had become "a never ending loop of checks"): fix ONE
+class's findings, re-check THAT class only with a fresh reviewer until clear, then the next —
+`working-rules.md` § "Reviews". Order: **C → B → A**.
+
+| class | what it is | state |
+| --- | --- | --- |
+| **C** | tests or evidence tools that do not prove what they claim; documents that do not match the code; project knowledge outside this folder | IN PROGRESS — round 12's C fixed; re-check 1 found six more, fixed; re-check 2 running |
+| **B** | loud: correct work refused, misleading messages | waiting — a trailing `;` in PATHEXT refused (cmd accepts it); the page job's first tag read not lag-retried (says "does not exist" falsely); paths over 260 characters; an over-long summary passing every check then failing after the tag; a CRLF heading read as "no entry"; "Zig ?"; the summary rule not enforced; "a draft is invisible" stated as fact |
+| **A** | silent | waiting — a folder ending in `.` in the MIDDLE of a PATH entry (`D.\`): cmd drops the dot and runs D's program, the lookup does not |
+
+**Class C, fixed** (`bun test tools/release` 217 → **223**; `RELEASE_TESTS_MIN` 223, the pin moved):
+- 🔒 `tools/mutants.ts` could report success falsely: ANY failing exit counted as "caught" — a mutant
+  that only broke a module's syntax (bun reports `1 fail` + `1 error`, measured) or a suite already
+  red (re-check 1) read as caught. Now: a green BASELINE first (exit 2 otherwise); CAUGHT only with
+  ≥1 failing test and no `N error`; ERROR otherwise. Held by `tools/release/mutants.test.ts` and
+  mutants R14C1–C4 (`cmem/review-mutants/mutants-r14-c.json`). Its Ctrl-C handler is now reachable
+  (an async wait) but ⚠️ NOT proven by a test (a test cannot send a console Ctrl-C on Windows) —
+  said so where it used to be claimed.
+- Tests added: PATHEXT order, lower case and a duplicate in the DIFFERENTIAL test against the real
+  cmd.exe (both modes); a 500 exactly; a bump commit with no `cmem/release.md`.
+- Documents: `releasing.md`'s refusal section rewritten — it said `push.ts` needs `origin` to hold the
+  CURRENT version's tag; it needs the PARENT's and refuses the new one — with every refusal and
+  ending of `bump.ts` / `push.ts` / `spawn.ts`; the release-notes entry's exact shape; the local
+  `wasmtk` checkout spec conformance needs; `release.md` U3 / U4; the `bump.ts` / `push.ts` headers.
+- Portability: the privacy rule and the review rules copied into `working-rules.md` (their only copy
+  was outside the repo); the mutation runner and ALL 54 mutant lists in the repo
+  (`cmem/review-mutants/`, with a README and a `manifest.json` — each list's file, tests and
+  commit, found by matching every list against every commit; two lists match no committed code).
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 11 — round 10's fixes, and the documents against the tools (owner: "yes")
 
 Three fresh reviewers on Sonnet: the PATH lookup MEASURED against cmd.exe; `github.ts` whole; and

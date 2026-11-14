@@ -693,6 +693,18 @@ describe("push.ts", () => {
     expect(err).toContain("REFUSED: the bump commit's release notes");
     expect(remoteMain(work)).toBe(before);
   });
+  test("a bump commit with NO cmem/release.md at all: refused before the push (round 12: the branch untested)", async () => {
+    const { work } = repo();
+    sh(work, "rm", "-q", "cmem/release.md");
+    sh(work, "commit", "-q", "-m", "drop the notes file");
+    for (const [f, body] of Object.entries(FILES)) writeFileSync(join(work, f), body("5.0.2"));
+    sh(work, "commit", "-q", "-am", "bump to v5.0.2"); // by hand: bump.ts would have refused
+    const before = remoteMain(work);
+    const [r, err] = await captured(() => push([], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: the bump commit has no cmem/release.md");
+    expect(remoteMain(work)).toBe(before);
+  });
   test("a bump that is not ONE level up (5.0.1 -> 5.0.9): refused (round 5)", async () => {
     const { work } = repo();
     for (const [f, body] of Object.entries(FILES)) writeFileSync(join(work, f), body("5.0.9"));

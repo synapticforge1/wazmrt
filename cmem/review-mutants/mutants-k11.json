@@ -1,0 +1,3 @@
+[
+  ["K11 R3 an unreadable file counts as still edited", "        } catch {\n          return true;", "        } catch {\n          return false;"]
+]

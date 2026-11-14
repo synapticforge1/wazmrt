@@ -1,0 +1,11 @@
+[
+  ["R5G1 isRelease ignores the subject", "  if (subject !== `bump to v${version}`) {", "  if (false) {"],
+  ["R5G2 an unreadable commit reads as 'not a bump'", "  if (c.status !== 200) throw new Error(`reading commit ${ctx.sha}: HTTP ${c.status}`);", "  if (c.status !== 200) return \"\";"],
+  ["R5G3 release: the page check before the bump check", "  const why = await bumpOnMain(ctx, name);\n  if (why) {\n    ctx.log(`REFUSED: ${why}`);\n    return 1;\n  }\n  const existingNow = await existingPage(ctx, name);\n  if (existingNow !== undefined) return existingNow;", "  const existingNow = await existingPage(ctx, name);\n  if (existingNow !== undefined) return existingNow;\n  const why = await bumpOnMain(ctx, name);\n  if (why) {\n    ctx.log(`REFUSED: ${why}`);\n    return 1;\n  }"],
+  ["R5G4 the 422 race on the page not re-read", "  if (made.status === 422) {", "  if (false) {"],
+  ["R5G5 the page cap reads as 'absent'", "  throw new Error(`listing releases: more than", "  return null;\n  throw new Error(`listing releases: more than"],
+  ["R5G6 no second peel after the page", "  if (again !== ctx.sha) {", "  if (false) {"],
+  ["R5G7 the read-back's tag_name unchecked", "back.json.tag_name !== name || ", ""],
+  ["R5G8 the listing's array check gone", " || !Array.isArray(r.json)", ""],
+  ["R5G9 the hop limit raised", "if (hops > 8)", "if (hops > 800000)"]
+]

@@ -1,0 +1,8 @@
+[
+  ["G1 B5 stop-commands printed before the output", "  console.log(`::stop-commands::${token}`);\n", ""],
+  ["G2 B5 resume by token before the annotations", "const after = [`::${token}::`];", "const after: string[] = [];"],
+  ["G3 B6 title escaped as a property", "title=${escapeProperty(title)}", "title=${escape(title)}"],
+  ["G4 zig's exit code passes through", "process.exit(code ?? 1);", "process.exit(0);"],
+  ["G5 a failure always annotates", "if (lines.length === 0) lines.push(", "if (false) lines.push("],
+  ["G6 failure detection", "const failed = code !== 0;", "const failed = false;"]
+]

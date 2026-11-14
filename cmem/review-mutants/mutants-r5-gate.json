@@ -1,0 +1,4 @@
+[
+  ["R5A1 exitCode passes the code through", "  return code & 0xff || 1;", "  return code;"],
+  ["R5A2 gate.ts runs zig directly", "    p = plan(\"zig\", [\"build\", ...args]);", "    p = { file: \"zig\", args: [\"build\", ...args], windowsVerbatimArguments: false };"]
+]

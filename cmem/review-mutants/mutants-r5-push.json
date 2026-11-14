@@ -1,0 +1,8 @@
+[
+  ["R5P1 push the branch, not the checked id", "`${head}:refs/heads/main`", "\"refs/heads/main:refs/heads/main\""],
+  ["R5P2 HEAD moved during the gate unchecked", "  if (git(\"rev-parse\", \"--verify\", \"HEAD\") !== head) return refuse(", "  if (false) return refuse("],
+  ["R5P3 the tree changing during the gate unchecked", "  if (dirtyAfter) return refuse(", "  if (false) return refuse("],
+  ["R5P4 any version jump accepted", "  if (!levels.includes(version)) return refuse(", "  if (false) return refuse("],
+  ["R5P5 the released commit's history unchecked", "  if (!run(\"git\", [\"merge-base\", \"--is-ancestor\", released, head]).ok)", "  if (false)"],
+  ["R5P6 a failed push does not say where main is", "origin/main is now ${remote}", "origin/main may have moved"]
+]

@@ -1,0 +1,4 @@
+[
+  ["R10P1 every refusal says REFUSED, after a push too", "    console.error(`${state.pushAttempted ? \"PUSH ATTEMPTED, then\" : \"REFUSED\"}: ${why}`);", "    console.error(`REFUSED: ${why}`);"],
+  ["R10P2 the flag set before the tags are read", "  const tagsBefore = git(\"ls-remote\", \"--tags\", \"origin\");\n  state.pushAttempted = true;\n", "  state.pushAttempted = true;\n  const tagsBefore = git(\"ls-remote\", \"--tags\", \"origin\");\n"]
+]

@@ -1,0 +1,6 @@
+[
+  ["R8S1 a relative resolved path accepted", "  if (!win32.isAbsolute(exe)) throw", "  if (false) throw"],
+  ["R8S2 a batch file accepted", "  if (/\\.(cmd|bat)$/i.test(exe)) throw", "  if (false) throw"],
+  ["R8S3 an unsafe install path reported generically", "  if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds", "  if (CMD_UNSAFE.test(exe)) throw new Error(`cannot pass ${exe}, whose path holds"],
+  ["R8S4 pathOf takes an empty first spelling", "k.toUpperCase() === \"PATH\" && env[k]", "k.toUpperCase() === \"PATH\""]
+]

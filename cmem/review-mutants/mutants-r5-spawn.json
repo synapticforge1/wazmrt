@@ -1,0 +1,9 @@
+[
+  ["R5S1 Ctrl-C exit not mapped to 130", "if !errorlevel!==-1073741510 (exit 130) else ", ""],
+  ["R5S2 other failures not mapped to 1", " else if not !errorlevel!==0 (exit 1)", ""],
+  ["R5S3 not-found not mapped to 127", "else if !errorlevel!==9009 (exit 127) ", ""],
+  ["R5S4 58 not read as interrupted", " || (platform === \"win32\" && code === 58)", ""],
+  ["R5S5 % no longer refused", "/[\"%!^&|<>()\\r\\n]/", "/[\"!^&|<>()\\r\\n]/"],
+  ["R5S6 Windows runs the child directly", "  if (platform !== \"win32\") return", "  if (true) return"],
+  ["R5S7 missing read only from ENOENT", "missing: s.missing || enoent", "missing: enoent"]
+]

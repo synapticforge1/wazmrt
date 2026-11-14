@@ -1,0 +1,4 @@
+[
+  ["G15 R4 a signal-killed child is a failure", "return code === null ? 1 : code;", "return code === null ? 0 : code;"],
+  ["G16 the exit code is the computed one", "process.exit(exitCode(code));", "process.exit(0);"]
+]

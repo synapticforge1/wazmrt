@@ -254,19 +254,34 @@ test("DIFFERENTIAL: on every PATH shape accepted, whichWin picks the program the
     `"${semi}";${Y}`,
     `${J};${Y}`,
   ];
-  const cmdRuns = (path: string, flag: boolean): string | null => {
+  // PATHEXT decides between two programs in ONE folder (round 12: no PATHEXT case was compared).
+  const both = dir("both");
+  linkSync(whereExe, join(both, "zq.exe"));
+  linkSync(whereExe, join(both, "zq.com"));
+  const cases: [string, string][] = [
+    ...shapes.map((p) => [p, DEFAULT_PATHEXT] as [string, string]),
+    [`${X};${both}`, ".COM;.EXE"],
+    [`${X};${both}`, ".EXE;.COM"],
+    [`${X};${both}`, ".com;.exe"], // lower case
+    [`${X};${both}`, ".EXE;.EXE;.COM"], // a duplicate
+  ];
+  const cmdRuns = (path: string, pathext: string, flag: boolean): string | null => {
     const env: Record<string, string> = {};
     for (const [k, v] of Object.entries(process.env))
-      if (v !== undefined && !["PATH", "NODEFAULTCURRENTDIRECTORYINEXEPATH"].includes(k.toUpperCase())) env[k] = v;
+      if (v !== undefined && !["PATH", "PATHEXT", "NODEFAULTCURRENTDIRECTORYINEXEPATH"].includes(k.toUpperCase())) env[k] = v;
     env.PATH = path;
+    env.PATHEXT = pathext;
     if (flag) env.NoDefaultCurrentDirectoryInExePath = "1";
     const r = spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", "zq"], { cwd: empty, env, encoding: "utf8" });
     return r.status === 0 && r.stdout.trim() ? r.stdout.trim().toLowerCase() : null;
   };
   const norm = (p: string | null) => (p === null ? null : win32.normalize(p).toLowerCase());
-  for (const path of shapes) {
-    const ours = norm(whichWin("zq", path));
-    for (const flag of [true, false]) expect(`${path} [variable ${flag ? "set" : "unset"}]: ${ours}`).toBe(`${path} [variable ${flag ? "set" : "unset"}]: ${norm(cmdRuns(path, flag))}`);
+  for (const [path, pathext] of cases) {
+    const ours = norm(whichWin("zq", path, pathext));
+    for (const flag of [true, false]) {
+      const label = `${path} PATHEXT=${pathext} [variable ${flag ? "set" : "unset"}]`;
+      expect(`${label}: ${ours}`).toBe(`${label}: ${norm(cmdRuns(path, pathext, flag))}`);
+    }
   }
 }, 60_000);
 

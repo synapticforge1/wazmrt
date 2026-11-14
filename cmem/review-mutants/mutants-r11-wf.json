@@ -1,0 +1,3 @@
+[
+  ["R11W1 BUNFIG misses a trailing dot", "const BUNFIG = /(^|\\/)\\.?bunfig\\.toml[. ]*$/i;", "const BUNFIG = /(^|\\/)\\.?bunfig\\.toml$/i;"]
+]

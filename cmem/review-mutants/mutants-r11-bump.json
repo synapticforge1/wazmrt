@@ -1,0 +1,4 @@
+[
+  ["R11K1 landed() ignores the subject", "    return subject === `bump to v${to}` && parent.ok && parent.out === before;", "    return parent.ok && parent.out === before;"],
+  ["R11K2 landed() ignores the parent", "    return subject === `bump to v${to}` && parent.ok && parent.out === before;", "    return subject === `bump to v${to}`;"]
+]

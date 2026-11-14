@@ -189,8 +189,28 @@ Track B-c2 spent a day closing.
 
 ## 🔒 RECORDS — no secrets or personal information are ever made public (owner, 2026-10-22)
 
-The rule is the workspace's, `../../cmem/working-rules.md` § Records; it is not restated here. What
-it means in this repo:
+**The rule, in full** (copied into this repo 2026-11-13 by the portability rule below — it was
+kept only in the workspace's `cmem/working-rules.md` § Records, outside this folder): everything
+committed is public, `cmem/` included, so NEVER in a committed file, a commit message, an issue, a
+release or an artifact —
+
+- **secrets**: tokens and PATs (`ghp_…`, `github_pat_…`, registry keys), passwords, private and
+  signing keys, `.env` contents, session or OIDC cookies;
+- **personal information**: email addresses, phone numbers, postal addresses, machine names,
+  private account names, and **personal drive paths** — any absolute path that records the owner's
+  machine layout (a user profile, a project drive such as a `D:` programs folder, a `J:` drive, a
+  scoop or AppData install, a scratchpad or session id). **The test is "is it machine-specific?",
+  not "is it absolute?"** (owner, 2026-10-23): a CONVENTION path that names nothing about one
+  machine and works on any comparable host is fine (`C:\zig-cache\wazmrt`). Tool settings that
+  record paths (`.claude/settings.local.json`, IDE workspace files) are never tracked.
+- **The one exception** (owner, 2026-10-23/26): the maintainer contact email, as the git commit
+  author/committer address, in the manifest field a package registry reads, and in ONE committed
+  `cmem/` note that names the maintainer contact — nowhere else, never repeated in memory.
+- Private facts go in the gitignored `cmem/local/` (checked with `git check-ignore -v` before the
+  first write), or nowhere. A leaked secret is ROTATED, not just deleted. Already-public identifiers
+  are fine (the GitHub org in a repo URL, registry scopes).
+
+What it means in this repo:
 
 - **Nothing machine-specific in a committed file, commit message, issue or release** — no user
   profile, project-drive location, scoop/AppData install or scratchpad path. Use repo-relative or
@@ -263,6 +283,31 @@ H34). When the owner says:
 Each command includes the one before it, and none goes further than its own word (a "commit"
 never pushes, a "push" never releases). This repo's own gate and merge rules apply at each step.
 
+## 🔒 Reviews: the owner's words, and the method (owner, 2026-11-12 / 11-13)
+
+Copied into this repo 2026-11-13 by the portability rule below (the standard is the workspace's
+`cmem/review-process.md`, letter H35; this is what binds here, so a clone has it):
+
+- **"review"** — a targeted code review by agents, in rounds; **"security review"** — the security
+  surfaces AND the review; **"hardening review"** — the hardening axes AND the security review AND
+  the review (the tiers nest, owner 2026-11-13). **"efficiency review"** is OPTIONAL, measured
+  findings only, and only after the security and hardening reviews.
+- **Fresh reviewers, not the author**, read-only, briefed with the code, never the author's
+  verdict; a few per round, scopes not overlapping. A finding carries file and line, a concrete
+  scenario, whether it was RUN, a severity (silent wrong output > crash > loud refusal of correct
+  work > cosmetic) and a confidence. Each finding is re-verified with a run before it is changed,
+  fixed as its CLASS, with a test that fails without the fix (a mutant per guard), and recorded.
+- **A review stops when a round's reviewers find nothing.** None of them commits, pushes or
+  releases — those stay the owner's words.
+- 🔒 **Before every release, a security review AND a hardening review are required**, each run to
+  its empty round on everything since the last release, and recorded in that release's entry in
+  `cmem/release.md` before the bump; a release whose two reviews are not recorded is not ready.
+- 🔒 **Class by class, once the findings are in hand** (owner, 2026-11-13: "clear one class of
+  errors at a time … once those are clear move to the next class type and repeat" — the open-ended
+  rounds had become "a never ending loop of checks"): fix ONLY the findings of one class; then a
+  fresh reviewer looks for THAT class only (anything else is noted in a line, not chased); repeat
+  until that class's re-check is empty; then the next class. The owner orders the classes.
+
 ## 🔒 Everything about this project lives IN this project folder (owner, 2026-11-13)
 
 "All information related to this project shall be in this project folder and not stored on this
@@ -275,7 +320,8 @@ machine for maximum portability." So:
   still in this folder.
 - **A session's scratch files are throwaway.** A probe kept for re-use is committed under
   `cmem/probes/` or `tools/`; anything else is deleted with the session. The review's mutation
-  runner is `tools/mutants.ts` (moved from a scratchpad, 2026-11-13; `testing.md`).
+  runner is `tools/mutants.ts` and its lists are `cmem/review-mutants/` (both moved from a
+  scratchpad, 2026-11-13; `testing.md`) — evidence is kept, so a claim can be re-checked.
 - **On a new machine, this folder is all that is needed** (with Zig and Bun installed): nothing
   learned here is lost by leaving the old one.
 

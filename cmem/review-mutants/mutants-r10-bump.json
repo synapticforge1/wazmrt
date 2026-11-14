@@ -1,0 +1,4 @@
+[
+  ["R10K1 a landed commit reported as failed", "      if (!landed(head)) throw", "      if (true) throw"],
+  ["R10K2 a throwing git log after the commit escapes", "  } catch (err) {\n    summary = `bump to v${to} (git log failed: ${err instanceof Error ? err.message : err})`;\n  }", "  } finally {\n  }"]
+]

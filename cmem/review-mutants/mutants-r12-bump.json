@@ -1,0 +1,3 @@
+[
+  ["R12K1 landed() ignores the parent (the wrong-parent case must now say REFUSED: git commit)", "    return subject === `bump to v${to}` && parent.ok && parent.out === before;", "    return subject === `bump to v${to}`;"]
+]

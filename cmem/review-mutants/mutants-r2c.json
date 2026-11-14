@@ -1,0 +1,4 @@
+[
+  ["R2C-M2 the setting only in a comment", "          $PSNativeCommandUseErrorActionPreference = $true\n          zig build -Doptimize=small\n", "          # $PSNativeCommandUseErrorActionPreference = $true\n          zig build -Doptimize=small\n"],
+  ["R2C-M3 checks gets write-all", "    timeout-minutes: 60\n    permissions:\n      contents: read\n", "    timeout-minutes: 60\n    permissions: write-all\n"]
+]

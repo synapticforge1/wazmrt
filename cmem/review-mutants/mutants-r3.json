@@ -1,0 +1,8 @@
+[
+  ["R3A-2a prerelease true", "    prerelease: false,\n", "    prerelease: true,\n"],
+  ["R3A-2b draft true", "    draft: false,\n    prerelease", "    draft: true,\n    prerelease"],
+  ["R3A-2c no generated notes", "    generate_release_notes: true,\n", "    generate_release_notes: false,\n"],
+  ["R3A-2d page name", "    name: `wazmrt ${name}`,\n", "    name: name,\n"],
+  ["R3A-1a re-run at this commit is a release", "return at === null || at === ctx.sha;", "return at === null;"],
+  ["R3A-1b a tag elsewhere is not", "return at === null || at === ctx.sha;", "return true;"]
+]

@@ -15,9 +15,15 @@ a run whose summary shows fewer than `RELEASE_TESTS_MIN` passes (`.github/workfl
 Count and history: `known-issues.md` § REVIEW 2026-11-13.
 
 **Every guard is proven by a mutant** — `bun tools/mutants.ts <file> <tests> <mutants.json>` (from
-the repo root): each `[name, from, to]` in the list is applied alone, the tests must go RED, the
-file is put back (byte-identical, Ctrl-C too). A mutant that SURVIVES names a guard no test holds.
-Lists are written per review round and thrown away; the runner is kept.
+the repo root): first the tests must pass on the UNMUTATED file (else exit 2 — a red baseline
+would make every mutant read caught); then each `[name, from, to]` in the list is applied alone
+and the file put back, byte-identical (a Ctrl-C handler also stops the child and restores it —
+⚠️ not proven by a test: a test on Windows cannot send a console Ctrl-C). The verdict is read from
+bun's summary: CAUGHT only when at least one test FAILS and there is no load error; SURVIVED names
+a guard no test holds; ERROR (no summary, or bun's `N error` — a module that does not load) proves
+nothing (round 12: any failing exit used to count). The runner has its own tests
+(`tools/release/mutants.test.ts`). The lists are kept, with which round each belongs to, in
+`cmem/review-mutants/`.
 
 ## 🆕 Cross-runtime digest parity — the `.wat` assembler's strongest gate (2026-09-20)
 

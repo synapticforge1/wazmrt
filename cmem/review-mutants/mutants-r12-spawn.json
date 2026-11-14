@@ -1,0 +1,7 @@
+[
+  ["R12S1 every entry trimmed again", "  return raw.map((e, i) => (i === 0 ? e.trimStart() : e).replaceAll('\"', \"\")).filter((e) => e !== \"\");", "  return raw.map((e) => e.trim().replaceAll('\"', \"\")).filter((e) => e !== \"\");"],
+  ["R12S2 the first entry's leading space kept", "(i === 0 ? e.trimStart() : e)", "(e)"],
+  ["R12S3 a PATH starting empty searched anyway", "  if (bare && startsEmpty(path)) throw", "  if (false) throw"],
+  ["R12S4 an App Execution Alias read as missing", "        return !lstatSync(p).isDirectory();", "        return false;"],
+  ["R12S5 any extension runs", "  if (!exts.includes(win32.extname(exe).toUpperCase()))", "  if (false)"]
+]

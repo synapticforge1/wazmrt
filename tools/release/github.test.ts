@@ -533,6 +533,11 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
     expect(await release(m.ctx(), TAG, "notes")).toBe(1);
     expect(m.lines.join("\n")).toContain("a page made as a DRAFT is invisible to this lookup");
   });
+  test("a 500 EXACTLY counts as a server error after a write (round 12: only 502 and 403 were tried)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, failPost: "/releases", failPostStatus: 500 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("HTTP 500; a server error after a write: it MAY have been done");
+  });
   for (const path of ["/releases", "/git/refs", "/git/tags"]) {
     test(`a 5xx answer to POST ${path} says it MAY have been done (round 11); a 4xx does not`, async () => {
       const refs = path === "/releases" ? { [TAG]: { type: "commit", sha: SHA } } : undefined;

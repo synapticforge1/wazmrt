@@ -1,0 +1,7 @@
+[
+  ["R10G1 no retry of a lagging read", "const SETTLE_WAITS_MS = [2_000, 5_000, 10_000];", "const SETTLE_WAITS_MS: number[] = [];"],
+  ["R10G2 the tag's read-back not retried", "  const back = await peelSettled(ctx, name);", "  const back = await peel(ctx, name);"],
+  ["R10G3 a timed-out write not said to maybe be done", "      `${method} ${path}: no answer in ${TIMEOUT_MS / 1000} s` +", "      `${method} ${path}: no answer in ${TIMEOUT_MS / 1000} s` + \"\" ||"],
+  ["R10G4 tag names matched without case", "const hit = r.json.find((x: any) => x.tag_name === name);", "const hit = r.json.find((x: any) => String(x.tag_name).toLowerCase() === name.toLowerCase());"],
+  ["R10G5 the subject not trimmed", "  return String(c.json.message ?? \"\").split(\"\\n\")[0].trim();", "  return String(c.json.message ?? \"\").split(\"\\n\")[0];"]
+]

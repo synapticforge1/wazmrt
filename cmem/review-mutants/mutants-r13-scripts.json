@@ -1,0 +1,3 @@
+[
+  ["R13K1 bump.ts skips the notes", "    releaseNotes(readFileSync(join(cwd, \"cmem/release.md\"), \"utf8\"), to, \"?\");", "    void 0;"]
+]

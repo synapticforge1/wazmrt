@@ -1,0 +1,7 @@
+[
+  ["G10 R3-A3 end a partial line before the resume", "const after = output !== \"\" && !output.endsWith(\"\\n\") ? [\"\", `::${token}::`] : [`::${token}::`];", "const after = [`::${token}::`];"],
+  ["G11 R3-A4 the spawn really uses childEnv", ", env: childEnv(process.env) });", " });"],
+  ["G12 R3-A5 ACTIONS_* withheld", " || K.startsWith(\"ACTIONS_\")", ""],
+  ["G13 R3-A5 RUNNER_TEMP withheld", ", \"GITHUB_TOKEN\", \"RUNNER_TEMP\"]", ", \"GITHUB_TOKEN\"]"],
+  ["G14 case-insensitive names", "const K = k.toUpperCase();", "const K = k;"]
+]

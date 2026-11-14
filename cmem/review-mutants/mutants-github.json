@@ -1,0 +1,16 @@
+[
+  ["M1 tag read-back", "  if (back !== ctx.sha) {\n    ctx.log(`READ-BACK FAILED: ${name} peels to ${back}, expected", "  if (false) {\n    ctx.log(`READ-BACK FAILED: ${name} peels to ${back}, expected"],
+  ["M2 release draft read-back", "back.json.draft !== false", "false"],
+  ["M4 call dry-run guard", "if (method !== \"GET\" && ctx.dryRun) throw", "if (false) throw"],
+  ["M5 peel non-commit refusal", "if (obj.type !== \"commit\") throw", "if (false) throw"],
+  ["M6 peel HTTP error", "if (ref.status !== 200) throw new Error(`reading tag", "if (false) throw new Error(`reading tag"],
+  ["M7 C4 bump subject", "if (subject !== `bump to ${name}`) return", "if (false) return"],
+  ["M8 C4 on main", "if (cmp.json.status !== \"ahead\" && cmp.json.status !== \"identical\")", "if (false)"],
+  ["M9 B7 race at this commit is done", "if (raced === ctx.sha) {", "if (false) {"],
+  ["M10 B7 race elsewhere refused", "a published tag never moves`);\n    return 1;\n  }\n  if (ref.status !== 201)", "a published tag never moves`);\n    return 0;\n  }\n  if (ref.status !== 201)"],
+  ["M11 B2 target_commitish", "    target_commitish: ctx.sha,\n", ""],
+  ["M12 B2 make_latest legacy", "    make_latest: \"legacy\",\n", ""],
+  ["M13 B3 empty summary refused", "if (!summary) throw", "if (false) throw"],
+  ["M14 B3 missing entry refused", "if (at < 0) throw new Error", "if (false) throw new Error"],
+  ["M15 B3 only real headings end the summary", "/^#{1,6}\\s/.test(line)", "line.startsWith(\"#\")"]
+]

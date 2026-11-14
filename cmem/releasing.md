@@ -337,7 +337,10 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
    input reaches a bad cast or index; `test-shipped` asks whether the **shipped** build behaves the
    same, and a miscompile or optimizer-exposed UB appears there and nowhere else.
 3. **`zig build test-security`** — 3/3. A **skip here is a failure** (`WAZMRT_SECURITY_STRICT=1`).
-4. **`zig build conformance -Dtestsuite=… -Dbaseline=…`** — and read **four** numbers: passed, failed,
+4. **`zig build conformance -Dtestsuite=… -Dbaseline=…`** — locally, `-Dtestsuite` is the spec
+   corpus in a checkout of `wasmtk` (`<wasmtk>/tests/module/wasm_wast/testsuite-main`; CI fetches
+   the same folder pinned by commit and tree, `release.yml` — round 12: the local need was unsaid) —
+   and read **four** numbers: passed, failed,
    skipped, **and the count of files with failures or errors**. 🔒 **The baseline file is EMPTY and stays
    empty.** A line added there to make a release green is the failure mode that file invites.
 5. **`zig build features`** — all four `-Dwat`/`-Dwasi` combinations compile.
@@ -372,9 +375,11 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
     say "released" before CI had passed):
     - **BEFORE the bump, with the release notes:** `release.md`'s entry (its summary is the Release
       page), `testing.md`'s score, this file's ladder. Nothing here claims the release happened.
-      🔒 **The entry's exact shape** (`github.ts` `releaseNotes`): a heading line ``### `X.Y.Z` ``
-      (optionally followed by ` — …`), then ONE plain paragraph — the summary — before any `>`
-      block or the next heading. `bump.ts` refuses a bump without it, `push.ts` refuses a bump
+      🔒 **The entry's exact shape** (`github.ts` `releaseNotes`): a heading line exactly
+      ``### `X.Y.Z` `` or that followed by a space (` — …`); then the summary — every non-blank
+      line up to the first blank line, blank lines right after the heading skipped, ending early at
+      a line starting `>` (column 0) or a heading. Write it as ONE plain paragraph: the summary is
+      the top of the Release page. `bump.ts` refuses a bump without it, `push.ts` refuses a bump
       commit without it, and CI's "Is this a release?" fails `checks` without it — all BEFORE any
       tag (review round 11: CI used to read it only after making the tag, which then had no page).
     - **AFTER CI's run is read back** (the tag peels to the bump commit, the page exists, the
@@ -393,27 +398,45 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
     between `origin/main` and a bump go up WITH the bump (CI checks HEAD, which holds them).
     A doc pass scheduled for anything else "after the release" is a doc pass that does not happen.
 
-### 🆕 What the release tools refuse, and need (review round 11 — each ends in one `REFUSED:` line)
+### 🆕 What the release tools refuse, and need (review rounds 11–12)
 
-- **Both `bump.ts` and `push.ts`** read `origin` (`git fetch`, `git ls-remote`): they need the
-  network, and `origin` must hold the CURRENT version's tag `vX.Y.Z` (a bump from an unreleased
-  version would skip a number).
-- **`bump.ts`**: a dirty tree (untracked files count); any branch but `main`; no release-notes entry
-  for the NEW version; a place whose old version does not occur exactly once; a failing
-  `zig build test`. Any failure after the first write restores the four files and says so.
-- **`push.ts`** (`--dry-run` runs every guard, the whole `zig build test` gate included, and pushes
-  nothing): a dirty tree; not on `main`; `origin/main` not an ancestor; HEAD not the bump commit,
-  or the bump not EXACTLY the four version edits; a version not one level up from a RELEASED parent
-  version whose released commit is in the history; the bump commit's own release notes missing;
-  the tag already on `origin` or local; `origin`'s push URL not its fetch URL; HEAD or the tree
-  changed during the gate. It pushes the checked commit BY ID, and raises an ALERT if `origin`'s
-  tags changed during the push. After the push has run, a failure opens `PUSH ATTEMPTED`, never
-  `REFUSED`.
-- **Every child program on Windows** (`tools/release/spawn.ts`) is resolved from `PATH` first; it
-  refuses a PATH shape cmd.exe reads differently by machine (an entry with leading or trailing
-  spaces or tabs, an empty FIRST entry, a quoted empty entry `""`, a folder ending in `.`, an
-  unclosed quote; spaces in PATHEXT), a batch-file or relative resolution, an extension outside
-  PATHEXT, and an argument cmd would change (`"` `%` `!`, a line break, a trailing `\`).
+How a run ENDS: a refusal is one `REFUSED:` line (exit 1) — except `bump.ts` with no or a wrong
+level (a usage line, exit 2); a second Ctrl-C during `bump.ts` (it restores the files, exit 130);
+a restore that did not work (`RESTORE FAILED — …` with the fix by hand); and, in `push.ts` after
+the push has run, `PUSH ATTEMPTED, then: …` or `ALERT: origin's tags changed …` (never `REFUSED`).
+
+- **`bump.ts`** needs the network: it reads `origin` with `git ls-remote` (it does not fetch), and
+  `origin` must hold the tag of the version it bumps FROM (`vX.Y.Z` of the current `src/root.zig`;
+  bumping an unreleased version would skip a number). It reads `src/root.zig`, `cmem/release.md` and
+  the four places from the working tree. It refuses: no level or a wrong one; a dirty
+  tree (untracked files count); any branch but `main`; `src/root.zig` without its version line; a
+  missing or MISSHAPEN release-notes entry
+  for the NEW version (the shape: step 10); a place whose old version does not occur exactly once;
+  `zig` not on PATH; a failing `zig build test`; a place that did not move cleanly; a failing
+  `git commit` (unless the commit was in fact made — then it says so and is done); an interrupt.
+  Any failure after the first write restores the four files and says whether that worked.
+- **`push.ts`** needs the network: it runs `git fetch origin` and `git ls-remote`. `origin` must
+  hold the tag of the PARENT version (the one bumped from) and must NOT hold the new version's tag.
+  `--dry-run` runs every guard — the whole `zig build test` gate included — and pushes nothing.
+  It refuses: a dirty tree; not on `main`; `origin/main` not an ancestor; HEAD's `src/root.zig`
+  without its version line; HEAD not the bump commit `bump to vX.Y.Z`; the parent's `src/root.zig`
+  missing or without its version line; a version not ONE level up from the parent's; the parent
+  version never released, or its released commit not in the history; the bump commit with no
+  `cmem/release.md`, or its entry missing or misshapen; a bump commit that is not EXACTLY the four
+  version edits (a fifth file, a changed file mode, a place missing from it or its parent, more
+  than the version line); the new tag already on `origin` or local; `origin`'s push URL not its
+  fetch URL; `zig` not on PATH; a failing gate; HEAD or the tree changed during the gate. It pushes
+  the checked commit BY ID; after the push, a failed push or a read-back that disagrees ends in
+  `PUSH ATTEMPTED, then: …` naming where `origin/main` is.
+- **Every child program on Windows** (`tools/release/spawn.ts`) is resolved from `PATH` before it
+  runs, and refused: not found on PATH (`<name>: not found on PATH`); a PATH shape cmd.exe reads
+  differently by machine or from Node — an entry with leading or trailing spaces or tabs, an empty
+  FIRST entry, a quoted empty entry `""`, an entry ending in `.`, an unclosed quote; a PATHEXT entry
+  that is not a plain `.EXT` (spaces, an empty entry — a trailing `;` included —, an inner dot); a
+  relative, drive-relative or batch-file (`.cmd` / `.bat`) resolution; a resolved file whose
+  extension is not in PATHEXT; a resolved path holding `"` `%` `!`; an argument cmd would change
+  (`"` `%` `!`, a line break, a trailing `\`); a command line over 8000 characters; a `cmd.exe`
+  that cannot be started (check `ComSpec`).
 11. 🗄️ **RETIRED 2026-10-23** (owner: *"we are officially out of lock step now due to differences"*;
     `interop.md` v33, §1e). wazmrt releases on its own checklist. The contract stays the shared
     reference, and a coordination pass is still the right move before a change to an in-scope row,

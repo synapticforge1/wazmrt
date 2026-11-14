@@ -7,9 +7,11 @@
 // Guards, all before the push: a clean tree (untracked files count); on `main`; `origin/main` is an
 // ancestor of HEAD (fetched first); HEAD is the bump commit `bump to vX.Y.Z` for `src/root.zig`'s
 // version, and it is EXACTLY the four version edits — each file at the parent with its one edit
-// applied equals the file at HEAD, no mode changed, nothing else (review round 2, B3); the tag
+// applied equals the file at HEAD, no mode changed, nothing else (review round 2, B3); the bump
+// commit's own `cmem/release.md` holds a well-shaped entry for vX.Y.Z (review round 11); the tag
 // vX.Y.Z exists neither on origin nor locally; the push URL is the URL the read-back reads;
-// `zig build test` green. Then it pushes THE COMMIT IT CHECKED to `refs/heads/main` — by its id,
+// `zig build test` green, and HEAD and the tree unchanged by it. Every refusal:
+// `cmem/releasing.md` § "What the release tools refuse, and need". Then it pushes THE COMMIT IT CHECKED to `refs/heads/main` — by its id,
 // read once at the start (round 5: the gate takes minutes, and a commit made meanwhile must not go up
 // unchecked) — with `--no-follow-tags` (round 1, B1), reads `main` back with `git ls-remote`, and
 // checks that origin's tags did not change — after a FAILED push too (round 2, B2), since a hook can

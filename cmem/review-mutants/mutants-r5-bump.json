@@ -1,0 +1,6 @@
+[
+  ["R5K1 the handler removed BEFORE the restore", "    if (!committed) restore();\n    process.off(\"SIGINT\", onInterrupt);", "    process.off(\"SIGINT\", onInterrupt);\n    if (!committed) restore();"],
+  ["R5K2 the handler never removed", "    if (!committed) restore();\n    process.off(\"SIGINT\", onInterrupt);", "    if (!committed) restore();"],
+  ["R5K3 restore after a good commit too", "    if (!committed) restore();\n    process.off", "    restore();\n    process.off"],
+  ["R5K4 zig's own interrupt status ignored", "if (why || gate.interrupted)", "if (why)"]
+]

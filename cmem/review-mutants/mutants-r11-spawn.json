@@ -1,0 +1,6 @@
+[
+  ["R11S1 PATH split on every ;", "    if (ch === \";\" && !quoted) {", "    if (ch === \";\") {"],
+  ["R11S2 spaces inside quotes trimmed", "  return raw.map((e) => e.trim().replaceAll('\"', \"\")).filter((e) => e !== \"\");", "  return raw.map((e) => e.trim().replaceAll('\"', \"\").trim()).filter((e) => e !== \"\");"],
+  ["R11S3 PATHEXT order ignored (.exe first)", "  const bases = /[\\\\/]/.test(cmd) ? [cmd] : splitPath(path).map((dir) => win32.join(dir, cmd));\n  for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;", "  const bases = /[\\\\/]/.test(cmd) ? [cmd] : splitPath(path).map((dir) => win32.join(dir, cmd));\n  for (const base of bases) if (isFile(base + \".exe\")) return base + \".exe\";\n  for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;"],
+  ["R11S4 three leading separators accepted", " || /^[\\\\/]{3}/.test(exe))", ")"]
+]

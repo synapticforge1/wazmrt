@@ -1,0 +1,4 @@
+[
+  ["R8K1 the restore's git may throw past RESTORE FAILED", "      try {\n        return run(\"git\", args);\n      } catch (err) {\n        return { ok: false, out: \"\", err: err instanceof Error ? err.message : String(err) };\n      }", "      return run(\"git\", args);"],
+  ["R8K2 a failing git log after the commit says REFUSED", "  let summary: string;\n  try {\n    const r = run(\"git\", [\"log\", \"--oneline\", \"-1\"]);\n    summary = r.ok ? r.out : `bump to v${to} (git log failed: ${r.err})`;\n  } catch (err) {\n    summary = `bump to v${to} (git log failed: ${err instanceof Error ? err.message : err})`;\n  }", "  const summary = git(\"log\", \"--oneline\", \"-1\");"]
+]

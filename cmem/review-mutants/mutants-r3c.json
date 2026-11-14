@@ -1,0 +1,3 @@
+[
+  ["R3C-2 readback hello exit-code check removed", "          if ($LASTEXITCODE -ne 0 -or ($hello -join \"`n\") -ne 'hello from wasi') { throw \"hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)\" }\n          \"read back", "          if (($hello -join \"`n\") -ne 'hello from wasi') { throw \"hello_wasi: '$($hello -join ' | ')' (exit $LASTEXITCODE)\" }\n          \"read back"]
+]

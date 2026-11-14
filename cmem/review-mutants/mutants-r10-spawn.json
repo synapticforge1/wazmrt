@@ -1,0 +1,4 @@
+[
+  ["R10S1 quoted PATH entries left as they are", "  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: cleanPath(pathOf(process.env)) }),", "  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: pathOf(process.env) }),"],
+  ["R10S2 a drive-relative rooted path accepted", "  if (!win32.isAbsolute(exe) || /^[\\\\/](?![\\\\/])/.test(exe))", "  if (!win32.isAbsolute(exe))"]
+]

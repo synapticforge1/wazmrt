@@ -1,0 +1,3 @@
+[
+  ["W11 R3-C1 shellOf ignores the workflow-level default", " ?? workflow.defaults?.run?.shell", ""]
+]

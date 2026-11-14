@@ -1,0 +1,6 @@
+[
+  ["R7S1 the lookup ignores the child's PATH", "(c) => Bun.which(c, { PATH: pathOf(process.env) })", "(c) => Bun.which(c)"],
+  ["R7S2 an unresolved command is run anyway", "  if (exe === null) return { file: cmd, args, windowsVerbatimArguments: true, missing: true };\n", "  if (exe === null) return plan(cmd, args, platform, comspec, (c) => c);\n"],
+  ["R7S3 cmd is handed the bare name, not the resolved path", "  const line = [exe, ...args]", "  const line = [cmd, ...args]"],
+  ["R7S4 a real 9009 read as missing again", "  return { ok: code === 0, interrupted };", "  return { ok: code === 0, interrupted, missing: code === 9009 || code === 127 };"]
+]

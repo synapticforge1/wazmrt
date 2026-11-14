@@ -1,0 +1,6 @@
+[
+  ["R4A-2a a draft page is ignored (the bug: a re-run republishes a retired page)", "const hit = r.json.find((x: any) => x.tag_name === name);", "const hit = r.json.find((x: any) => x.tag_name === name && !x.draft);"],
+  ["R4A-2b only the first page is read", "for (let page = 1; page <= MAX_RELEASE_PAGES; page++) {", "for (let page = 1; page <= 1; page++) {"],
+  ["R4A-2c a full page taken as the last", "if (r.json.length < 100) return null; // the last page", "return null;"],
+  ["R4A-2d a listing error read as 'no page' (M3 re-expressed)", "if (r.status !== 200 || !Array.isArray(r.json)) throw new Error(`listing releases (page ${page}): HTTP ${r.status}`);", "if (r.status !== 200 || !Array.isArray(r.json)) return null;"]
+]

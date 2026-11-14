@@ -1,0 +1,5 @@
+[
+  ["R2-M1 accept 'behind' (not on main)", "if (cmp.json.status !== \"ahead\" && cmp.json.status !== \"identical\")", "if (cmp.json.status !== \"ahead\" && cmp.json.status !== \"identical\" && cmp.json.status !== \"behind\")"],
+  ["R2-M2 compare reversed", "`/compare/${ctx.sha}...${MAIN}`", "`/compare/${MAIN}...${ctx.sha}`"],
+  ["R2-M3 subject read from main, not the sha", "`/git/commits/${ctx.sha}`", "`/git/commits/${MAIN}`"]
+]

@@ -1,0 +1,3 @@
+[
+  ["R8S3 an unsafe install path reported generically", "  if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds", "  if (CMD_UNSAFE.test(exe)) throw new Error(`cannot pass ${exe}, whose path holds"]
+]

@@ -1,0 +1,6 @@
+[
+  ["R6S1 trailing backslash allowed", "const CMD_UNSAFE = /[\"%!\\r\\n]|\\\\$/;", "const CMD_UNSAFE = /[\"%!\\r\\n]/;"],
+  ["R6S2 the line limit gone", "  if (full.length > CMD_MAX_LINE) throw", "  if (false) throw"],
+  ["R6S3 a missing cmd.exe reported as the command missing", "    if (enoent && p.windowsVerbatimArguments) throw", "    if (false) throw"],
+  ["R6S4 the old over-wide refusal set", "const CMD_UNSAFE = /[\"%!\\r\\n]|\\\\$/;", "const CMD_UNSAFE = /[\"%!^&|<>()\\r\\n]|\\\\$/;"]
+]

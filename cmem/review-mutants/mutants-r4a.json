@@ -1,0 +1,4 @@
+[
+  ["R4A-1a tag: the early 'done' skips the bump check (the round-3 order)", "  const why = await bumpOnMain(ctx, name);\n  if (why) {\n    ctx.log(`REFUSED: ${why}`);\n    return 1;\n  }\n  if (at === ctx.sha) {", "  if (at === ctx.sha) {\n    ctx.log(`tag ${name} already peels to ${ctx.sha}: done`);\n    return 0;\n  }\n  const why = await bumpOnMain(ctx, name);\n  if (why) {\n    ctx.log(`REFUSED: ${why}`);\n    return 1;\n  }\n  if (at === ctx.sha) {"],
+  ["R4A-1b release: no bump check before the page", "  // The page is made only for the bump commit on main, whatever made the tag (round 4, A1).\n  const why = await bumpOnMain(ctx, name);\n  if (why) {\n    ctx.log(`REFUSED: ${why}`);\n    return 1;\n  }\n", ""]
+]

@@ -1,0 +1,9 @@
+[
+  ["R13S1 leading/trailing spaces accepted", "  [/^[ \\t]|[ \\t]$/, \"an entry with leading or trailing spaces or tabs\"],\n", ""],
+  ["R13S2 a trailing dot accepted", "  [/\\.$/, \"an entry ending in `.` (cmd drops the dot, Node does not)\"],\n", ""],
+  ["R13S3 an empty first entry accepted", "  if (raw.length > 1 && raw[0].trim() === \"\") throw", "  if (false) throw"],
+  ["R13S4 a quoted empty entry accepted", "    if (r !== \"\" && r.replaceAll('\"', \"\") === \"\") throw", "    if (false) throw"],
+  ["R13S5 an unclosed quote accepted", "  if ((path.match(/\"/g)?.length ?? 0) % 2) throw", "  if (false) throw"],
+  ["R13S6 PATHEXT spaces accepted", "    if (!/^\\.[^\\s.;]+$/.test(e)) throw", "    if (false) throw"],
+  ["R13S7 a dangling link counted as a program", "      if (code === \"ENOENT\" || code === \"ENOTDIR\") return false;\n", ""]
+]

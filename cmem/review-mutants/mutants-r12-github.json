@@ -1,0 +1,5 @@
+[
+  ["R12G1 a reset write thrown bare", "    if (method === \"GET\") {\n      if (!timedOut) throw err;", "    if (method === \"GET\" || !timedOut) {\n      if (!timedOut) throw err;"],
+  ["R12G2 the read-back failure not said to follow a write", "    return await peelSettled(ctx, name);\n  } catch (err) {", "    return await peelSettled(ctx, name);\n  } finally {\n  }\n  try {\n    throw 0;\n  } catch (err) {"],
+  ["R12G3 the LAGGING anchor dropped", "export const LAGGING = /: HTTP (404|5\\d\\d)$/;", "export const LAGGING = /: HTTP (404|5\\d\\d)/;"]
+]

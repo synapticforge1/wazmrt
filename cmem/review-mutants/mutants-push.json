@@ -1,0 +1,23 @@
+[
+  ["P1 B1 push main only, no follow-tags", "[\"push\", \"--no-follow-tags\", \"origin\", \"refs/heads/main:refs/heads/main\"]", "[\"push\", \"origin\", \"main\"]"],
+  ["P2 origin tags unchanged alert", "if (tagsAfter !== tagsBefore) {", "if (false) {"],
+  ["P3 exactly the four files", "if (changed.join(\",\") !== four.join(\",\"))", "if (false)"],
+  ["P4 bump-commit subject", "if (subject !== `bump to ${tag}`) return", "if (false) return"],
+  ["P5 tag absent on origin", "if (git(\"ls-remote\", \"--tags\", \"origin\", `refs/tags/${tag}`)) return", "if (false) return"],
+  ["P6 gate must pass", "if (!gate.ok) return refuse(", "if (false) return refuse("],
+  ["P7 dry run pushes nothing", "if (dryRun) {", "if (false) {"],
+  ["P8 no local tag", "if (git(\"tag\", \"-l\", tag)) return", "if (false) return"],
+  ["P9 clean tree", "if (dirty) return refuse(", "if (false) return refuse("],
+  ["P10 read-back of main", "if (remote !== head) return refuse(", "if (false) return refuse("],
+  ["P11 ancestor check", "if (!run(\"git\", [\"merge-base\", \"--is-ancestor\", \"origin/main\", \"HEAD\"]).ok)", "if (false)"],
+  ["P12 fetch first", "  git(\"fetch\", \"origin\");\n", ""],
+  ["P13 on main", "!== \"main\") return refuse(\"not on main\")", "=== \"never\") return refuse(\"not on main\")"],
+  ["P14 content is only the version edit", "if (after !== expected) return", "if (false) return"],
+  ["P15 no mode change", "if (srcMode !== dstMode) return", "if (false) return"],
+  ["P16' tags compared after a FAILED push", "\"refs/heads/main:refs/heads/main\"], true);\n", "\"refs/heads/main:refs/heads/main\"], true);\n  if (!push.ok) return refuse(\"git push origin main failed\");\n"],
+  ["P17 push URL is the fetch URL", "if (pushUrl !== fetchUrl) return", "if (false) return"],
+  ["P18 zig missing named", "if (gate.missing) return refuse(", "if (false) return refuse("],
+  ["P19 R3-B1 RAW contents compared", "return r.ok ? (r.raw ?? r.out) : null;", "return r.ok ? r.out : null;"],
+  ["P20 R3 the parent version was released", "if (!git(\"ls-remote\", \"--tags\", \"origin\", `refs/tags/v${prev}`))", "if (false)"],
+  ["P21 R3 a missing parent root is a refusal", "if (!prev) return refuse(\"HEAD~1:src/root.zig is missing", "if (false) return refuse(\"HEAD~1:src/root.zig is missing"]
+]

@@ -1,0 +1,3 @@
+[
+  ["G2' B5 resume by token before the annotations", "? [\"\", `::${token}::`] : [`::${token}::`];", "? [\"\"] : [];"]
+]

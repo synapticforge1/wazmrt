@@ -3,8 +3,10 @@
 //
 //   bun tools/release/bump.ts <patch|minor|major>
 //
-// Refuses a dirty tree (untracked files count), any branch but `main`, and a current version that
-// was never released (a second bump would skip a number). Moves the version in the four places
+// Refuses a dirty tree (untracked files count), any branch but `main`, a current version that was
+// never released (a second bump would skip a number), and a missing or misshapen release-notes
+// entry for the NEW version (review round 11) — every refusal: `cmem/releasing.md` § "What the
+// release tools refuse, and need". Moves the version in the four places
 // (`cmem/releasing.md` → WHERE THE NUMBER LIVES), each edit matching EXACTLY once, then runs
 // `zig build test`: the surface gate inside it refuses a level below the floor, and
 // `version_agreement` refuses places that disagree. 🔒 On ANY failure after the first write the four

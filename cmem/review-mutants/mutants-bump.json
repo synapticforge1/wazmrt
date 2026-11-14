@@ -1,0 +1,19 @@
+[
+  ["K1 restore on every failure", "    if (!committed) restore();\n", ""],
+  ["K2 the current version was released", "if (!git(\"ls-remote\", \"--tags\", \"origin\", `refs/tags/v${from}`))", "if (false)"],
+  ["K3 each place moved cleanly", "if (text.split(neu).length - 1 !== 1 || text.includes(old)) return", "if (false) return"],
+  ["K4 gate must pass", "    if (!gate.ok)\n", "    if (false)\n"],
+  ["K5 clean tree", "if (dirty) return refuse(", "if (false) return refuse("],
+  ["K6 on main", "if (branch !== \"main\") return refuse(", "if (false) return refuse("],
+  ["K7 restore says whether it worked", "if (reset.ok && checkout.ok && still.length === 0) console.error(", "if (true) console.error("],
+  ["K8 zig missing named", "if (gate.missing) return refuse(", "if (false) return refuse("],
+  ["K9 R4 the handler covers the window", "  process.on(\"SIGINT\", onInterrupt); // the WHOLE window, first write to commit (round 4, B2)\n", ""],
+  ["K10 R4 the checkpoint after the gate", "    why = await interruptedAt(\"during the gate\");\n", "    why = null;\n"],
+  ["K11 an unreadable file counts as still edited", "      } catch {\n        return true;", "      } catch {\n        return false;"],
+  ["K12 R4 the checkpoint before the commit", "    why = await interruptedAt(\"before the commit\");\n    if (why) return refuse(why);\n", ""],
+  ["K13 R4 the checkpoint YIELDS (a real Ctrl-C arrives asynchronously)", "    await checkpoint();\n    return interrupts > 0", "    return interrupts > 0"],
+  ["K14 R4 zig's own Ctrl-C ending counts", "if (why || gate.interrupted)", "if (why)"],
+  ["K15 R4 a second Ctrl-C stops at once", "if (interrupts >= 2) {", "if (false) {"],
+  ["K16 R4 restore BEFORE the exit", "      restore();\n      exit(130);", "      exit(130);"],
+  ["K17 R4 POSIX SIGINT recognised", "return signal === \"SIGINT\" || ", "return "]
+]

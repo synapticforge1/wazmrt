@@ -1,0 +1,3 @@
+[
+  ["R13P1 push.ts skips the bump commit's notes", "    releaseNotes(notesMd, version, \"?\");", "    void notesMd;"]
+]

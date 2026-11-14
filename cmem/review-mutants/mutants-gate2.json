@@ -1,0 +1,5 @@
+[
+  ["G7 A1 stderr to our stdout", "  child.stderr.on(\"data\", take);", "  child.stderr.on(\"data\", (s: string) => { all += s; process.stderr.write(s); });"],
+  ["G8 A2 child env scrubbed", ", env: childEnv(process.env) });", " });"],
+  ["G9 A2 every command file withheld", "\"GITHUB_STATE\", ", ""]
+]

@@ -1,0 +1,7 @@
+[
+  ["R13G1 a 5xx write not said to maybe be done", "  return status >= 500 ? `; a server error after a write: it MAY have been done — ${RERUN}` : \"\";", "  return \"\";"],
+  ["R13G2 the page's read-back throw escapes", "  } catch (err) {\n    ctx.log(`READ-BACK FAILED: ${created}, but it could not be read back", "  } finally {\n  }\n  if (false) {\n    const err = 0;\n    ctx.log(`READ-BACK FAILED: ${created}, but it could not be read back"],
+  ["R13G3 the page's empty body crashes", "  if (back.status !== 200 || back.json?.tag_name !== name || back.json?.draft !== false) {", "  if (back.status !== 200 || back.json.tag_name !== name || back.json.draft !== false) {"],
+  ["R13G4 the 422 race read without lag retry", "      raced = await peelSettled(ctx, name);", "      raced = await peel(ctx, name);"],
+  ["R13G5 is-release skips the notes", "    if (rel) releaseNotes(readFileSync(\"cmem/release.md\", \"utf8\"), version, \"?\");\n", ""]
+]

@@ -1,0 +1,5 @@
+[
+  ["R9G1 only already_exists counts (a custom code on tag_name missed)", "errors.some((e) => e?.field === \"tag_name\")", "errors.some((e) => e?.code === \"already_exists\" && e?.field === \"tag_name\")"],
+  ["R9G2 a top-level immutable-release message missed", " || /immutable release/i.test(text)", ""],
+  ["R9G3 'done' without a page for this tag", "    if (raced !== undefined) return raced;\n    ctx.log(`creating release ${name}: HTTP 422", "    if (already) return 0;\n    if (raced !== undefined) return raced;\n    ctx.log(`creating release ${name}: HTTP 422"]
+]

@@ -112,7 +112,10 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   differently by machine REFUSED (a differential test against the real cmd.exe); release notes
   checked before any tag; the documents brought in line with the tools; and the owner's
   portability rule applied (`working-rules.md`; `tools/mutants.ts`) — committed and pushed
-  2026-11-13. **Round 12 STARTED** (owner: "commit and push them then start round 12"). CI GREEN on the latest push, `a00a150` (owner, 2026-11-13)
+  2026-11-13. Round 12 found three classes; the owner switched to CLASS BY CLASS (C → B → A;
+  `working-rules.md` § "Reviews"). **Class C in progress**: fixed, re-check 1's six fixed, re-check
+  2 running — committed (owner: "commit"), not pushed. Then class B, then class A
+  (`known-issues.md` § REVIEW 2026-11-13, round 12, lists them). CI GREEN on the latest push, `a00a150` (owner, 2026-11-13)
   — the streamed self-test step (round 9) works under pwsh 7. CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
   summary check works under pwsh 7; ⏳ the next push proves round 9's streamed step. on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`

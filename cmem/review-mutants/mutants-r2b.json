@@ -1,0 +1,4 @@
+[
+  ["R2B read-back of main", "if (remote !== head) return refuse(", "if (false) return refuse("],
+  ["R2B ancestor check", "if (!run(\"git\", [\"merge-base\", \"--is-ancestor\", \"origin/main\", \"HEAD\"]).ok)", "if (false)"]
+]
