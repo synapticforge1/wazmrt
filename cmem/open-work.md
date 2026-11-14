@@ -113,9 +113,13 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   checked before any tag; the documents brought in line with the tools; and the owner's
   portability rule applied (`working-rules.md`; `tools/mutants.ts`) — committed and pushed
   2026-11-13. Round 12 found three classes; the owner switched to CLASS BY CLASS (C → B → A;
-  `working-rules.md` § "Reviews"). **Class C in progress**: fixed, re-check 1's six fixed, re-check
-  2 running — committed (owner: "commit"), not pushed. Then class B, then class A
-  (`known-issues.md` § REVIEW 2026-11-13, round 12, lists them). CI GREEN on the latest push, `a00a150` (owner, 2026-11-13)
+  `working-rules.md` § "Reviews"). **Class C in progress** — paused by the owner 2026-11-13:
+  re-check 1's six fixed (`fb855fa`) and re-check 2's three fixed (the next commit; owner:
+  "commit") — both committed, NOT pushed (`bun test tools/release` 224 pass; `RELEASE_TESTS_MIN`
+  224, pin moved; mutants R14C1–C8 caught). **On resume:** the gate (`bun test tools/release`,
+  `zig build test --cache-dir C:\zig-cache\wazmrt`), then class-C RE-CHECK 3 (a fresh reviewer, class C
+  only); when one comes back clear, class B, then class A (`known-issues.md` § REVIEW 2026-11-13,
+  round 12, lists both). CI GREEN on the latest push, `a00a150` (owner, 2026-11-13)
   — the streamed self-test step (round 9) works under pwsh 7. CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
   summary check works under pwsh 7; ⏳ the next push proves round 9's streamed step. on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`

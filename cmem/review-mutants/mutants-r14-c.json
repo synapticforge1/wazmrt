@@ -2,5 +2,6 @@
   ["R14C1 a load error counted as caught", "  if (fails === null || errorCount(output) > 0) return \"ERROR\";", "  if (fails === null) return \"ERROR\";"],
   ["R14C2 no summary counted as caught", "  if (fails === null || errorCount(output) > 0) return \"ERROR\";", "  if (errorCount(output) > 0) return \"ERROR\";"],
   ["R14C3 the FIRST fail line read", "  return all.length ? Number(all[all.length - 1][1]) : null;", "  return all.length ? Number(all[0][1]) : null;"],
-  ["R14C4 no green baseline required", "  if (baseline !== \"SURVIVED\") {", "  if (false) {"]
+  ["R14C4 no green baseline required", "  if (baseline !== \"SURVIVED\") {", "  if (false) {"],
+  ["R14C8 an empty list accepted", "  if (!Array.isArray(mutants) || mutants.length === 0) {", "  if (!Array.isArray(mutants)) {"]
 ]

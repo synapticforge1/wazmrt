@@ -1,0 +1,3 @@
+[
+  ["R14C6 a bump commit with no cmem/release.md not refused", "  if (notesMd === null) return refuse(\"the bump commit has no cmem/release.md; CI makes the Release page from it\");\n", ""]
+]

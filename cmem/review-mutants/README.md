@@ -30,7 +30,7 @@ Which round each file belongs to (the file names drifted from the round numbers)
 | `mutants-r11-*.json` | round 9 |
 | `mutants-r12-*.json` | round 10 |
 | `mutants-r13-*.json` | round 11 |
-| `mutants-r14-c.json` | round 12, class C (the runner's own verdicts) |
+| `mutants-r14-c.json`, `mutants-r14-c-*.json` | round 12, class C (the runner's own verdicts; the tests class C added) |
 
 ⚠️ **Until round 12, the runner counted ANY failing exit as "caught"** — a mutant that only broke a
 module's syntax would have read as caught. Every result line also printed bun's failing-test

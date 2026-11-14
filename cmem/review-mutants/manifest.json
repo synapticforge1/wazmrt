@@ -1,5 +1,5 @@
 {
-  "_": "Each list: the file it mutates, the tests to run, and the commit where every `from` occurs exactly once in that file (the newest such commit; \"current\" = the code as of the commit that added this manifest). Run from the repo root at that commit: bun tools/mutants.ts <file> <tests> cmem/review-mutants/<list>. null = the code it targeted was never committed (an intermediate state); it cannot be re-run. Derived 2026-11-13 by matching every list against every commit since 80fc179.",
+  "_": "Each list: the file it mutates, the tests to run, and A commit where every `from` occurs exactly once in that file (later, docs-only commits may match too; \"current\" = the code as of the commit that added this manifest). Run from the repo root at that commit: bun tools/mutants.ts <file> <tests> cmem/review-mutants/<list>. null = the code it targeted was never committed (an intermediate state); it cannot be re-run. Derived 2026-11-13 by matching every list against every commit since 80fc179.",
   "mutants-bump.json": { "file": "tools/release/bump.ts", "tests": "tools/release/scripts.test.ts", "commit": "44912ab" },
   "mutants-gate-g2.json": { "file": "tools/release/gate.ts", "tests": "tools/release/gate.test.ts", "commit": "current" },
   "mutants-gate.json": null,
@@ -26,6 +26,9 @@
   "mutants-r13-scripts.json": { "file": "tools/release/bump.ts", "tests": "tools/release/scripts.test.ts", "commit": "current" },
   "mutants-r13-spawn.json": { "file": "tools/release/spawn.ts", "tests": "tools/release/spawn.test.ts", "commit": "current" },
   "mutants-r14-c.json": { "file": "tools/mutants.ts", "tests": "tools/release/mutants.test.ts", "commit": "current" },
+  "mutants-r14-c-github.json": { "file": "tools/release/github.ts", "tests": "tools/release/github.test.ts", "commit": "current" },
+  "mutants-r14-c-push.json": { "file": "tools/release/push.ts", "tests": "tools/release/scripts.test.ts", "commit": "current" },
+  "mutants-r14-c-spawn.json": { "file": "tools/release/spawn.ts", "tests": "tools/release/spawn.test.ts", "commit": "current" },
   "mutants-r2a.json": { "file": "tools/release/github.ts", "tests": "tools/release/github.test.ts", "commit": "current" },
   "mutants-r2b.json": { "file": "tools/release/push.ts", "tests": "tools/release/scripts.test.ts", "commit": "44912ab" },
   "mutants-r2c.json": { "file": ".github/workflows/release.yml", "tests": "tools/release/workflow.test.ts", "commit": "current" },

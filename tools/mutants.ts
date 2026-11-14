@@ -10,8 +10,9 @@
 //   ERROR     no summary with a failure count (a test file that does not load, a crash) — NOT
 //             counted as caught (review round 12: a non-zero exit alone was).
 //
-// First the tests run on the UNMUTATED file and must be green (exit 2 if not — a red baseline would
-// make every mutant read "caught"). Exit 0 only when every mutant applied and was CAUGHT. The file
+// An empty list is refused (exit 2). First the tests run on the UNMUTATED file and must be green
+// (exit 2 if not — a red baseline would make every mutant read "caught"). Exit 0 only when every
+// mutant (at least one) applied and was CAUGHT. The file
 // is restored after every mutant and on a failure, and checked byte-identical at the end. On
 // Ctrl-C a handler stops the child and restores the file (the runner waits asynchronously, so the
 // handler CAN run — round 12: a blocking spawn kept it from ever running); ⚠️ no test proves that
@@ -56,6 +57,11 @@ async function main(argv: string[]): Promise<number> {
   const target = resolve(file);
   const original = readFileSync(target, "utf8");
   const mutants: [string, string, string][] = JSON.parse(readFileSync(mutantsPath, "utf8"));
+  // An empty list would "pass" having proven nothing (class C re-check 2).
+  if (!Array.isArray(mutants) || mutants.length === 0) {
+    console.error(`${mutantsPath}: no mutants in the list — nothing would be proven`);
+    return 2;
+  }
   const restore = () => writeFileSync(target, original);
   let child: ReturnType<typeof Bun.spawn> | null = null;
   process.on("SIGINT", () => {

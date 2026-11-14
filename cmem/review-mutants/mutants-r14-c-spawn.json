@@ -1,0 +1,3 @@
+[
+  ["R14C7 PATHEXT order reversed", "  for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;", "  for (const base of bases) for (const c of candidates(base).reverse()) if (isFile(c)) return c;"]
+]

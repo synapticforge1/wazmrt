@@ -52,6 +52,22 @@ test("end to end: caught, survived and a test file that no longer LOADS each rea
   expect(readFileSync(join(dir, "m.ts"), "utf8")).toBe(code);
 }, 60_000);
 
+test("an EMPTY list is refused, exit 2 — it would 'pass' having proven nothing (class C re-check 2)", async () => {
+  const sub = join(dir, "empty");
+  mkdirSync(sub, { recursive: true });
+  writeFileSync(join(sub, "e.ts"), "export const x = 1;\n");
+  writeFileSync(join(sub, "e.test.ts"), 'import { expect, test } from "bun:test";\nimport { x } from "./e.ts";\ntest("x", () => expect(x).toBe(1));\n');
+  writeFileSync(join(sub, "list.json"), "[]");
+  const p = Bun.spawn([process.execPath, join(import.meta.dir, "..", "mutants.ts"), join(sub, "e.ts"), join(sub, "e.test.ts"), join(sub, "list.json")], {
+    cwd: sub,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+  const err = await new Response(p.stderr).text();
+  expect(await p.exited).toBe(2);
+  expect(err).toContain("no mutants in the list");
+}, 60_000);
+
 test("a suite that is ALREADY red: no mutant is judged, exit 2 (class C re-check: every mutant read 'caught')", async () => {
   const sub = join(dir, "red");
   mkdirSync(sub, { recursive: true });
