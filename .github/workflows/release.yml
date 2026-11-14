@@ -42,7 +42,7 @@ env:
   CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
   # The fewest release-tool tests the self-test step accepts (review round 7, A1): raise it when
   # tests are added — with the workflow pin, in the same commit.
-  RELEASE_TESTS_MIN: "207"
+  RELEASE_TESTS_MIN: "217"
 
 jobs:
   checks:

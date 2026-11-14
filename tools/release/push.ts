@@ -20,6 +20,7 @@
 // HEAD, which contains them, so that is intended — push them first if they should be checked alone.
 
 import { edits, next, replaceOnce } from "./bump.ts";
+import { releaseNotes } from "./github.ts";
 import { type Run, runner } from "./spawn.ts";
 
 export { type Run, runner };
@@ -93,6 +94,15 @@ function checkedPush(argv: string[], run: Run, state: { pushAttempted: boolean }
   if (!released) return refuse(`the bump commit's parent is v${prev}, which was never released (no tag on origin)`);
   if (!run("git", ["merge-base", "--is-ancestor", released, head]).ok)
     return refuse(`v${prev}'s released commit ${released} is not in the bump commit's history`);
+  // The bump commit's OWN release notes, as CI will read them (round 11): refused here, before
+  // anything is pushed, rather than after CI has made the tag.
+  const notesMd = show(`${head}:cmem/release.md`);
+  if (notesMd === null) return refuse("the bump commit has no cmem/release.md; CI makes the Release page from it");
+  try {
+    releaseNotes(notesMd, version, "?");
+  } catch (err) {
+    return refuse(`the bump commit's release notes: ${err instanceof Error ? err.message : err}`);
+  }
   const plan = edits(prev, version);
   const four = plan.map((e) => e[0]).sort();
   const raw = git("diff-tree", "--no-commit-id", "-r", head).split("\n").filter(Boolean);

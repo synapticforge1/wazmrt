@@ -2,7 +2,7 @@
 // Every refusal must send NO write; every success must read back; every guard has a case that fails
 // without it (review round 1, B8: six guards had none).
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type Ctx, LAGGING, call, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
@@ -36,6 +36,8 @@ interface MockOpts {
   timeoutOn?: string; // "<METHOD> <path>": the fetch throws a TimeoutError
   bodyTimeoutOn?: string; // "<METHOD> <path>": the answer's HEADERS arrive, then its body times out
   resetOn?: string; // "<METHOD> <path>": the fetch fails another way (a connection reset)
+  failPostStatus?: number; // the status `failPost` answers with (default 422)
+  emptyPageReadBack?: boolean; // the page's by-tag read-back answers 200 with an EMPTY body
   lagStatus?: number; // what a lagging read answers (default 404)
   tagObjLagAfterCreate?: number; // after POST /git/refs, GET /git/tags/<sha> answers lagStatus this many times
   refLagAfterPage?: number; // after POST /releases, the tag's GET answers lagStatus this many times
@@ -80,7 +82,8 @@ function mock(o: MockOpts = {}) {
       bodies.push(JSON.parse(String(init.body)));
       if (o.failPost && path === o.failPost) {
         if (o.pageAppearsOnPost && path === "/releases") releases[bodies.at(-1).tag_name] = o.pageAppearsOnPost;
-        return reply(422, o.failPostJson ?? { message: "nope" });
+        if (path === "/git/refs") refLag = o.refLagAfterCreate ?? 0; // a racing run's tag, read with lag
+        return reply(o.failPostStatus ?? 422, o.failPostJson ?? { message: "nope" });
       }
     }
     let m: RegExpMatchArray | null;
@@ -117,6 +120,7 @@ function mock(o: MockOpts = {}) {
     // As GitHub: the by-tag lookup does NOT return drafts; the listing (with a write token) does.
     if (method === "GET" && (m = path.match(/^\/releases\/tags\/(.+)$/))) {
       const t = decodeURIComponent(m[1]);
+      if (o.emptyPageReadBack && releases[t]) return new Response("", { status: 200 });
       const visible = releases[t] && (!releases[t].draft || o.tagLookupShowsDrafts);
       return visible ? reply(200, { tag_name: o.readBackTagName ?? t, draft: releases[t].draft, html_url: `https://x/${t}` }) : reply(404);
     }
@@ -514,6 +518,43 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
     expect(String(err)).toContain("connection reset");
     expect(String(err)).not.toContain("MAY have been done");
   });
+  test("the PAGE's own read-back reset after the 201: a failure that says the page WAS created (round 11)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, resetOn: `GET /releases/tags/${TAG}` });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toMatch(/READ-BACK FAILED: the page was CREATED \(HTTP 201\), but it could not be read back \(.*connection reset.*\); re-run/);
+  });
+  test("the page's read-back answers 200 with an EMPTY body: a failure that says so, not a crash (round 11)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, emptyPageReadBack: true });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("READ-BACK FAILED: the page was CREATED (HTTP 201), but reading it back gave HTTP 200");
+  });
+  test("a page that came back a DRAFT: the read-back says the page was created and why it is not seen (round 11)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, draftOnCreate: true });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("a page made as a DRAFT is invisible to this lookup");
+  });
+  for (const path of ["/releases", "/git/refs", "/git/tags"]) {
+    test(`a 5xx answer to POST ${path} says it MAY have been done (round 11); a 4xx does not`, async () => {
+      const refs = path === "/releases" ? { [TAG]: { type: "commit", sha: SHA } } : undefined;
+      const m5 = mock({ refs, failPost: path, failPostStatus: 502 });
+      expect(await (path === "/releases" ? release(m5.ctx(), TAG, "notes") : tag(m5.ctx(), TAG, "x"))).toBe(1);
+      expect(m5.lines.join("\n")).toContain("HTTP 502; a server error after a write: it MAY have been done");
+      const m4 = mock({ refs, failPost: path, failPostStatus: 403 });
+      expect(await (path === "/releases" ? release(m4.ctx(), TAG, "notes") : tag(m4.ctx(), TAG, "x"))).toBe(1);
+      expect(m4.lines.join("\n")).not.toContain("MAY have been done");
+    });
+  }
+  test("a 422 on the ref with the racing run's tag LAGGING: read again, done — not 'no such tag' (round 11)", async () => {
+    const m = mock({ failPost: "/git/refs", refLagAfterCreate: 1 });
+    const ctx = m.ctx();
+    const realFetch = ctx.fetch;
+    ctx.fetch = async (url, init) => {
+      if ((init.method ?? "GET") === "POST" && url.endsWith("/git/refs")) m.refs[TAG] = { type: "commit", sha: SHA };
+      return realFetch(url, init);
+    };
+    expect(await tag(ctx, TAG, "x")).toBe(0);
+    expect(m.lines.join("\n")).not.toContain("no such tag exists");
+  });
   test("LAGGING: the status must END the message (round 10: the anchor held)", () => {
     for (const m of ["reading tag v1: HTTP 404", "reading tag object abc: HTTP 503", "reading tag v1: HTTP 500"]) expect(`${m}: ${LAGGING.test(m)}`).toBe(`${m}: true`);
     for (const m of ["reading tag v1: HTTP 404 (later)", "reading tag v1: HTTP 4044", "reading tag v1: HTTP 403", "tag v1 points at a tree, not a commit"])
@@ -539,7 +580,53 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
   });
 });
 
+/** Run `github.ts is-release` from `cwd` against a fake GitHub whose commit SHA has `subject` and no tags. */
+async function isReleaseCli(cwd: string, subject: string, out: string) {
+  const server = Bun.serve({
+    port: 0,
+    fetch(req) {
+      const u = new URL(req.url);
+      if (u.pathname === `/repos/o/r/git/commits/${SHA}`) return Response.json({ message: `${subject}\n` });
+      return new Response("", { status: 404 });
+    },
+  });
+  try {
+    const env: Record<string, string | undefined> = { ...process.env };
+    for (const k of Object.keys(env)) if (/^(https?|all)_proxy$/i.test(k)) delete env[k];
+    Object.assign(env, { NO_PROXY: "*", GITHUB_API_URL: `http://localhost:${server.port}`, GITHUB_REPOSITORY: "o/r", GITHUB_SHA: SHA, GITHUB_OUTPUT: out, GITHUB_TOKEN: "" });
+    const p = Bun.spawn([process.execPath, join(REPO_ROOT, "tools/release/github.ts"), "is-release"], { cwd, env, stdout: "pipe", stderr: "pipe" });
+    const killer = setTimeout(() => p.kill(), 30_000);
+    const code = await p.exited;
+    clearTimeout(killer);
+    return { code, stderr: await new Response(p.stderr).text() };
+  } finally {
+    server.stop(true);
+  }
+}
+
 describe("the CLI (main), end to end against a local fake GitHub", () => {
+  test("is-release on a RELEASE whose notes are missing: the checks job fails BEFORE any tag (round 11)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "wazmrt-ghnotes-"));
+    try {
+      mkdirSync(join(dir, "src"), { recursive: true });
+      mkdirSync(join(dir, "cmem"), { recursive: true });
+      writeFileSync(join(dir, "src/root.zig"), 'pub const version: [:0]const u8 = "9.9.9";\n');
+      writeFileSync(join(dir, "cmem/release.md"), "## Release History\n\n### `9.9.8` — x\n\nOld.\n");
+      const out = join(dir, "out.txt");
+      writeFileSync(out, "");
+      const missing = await isReleaseCli(dir, "bump to v9.9.9", out);
+      expect(missing.code).toBe(1);
+      expect(missing.stderr).toContain('no "### `9.9.9`" entry');
+      expect(readFileSync(out, "utf8")).not.toContain("release=");
+      // With the entry written, the same commit IS a release.
+      writeFileSync(join(dir, "cmem/release.md"), "## Release History\n\n### `9.9.9` — x\n\nNew.\n");
+      const ok = await isReleaseCli(dir, "bump to v9.9.9", out);
+      expect(`exit ${ok.code}; ${ok.stderr}`).toBe("exit 0; ");
+      expect(readFileSync(out, "utf8")).toContain("release=true");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
   test("is-release APPENDS to GITHUB_OUTPUT, keeping what earlier steps wrote (round 9: untested)", async () => {
     const server = Bun.serve({
       port: 0,

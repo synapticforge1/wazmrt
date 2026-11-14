@@ -366,12 +366,17 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
    **`zig build conformance -Dtestsuite=… -Dbaseline=… -Drecord-released=true`**, which record the
    released surface (S1 included) and the released per-file conformance results (S2) as the next
    release's baselines. 🔒 **Order (owner): S1 (`surface`, inside `test`) → S2 (step 4) → S3 (the
-   local wide net, `probes/carry-forward.ts`). Stop at the first that finds an issue until it is
+   local wide net, `cmem/probes/carry-forward.ts`). Stop at the first that finds an issue until it is
    resolved; an INTENDED change is resolved by a deliberate re-baseline with the major it demands.**
 10. **Memory, in two commits around the release** (🔁 review round 3, C6: the round-2 text had memory
     say "released" before CI had passed):
     - **BEFORE the bump, with the release notes:** `release.md`'s entry (its summary is the Release
       page), `testing.md`'s score, this file's ladder. Nothing here claims the release happened.
+      🔒 **The entry's exact shape** (`github.ts` `releaseNotes`): a heading line ``### `X.Y.Z` ``
+      (optionally followed by ` — …`), then ONE plain paragraph — the summary — before any `>`
+      block or the next heading. `bump.ts` refuses a bump without it, `push.ts` refuses a bump
+      commit without it, and CI's "Is this a release?" fails `checks` without it — all BEFORE any
+      tag (review round 11: CI used to read it only after making the tag, which then had no page).
     - **AFTER CI's run is read back** (the tag peels to the bump commit, the page exists, the
       read-back passed), in a memory commit of its own, as 9a is: the run's record in `release.md`,
       `roadmap.md`'s row, and `open-work.md`'s Status line saying it is released (the only one —
@@ -382,7 +387,33 @@ security tests; the symlink fixtures now live in the OS temp dir — `working-ru
         that version is untagged. 🔒 **The way out (review round 6): `git revert` the bump commit**
         (the version returns to the released one), land the fix, then run steps 9–10 again — the
         new bump commit has the released parent `push.ts` requires.
+    🆕 **How these local commits reach GitHub** (review round 11: unsaid): with a plain
+    `git push origin main` — `push.ts` pushes only a `bump to vX.Y.Z` commit. A push to `main` runs
+    `checks` (a rehearsal) and is not a release, since only the bump commit is. Commits made
+    between `origin/main` and a bump go up WITH the bump (CI checks HEAD, which holds them).
     A doc pass scheduled for anything else "after the release" is a doc pass that does not happen.
+
+### 🆕 What the release tools refuse, and need (review round 11 — each ends in one `REFUSED:` line)
+
+- **Both `bump.ts` and `push.ts`** read `origin` (`git fetch`, `git ls-remote`): they need the
+  network, and `origin` must hold the CURRENT version's tag `vX.Y.Z` (a bump from an unreleased
+  version would skip a number).
+- **`bump.ts`**: a dirty tree (untracked files count); any branch but `main`; no release-notes entry
+  for the NEW version; a place whose old version does not occur exactly once; a failing
+  `zig build test`. Any failure after the first write restores the four files and says so.
+- **`push.ts`** (`--dry-run` runs every guard, the whole `zig build test` gate included, and pushes
+  nothing): a dirty tree; not on `main`; `origin/main` not an ancestor; HEAD not the bump commit,
+  or the bump not EXACTLY the four version edits; a version not one level up from a RELEASED parent
+  version whose released commit is in the history; the bump commit's own release notes missing;
+  the tag already on `origin` or local; `origin`'s push URL not its fetch URL; HEAD or the tree
+  changed during the gate. It pushes the checked commit BY ID, and raises an ALERT if `origin`'s
+  tags changed during the push. After the push has run, a failure opens `PUSH ATTEMPTED`, never
+  `REFUSED`.
+- **Every child program on Windows** (`tools/release/spawn.ts`) is resolved from `PATH` first; it
+  refuses a PATH shape cmd.exe reads differently by machine (an entry with leading or trailing
+  spaces or tabs, an empty FIRST entry, a quoted empty entry `""`, a folder ending in `.`, an
+  unclosed quote; spaces in PATHEXT), a batch-file or relative resolution, an extension outside
+  PATHEXT, and an argument cmd would change (`"` `%` `!`, a line break, a trailing `\`).
 11. 🗄️ **RETIRED 2026-10-23** (owner: *"we are officially out of lock step now due to differences"*;
     `interop.md` v33, §1e). wazmrt releases on its own checklist. The contract stays the shared
     reference, and a coordination pass is still the right move before a change to an in-scope row,

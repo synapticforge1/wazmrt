@@ -14,6 +14,7 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { releaseNotes } from "./github.ts";
 import { type Run, runner } from "./spawn.ts";
 
 export type Level = "patch" | "minor" | "major";
@@ -92,6 +93,14 @@ async function checkedBump(argv: string[], cwd: string, run: Run, exit: (code: n
   if (!git("ls-remote", "--tags", "origin", `refs/tags/v${from}`))
     return refuse(`v${from} was never released (no tag on origin); release it, or the next bump would skip a number`);
   const to = next(from, level);
+  // 🔒 The release notes FIRST (round 11): CI reads them from the bump commit only AFTER it has
+  // made the tag — a missing or misshapen entry there leaves a published tag with no page and no
+  // clean way back. The entry is written before the bump (`releasing.md` step 10).
+  try {
+    releaseNotes(readFileSync(join(cwd, "cmem/release.md"), "utf8"), to, "?");
+  } catch (err) {
+    return refuse(`the release notes for ${to}: ${err instanceof Error ? err.message : err} — write them first (cmem/releasing.md step 10)`);
+  }
   const plan = edits(from, to);
   const files = plan.map((p) => p[0]);
 

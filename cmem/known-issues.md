@@ -13,6 +13,33 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 11 — round 10's fixes, and the documents against the tools (owner: "yes")
+
+Three fresh reviewers on Sonnet: the PATH lookup MEASURED against cmd.exe; `github.ts` whole; and
+an axis no round had covered — **do `releasing.md` and `release.md` still describe the tools?**
+**No wrong tag, page or verdict.** All fixed. `bun test tools/release` 207 → **217**;
+`RELEASE_TESTS_MIN` 217, the pin moved (the diff: that one line); 14 mutants, all caught (run by
+the committed `tools/mutants.ts`). Committed and pushed 2026-11-13.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | 🔒 imitating cmd.exe is impossible on some PATH shapes | MEASURED: cmd reads the first entry's leading spaces and an empty first entry DIFFERENTLY by machine — the variable `NoDefaultCurrentDirectoryInExePath` (set here, unset on GitHub's runners) flips them, so round 10's rule ran a different program than cmd where it is unset; a quoted empty entry `""` ENDS cmd's search; cmd finds `D.` (Win32 drops the dot), Node does not; spaces in PATHEXT make cmd find nothing; a dangling junction is skipped by cmd. The tools no longer imitate cmd there: `checkPath` REFUSES those shapes by name; on every shape accepted cmd reads PATH alike in both modes; a dangling link is not a program (only an access-denied `stat` — an App Execution Alias — counts) | a DIFFERENTIAL test runs the real cmd.exe on 12 accepted shapes (a quoted `;` folder and a dangling junction among them) with the variable SET and UNSET and requires the same program; the refusals by case; R13S1–S7 |
+| **A2** | 🔒 the release notes were read only AFTER the tag | the `release` job reads `cmem/release.md` from the bump commit after `tag` has published the tag: a missing or misshapen entry left a tag with no page and no clean way back. Now checked BEFORE any tag, three times: `bump.ts` (before writing), `push.ts` (the bump commit's own file), and CI's "Is this a release?" (fails `checks`) | cases for each; the CLI end to end from a folder without, then with, the entry; R13K1, R13P1, R13G5 |
+| **B** | successful writes the run did not report | the PAGE's own read-back after a 201 (a reset, a 404 — a draft — or an empty body that crashed) now says the page WAS created and to re-run; a 5xx answer to any write says it may have been done (a 4xx does not); a 422 on the tag reads the racing run's tag with lag retried (a lagging 404 said "no such tag exists") | R13G1–G4; cases |
+| **C** | the documents | `releasing.md`: the S3 script's path (`cmem/probes/…`); the release-notes entry's exact shape and where it is checked; how the post-release commits reach GitHub (a plain `git push`); a new section listing every refusal and need of the tools (network and `origin`'s tag; push URL; the tag ALERT; `PUSH ATTEMPTED`; `--dry-run` runs the gate; the PATH shapes). `release.md` U7 | the reviewer checked every other claim TRUE |
+
+**Not fixed:** a request that never left (a bad URL, DNS) is still labelled "may have been done"
+— harmless, and Bun cannot tell it from one cut off in flight; the all-timeouts worst case can
+pass the 15-minute job limit.
+
+🏠 **And the owner's portability rule (2026-11-13, mid-round):** everything about this project lives
+in this folder — `working-rules.md` § "Everything about this project lives IN this project folder".
+The one fact kept in a per-machine assistant memory (report only on this project) moved into
+`working-rules.md`; the mutation runner moved from a session scratchpad to `tools/mutants.ts`
+(two fixes on the way: the replacement inserted literally, the file restored on Ctrl-C).
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 10 — round 9's fixes (owner: "Fix A, B and C")
 
 Three fresh reviewers on Sonnet (the PATH resolver, measured against cmd.exe; `github.ts`; the
@@ -48,7 +75,7 @@ resume) — that push's CI run is the first pwsh 7 run of the streamed step.
 | # | class | found → fixed | proof |
 | --- | --- | --- | --- |
 | **A1** | 🔒 CI red for correct work: a Zig compile against a COLD cache | CI's self-test step runs before any build, so Zig's cache is empty; the stub builds (and the one real `zig build` case) had 120 s. Measured here, 32 logical processors: a cold `zig cc` of a C stub 12.1 s (it builds the C library first), 0.1 s warm; a Zig-only stub 4 s cold; a windows-latest runner has 4. Every case or hook that waits on a Zig compile now has 10 minutes (`ZIG_COLD_MS`), the reason beside it. The log names no file, so WHICH hook timed out is inferred | the owner's log; the measurements; ⚠️ CI's next run is the proof |
-| **A2** | the self-test step was SILENT for minutes (captured whole) | a hang would show nothing until the job's 60 minutes. The output now streams through `Tee-Object` and is kept for the summary check; the step has `timeout-minutes: 20` (held by the structure table) | 5.1: lines stream, `$LASTEXITCODE` survives the pipeline (3 / 0), `$t` holds every line — 🔁 (round 10) measured under `$ErrorActionPreference = 'Continue'`: under `'Stop'` 5.1 THROWS on the first redirected stderr line, pwsh 7 does not; ⚠️ pwsh 7 is CI's half |
+| **A2** | the self-test step was SILENT for minutes (captured whole) | a hang would show nothing until the job's 60 minutes. The output now streams through `Tee-Object` and is kept for the summary check; the step has `timeout-minutes: 20` (held by the structure table) | 5.1: lines stream, `$LASTEXITCODE` survives the pipeline (3 / 0), `$t` holds every line — 🔁 (round 10) measured under `$ErrorActionPreference = 'Continue'`: under `'Stop'` 5.1 THROWS on the first redirected stderr line, pwsh 7 does not; ✅ pwsh 7: CI GREEN on `a00a150` (owner, 2026-11-13) |
 | **B1** | a timeout while reading the BODY escaped bare | the body is read under the same handling as the request | R11G1; a case where headers arrive and the body stalls |
 | **B2** | the tag read-back retried only an ABSENT ref | a 404 / 5xx inside the peel (the ref or the tag object) is a lagging read too; the last error stands; a non-lag error is not retried | R11G2–G3; four cases |
 | **B3** | a quoted PATH entry holding `;` read as missing | measured: cmd.exe finds a program in `"C:\a;b"`. `Bun.which` takes PATH as one `;`-joined string and cannot express that, so the lookup is now our own, as cmd does it: `splitPath` (split outside quotes; outer spaces dropped — 🔁 WRONG, round 10 measured cmd KEEPS them but for the first entry's leading ones; spaces inside quotes kept — cmd finds nothing in `" C:\dir "`), then each folder × each PATHEXT extension in order (`whichWin`) | R11S1–S3; an end-to-end run from a folder named `a;b`. A freshly copied .exe's FIRST run took 11.5 s here (likely the antivirus scan): that case has 60 s |

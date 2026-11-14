@@ -262,3 +262,29 @@ H34). When the owner says:
 
 Each command includes the one before it, and none goes further than its own word (a "commit"
 never pushes, a "push" never releases). This repo's own gate and merge rules apply at each step.
+
+## 🔒 Everything about this project lives IN this project folder (owner, 2026-11-13)
+
+"All information related to this project shall be in this project folder and not stored on this
+machine for maximum portability." So:
+
+- **Nothing project-related is kept outside the repo folder** — not in an assistant's per-machine
+  memory, not in a session's temporary scratchpad, not in a user-level settings file. A rule, a
+  decision, a measurement, a method or a tool used more than once goes into `cmem/` (or, for a
+  tool, `tools/`), committed. What may not be public goes in the gitignored `cmem/local/`, which is
+  still in this folder.
+- **A session's scratch files are throwaway.** A probe kept for re-use is committed under
+  `cmem/probes/` or `tools/`; anything else is deleted with the session. The review's mutation
+  runner is `tools/mutants.ts` (moved from a scratchpad, 2026-11-13; `testing.md`).
+- **On a new machine, this folder is all that is needed** (with Zig and Bun installed): nothing
+  learned here is lost by leaving the old one.
+
+## Reporting: this project only (owner, 2026-11-05)
+
+Report only on this project. Do not describe the state of sibling repos — their clones, their
+open parts of a workspace ledger row, what they still owe — unless that is needed to finish the
+task given here. For a workspace ledger item, do this repo's part, record it as CLOSED for this
+project (here and in the row's cell), and stop; closing the row is its creator's job. (Owner,
+2026-11-05, after a report that described another repo's half-made clone: "I do not need you to
+report on other projects unless they are needed to complete the task given to this project." Kept
+until 2026-11-13 in a per-machine assistant memory; moved here by the rule above.)

@@ -6,6 +6,19 @@
 opcode). The C ABI is verified separately from C via `tests/c_smoke.c` compiled with `zig cc` (see
 `design-decisions.md` → "Verified working"). Hand-built byte fixtures live inline in the tests.
 
+## The release tooling's tests, and how they are proven (2026-11-13)
+
+`bun test tools/release` (Bun 1.4.4): the release scripts end to end in throwaway git repos with
+a local fake origin, a stub `zig` built by `zig cc`, a local fake GitHub, and a DIFFERENTIAL test
+of the PATH lookup against the real `cmd.exe`. CI runs it in "Release-tool self-tests" and refuses
+a run whose summary shows fewer than `RELEASE_TESTS_MIN` passes (`.github/workflows/release.yml`).
+Count and history: `known-issues.md` § REVIEW 2026-11-13.
+
+**Every guard is proven by a mutant** — `bun tools/mutants.ts <file> <tests> <mutants.json>` (from
+the repo root): each `[name, from, to]` in the list is applied alone, the tests must go RED, the
+file is put back (byte-identical, Ctrl-C too). A mutant that SURVIVES names a guard no test holds.
+Lists are written per review round and thrown away; the runner is kept.
+
 ## 🆕 Cross-runtime digest parity — the `.wat` assembler's strongest gate (2026-09-20)
 
 **This is not a `zig build` step and it is the check that found three defects no in-repo gate could

@@ -108,8 +108,12 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   on Sonnet — the new PATH resolver; `github.ts`'s body-timeout and read-back retries; the
   streamed CI step and the cold-compile limits. Fixed (owner: "Fix A, B and C"): PATH spaces kept
   as cmd keeps them; aliases found; failures after a write say what was done; 207 tests —
-  committed and pushed 2026-11-13 (owner: "yes"). **Next: round 11.** ⏳ Owner reads the CI runs
-  of `24dcd5b` (the streamed step's first pwsh 7 run) and of this push. CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
+  committed and pushed 2026-11-13 (owner: "yes"). Round 11 (owner: "yes"): PATH shapes cmd reads
+  differently by machine REFUSED (a differential test against the real cmd.exe); release notes
+  checked before any tag; the documents brought in line with the tools; and the owner's
+  portability rule applied (`working-rules.md`; `tools/mutants.ts`) — committed and pushed
+  2026-11-13. **Round 12 STARTED** (owner: "commit and push them then start round 12"). CI GREEN on the latest push, `a00a150` (owner, 2026-11-13)
+  — the streamed self-test step (round 9) works under pwsh 7. CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
   summary check works under pwsh 7; ⏳ the next push proves round 9's streamed step. on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.

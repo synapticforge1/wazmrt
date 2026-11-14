@@ -119,7 +119,7 @@ from the exFAT `D:` drive.
 | File | What it holds |
 | --- | --- |
 | [open-work.md](open-work.md) | 🎯 **Start here for state.** The ONE list of what is outstanding, and the only status line. |
-| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, records (privacy), building and testing from the exFAT `D:` drive. |
+| [working-rules.md](working-rules.md) | The standing rules: editing boundary, prove-before-acting, tooling (Bun, no heredocs), LF line endings, records (privacy), building and testing from the exFAT `D:` drive, the owner's commands, 🏠 everything about this project lives in this folder (2026-11-13), reporting on this project only. |
 | [overview.md](overview.md) | What wazmrt is; its GitHub home (`synapticforge1/wazmrt`); the source layout; the 2026-10-23 history rewrite. (The live artifact sizes are in `tools/size-ceilings.txt`, the one place.) |
 | [vision.md](vision.md) | The goal: a fast, small, embeddable WebAssembly runtime, itself wasm-compilable. |
 | [architecture.md](architecture.md) | The decode → validate → instantiate → execute pipeline, module layout, the libc-free core, the C ABI and freestanding targets. |

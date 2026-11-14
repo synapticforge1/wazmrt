@@ -114,6 +114,13 @@ export async function peel(ctx: Ctx, tag: string): Promise<string | null> {
  * (round 8) — and so is a lagging read INSIDE the peel, of the ref or of the tag object, answered
  * 404 or 5xx (round 9: only an absent ref was retried). Any other error, and the last one, stands.
  */
+const RERUN = "re-run the job: it reads what exists first and finishes or reports done";
+
+/** What a WRITE answered with a 5xx may still have done (round 11: only a thrown error said so). */
+function mayHaveBeenDone(status: number): string {
+  return status >= 500 ? `; a server error after a write: it MAY have been done — ${RERUN}` : "";
+}
+
 /** A `peel` error that is a lagging read: the status ENDS the message (round 10: the anchor held by its own cases). */
 export const LAGGING = /: HTTP (404|5\d\d)$/;
 
@@ -236,14 +243,21 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
   }
   const obj = await call(ctx, "POST", "/git/tags", { tag: name, message, object: ctx.sha, type: "commit" });
   if (obj.status !== 201) {
-    ctx.log(`creating tag object ${name}: HTTP ${obj.status}`);
+    ctx.log(`creating tag object ${name}: HTTP ${obj.status}${mayHaveBeenDone(obj.status)}`);
     return 1;
   }
   const ref = await call(ctx, "POST", "/git/refs", { ref: `refs/tags/${name}`, sha: obj.json.sha });
   if (ref.status === 422) {
     // Another run created the ref between our check and our create (review round 1, B7): done if
-    // it is the same commit, refused if not — the same rule as the check at the top.
-    const raced = await peel(ctx, name);
+    // it is the same commit, refused if not — the same rule as the check at the top. Read as a
+    // read-back, lag retried (round 11: a lagging 404 said "no such tag exists" falsely).
+    let raced: string | null;
+    try {
+      raced = await peelSettled(ctx, name);
+    } catch (err) {
+      ctx.log(`creating ref refs/tags/${name}: HTTP 422, and the tag could not be read (${err instanceof Error ? err.message : err}); re-run the job: it reads what exists first`);
+      return 1;
+    }
     if (raced === ctx.sha) {
       ctx.log(`tag ${name} was created concurrently at ${ctx.sha}: done`);
       return 0;
@@ -257,7 +271,7 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
     return 1;
   }
   if (ref.status !== 201) {
-    ctx.log(`creating ref refs/tags/${name}: HTTP ${ref.status}`);
+    ctx.log(`creating ref refs/tags/${name}: HTTP ${ref.status}${mayHaveBeenDone(ref.status)}`);
     return 1;
   }
   const back = await readBack(ctx, name, "the tag was CREATED");
@@ -356,12 +370,22 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     return 1;
   }
   if (made.status !== 201) {
-    ctx.log(`creating release ${name}: HTTP ${made.status}`);
+    ctx.log(`creating release ${name}: HTTP ${made.status}${mayHaveBeenDone(made.status)}`);
     return 1;
   }
-  const back = await settledGet(ctx, `/releases/tags/${encodeURIComponent(name)}`); // just created (round 8)
-  if (back.status !== 200 || back.json.tag_name !== name || back.json.draft !== false) {
-    ctx.log(`READ-BACK FAILED: release ${name}: HTTP ${back.status}, draft=${back.json?.draft}`);
+  // The page's OWN read-back (round 11: after a 201 it failed bare, or crashed on an empty body,
+  // never saying the page had been made). Every failure here says so.
+  const created = `the page was CREATED (HTTP 201)`;
+  let back: { status: number; json: any };
+  try {
+    back = await settledGet(ctx, `/releases/tags/${encodeURIComponent(name)}`); // just created (round 8)
+  } catch (err) {
+    ctx.log(`READ-BACK FAILED: ${created}, but it could not be read back (${err instanceof Error ? err.message : err}); ${RERUN}`);
+    return 1;
+  }
+  if (back.status !== 200 || back.json?.tag_name !== name || back.json?.draft !== false) {
+    const why = back.status === 404 ? "HTTP 404 — a page made as a DRAFT is invisible to this lookup" : `HTTP ${back.status}, tag_name=${back.json?.tag_name}, draft=${back.json?.draft}`;
+    ctx.log(`READ-BACK FAILED: ${created}, but reading it back gave ${why}; ${RERUN}`);
     return 1;
   }
   const again = await readBack(ctx, name, "the page was CREATED");
@@ -370,7 +394,7 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     ctx.log(`READ-BACK FAILED: after the page, ${name} peels to ${again}, expected ${ctx.sha}`);
     return 1;
   }
-  ctx.log(`release ${name} created: ${back.json.html_url}`);
+  ctx.log(`release ${name} created: ${back.json?.html_url}`);
   return 0;
 }
 
@@ -420,6 +444,10 @@ async function main(argv: string[]): Promise<number> {
   const version = rootVersion(readFileSync("src/root.zig", "utf8"));
   if (cmd === "is-release") {
     const rel = await isRelease(ctx, version);
+    // 🔒 A release's notes are read HERE, in `checks`, before any tag (round 11): the `release` job
+    // reads them only after `tag` has published the tag, and a bad entry then leaves a tag with no
+    // page. A bad entry fails THIS step — `checks` red, nothing tagged.
+    if (rel) releaseNotes(readFileSync("cmem/release.md", "utf8"), version, "?");
     const out = `version=${version}\ntag=v${version}\nrelease=${rel}\n`;
     // APPENDED, never rewritten (round 8: a failed read of the file dropped the earlier outputs).
     if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, out);

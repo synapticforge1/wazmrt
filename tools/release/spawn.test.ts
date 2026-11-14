@@ -3,11 +3,11 @@
 // real runner: what Bun alone reads as 0 must be a failure, and Ctrl-C must read as interrupted.
 // Run: `bun test tools/release`.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, linkSync, lstatSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { basename, join } from "node:path";
+import { basename, join, win32 } from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathOf, plan, runner, splitPath, status, whichWin } from "./spawn.ts";
+import { DEFAULT_PATHEXT, checkPath, pathOf, plan, runner, splitPath, status, whichWin } from "./spawn.ts";
 
 test("plan: elsewhere the child runs directly", () => {
   expect(plan("zig", ["build", "test"], "linux")).toEqual({ file: "zig", args: ["build", "test"], windowsVerbatimArguments: false });
@@ -39,32 +39,30 @@ test("plan: a path rooted without a drive is drive-relative: refused; UNC and dr
   expect(plan("zig", [], "win32", "cmd.exe", () => "C:/tools/zig.exe").missing).toBeUndefined();
 });
 
-test("splitPath: entries split as cmd.exe splits them — spaces KEPT, but the first entry's leading ones (rounds 8–10, measured)", () => {
-  expect(splitPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toEqual(["C:\\a b\\shims ", "C:\\x", " ", "D:\\y"]);
+test("splitPath: on `;` outside quotes, quotes dropped, empty entries skipped", () => {
   expect(splitPath('"C:\\a;b";C:\\c')).toEqual(["C:\\a;b", "C:\\c"]); // `;` inside quotes is part of the folder
-  expect(splitPath('" C:\\dir "')).toEqual([" C:\\dir "]); // spaces INSIDE the quotes stay, as in cmd
-  expect(splitPath("X; D;Y")).toEqual(["X", " D", "Y"]); // cmd finds nothing in " D"
-  expect(splitPath("  D;Y")).toEqual(["D", "Y"]); // ... but ignores the FIRST entry's leading spaces
   expect(splitPath("D;;Y;")).toEqual(["D", "Y"]);
+  expect(splitPath('X;"D";Y')).toEqual(["X", "D", "Y"]);
 });
 
-test("whichWin: a padded entry is SKIPPED as cmd skips it, so the later folder's program runs (round 10, measured)", () => {
-  const padded = join(stubDir, "pad1");
-  const later = join(stubDir, "pad2");
-  mkdirSync(padded, { recursive: true });
-  mkdirSync(later, { recursive: true });
-  writeFileSync(join(padded, "ptool.exe"), "");
-  writeFileSync(join(later, "ptool.exe"), "");
-  const lc = (p: string | null) => p?.toLowerCase() ?? null;
-  for (const path of [`X; ${padded};${later}`, `X;${padded} ;${later}`, `X;"${padded}" ;${later}`])
-    expect(lc(whichWin("ptool", path))).toBe(lc(join(later, "ptool.exe")));
-  expect(lc(whichWin("ptool", ` ${padded};${later}`))).toBe(lc(join(padded, "ptool.exe"))); // the first entry's leading space
-});
-
-test("whichWin: a PATH that STARTS with an empty entry is refused, not guessed (round 10: cmd found nothing there)", () => {
-  expect(() => whichWin("zig", ";C:\\bin")).toThrow("starts with an empty entry");
-  expect(() => whichWin("zig", "  ;C:\\bin")).toThrow("starts with an empty entry");
-  expect(() => whichWin("C:\\bin\\zig.exe", ";C:\\bin")).not.toThrow(); // a path is not searched
+test("checkPath: every shape cmd.exe reads differently BY MACHINE or from Node is refused by name (round 11, measured)", () => {
+  const refused: [string, string, string][] = [
+    [" C:\\d;C:\\y", "", "leading or trailing spaces"], // the first entry: depends on NoDefaultCurrentDirectoryInExePath
+    ["\tC:\\d;C:\\y", "", "leading or trailing spaces"],
+    ["C:\\x; C:\\d", "", "leading or trailing spaces"],
+    ["C:\\d ;C:\\y", "", "leading or trailing spaces"],
+    ['C:\\x;" C:\\d";C:\\y', "", "leading or trailing spaces"], // spaces INSIDE the quotes
+    [";C:\\d", "", "starts with an empty entry"], // also depends on the variable
+    ["  ;C:\\d", "", "starts with an empty entry"],
+    ['C:\\x;"";C:\\d', "", "quoted empty entry"], // ends cmd's search
+    ["C:\\d.;C:\\y", "", "ending in `.`"], // cmd drops the dot, Node does not
+    ['C:\\x;"C:\\d;C:\\y', "", "unclosed double quote"],
+    ["C:\\d", ".COM; .EXE", "PATHEXT holds"], // cmd does not trim PATHEXT
+    ["C:\\d", ".COM;;.EXE", "PATHEXT holds"],
+  ];
+  for (const [path, pathext, why] of refused) expect(() => checkPath(path, pathext || DEFAULT_PATHEXT)).toThrow(why);
+  expect(() => checkPath("C:\\x;;C:\\d;", DEFAULT_PATHEXT)).not.toThrow(); // empty entries LATER are read alike
+  expect(() => whichWin("C:\\bin\\zig.exe", ";C:\\bin")).not.toThrow(); // a full path is not searched
 });
 
 test("whichWin: an App Execution Alias (stat cannot open it) counts as a program, as cmd runs it (round 10, measured)", () => {
@@ -193,6 +191,7 @@ const stubDir = mkdtempSync(join(tmpdir(), "wazmrt-spawn-stub-"));
 const exe = (n: string) => join(stubDir, process.platform === "win32" ? `${n}.exe` : n);
 const stub = exe("stub");
 const echo = exe("echo-argv");
+const whereExe = exe("where-am-i"); // prints the path it was started from
 afterAll(() => rmSync(stubDir, { recursive: true, force: true }));
 beforeAll(() => {
   writeFileSync(
@@ -207,7 +206,16 @@ int main(int argc, char **argv) { return argc > 1 ? (int)strtoul(argv[1], 0, 0) 
 int main(int argc, char **argv) { for (int i = 1; i < argc; i++) printf("[%s]\\n", argv[i]); return 0; }
 `,
   );
-  for (const [src, out] of [["stub.c", stub], ["echo.c", echo]]) {
+  writeFileSync(
+    join(stubDir, "where.c"),
+    process.platform === "win32"
+      ? `#include <windows.h>
+#include <stdio.h>
+int main(void) { char b[MAX_PATH]; GetModuleFileNameA(NULL, b, MAX_PATH); printf("%s\\n", b); return 0; }
+`
+      : "int main(void) { return 0; }\n",
+  );
+  for (const [src, out] of [["stub.c", stub], ["echo.c", echo], ["where.c", whereExe]]) {
     const cc = spawnSync("zig", ["cc", join(stubDir, src), "-o", out], { encoding: "utf8" });
     if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
     // Run each once HERE: the first run of a new .exe is slow on Windows (measured 11.5 s; likely the
@@ -215,6 +223,52 @@ int main(int argc, char **argv) { for (int i = 1; i < argc; i++) printf("[%s]\\n
     spawnSync(out, ["0"], { encoding: "utf8" });
   }
 }, 600_000); // a cold `zig cc` builds the C library first: see ZIG_COLD_MS in gate.test.ts (round 9)
+
+test("DIFFERENTIAL: on every PATH shape accepted, whichWin picks the program the REAL cmd.exe runs — with NoDefaultCurrentDirectoryInExePath set AND unset (round 11)", () => {
+  if (process.platform !== "win32") return;
+  const root = join(stubDir, "diff");
+  const dir = (n: string) => {
+    const d = join(root, n);
+    mkdirSync(d, { recursive: true });
+    return d;
+  };
+  const [D, Y, X, semi, J] = [dir("D"), dir("Y"), dir("X"), dir("a;b"), dir("J")];
+  const empty = dir("cwd-empty");
+  // HARD links of one already-run stub: the same file, so no slow first run per folder.
+  for (const d of [D, Y, semi]) linkSync(whereExe, join(d, "zq.exe"));
+  // A DANGLING junction named zq.exe (round 11: cmd skips it).
+  const gone = dir("gone");
+  symlinkSync(gone, join(J, "zq.exe"), "junction");
+  rmSync(gone, { recursive: true, force: true });
+  const shapes = [
+    `${D};${Y}`,
+    `${X};${D};${Y}`,
+    `${X};;${D}`,
+    `${D};`,
+    `"${D}";${X}`,
+    `${X};"${D}";${Y}`,
+    `${X};${D}\\;${Y}`,
+    `${X};${D.replaceAll("\\", "/")}/;${Y}`,
+    `${X};${Y}`,
+    `${X}`,
+    `"${semi}";${Y}`,
+    `${J};${Y}`,
+  ];
+  const cmdRuns = (path: string, flag: boolean): string | null => {
+    const env: Record<string, string> = {};
+    for (const [k, v] of Object.entries(process.env))
+      if (v !== undefined && !["PATH", "NODEFAULTCURRENTDIRECTORYINEXEPATH"].includes(k.toUpperCase())) env[k] = v;
+    env.PATH = path;
+    if (flag) env.NoDefaultCurrentDirectoryInExePath = "1";
+    const r = spawnSync(process.env.ComSpec ?? "cmd.exe", ["/d", "/c", "zq"], { cwd: empty, env, encoding: "utf8" });
+    return r.status === 0 && r.stdout.trim() ? r.stdout.trim().toLowerCase() : null;
+  };
+  const norm = (p: string | null) => (p === null ? null : win32.normalize(p).toLowerCase());
+  for (const path of shapes) {
+    const ours = norm(whichWin("zq", path));
+    for (const flag of [true, false]) expect(`${path} [variable ${flag ? "set" : "unset"}]: ${ours}`).toBe(`${path} [variable ${flag ? "set" : "unset"}]: ${norm(cmdRuns(path, flag))}`);
+  }
+}, 60_000);
 
 test("end to end: every argument the plan ALLOWS arrives exactly, one argument each (round 6)", () => {
   const args = ["Program Files (x86)", "a&b", "a|b", "a<b", "a>b", "a^b", "a b c", "C:\\dir\\x", "", "=,;@~", "HEAD~1:src/root.zig", "-Dtestsuite=D:\\a\\_temp\\corpus\\x"];

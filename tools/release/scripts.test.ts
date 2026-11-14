@@ -46,6 +46,8 @@ const FILES: Record<string, (v: string) => string> = {
   "cmem/overview.md": (v) => `├── build.zig.zon # (name .wazmrt, v${v}, min zig 0.17.1)\n`,
 };
 
+const NOTES = "## Release History\n\n### `5.0.2` — test\n\nA patch.\n\n### `5.0.9` — test\n\nA skip.\n\n### `5.0.1` — test\n\nThe last.\n";
+
 /** A repo at version `v`, released (tag v<v> on origin) unless `released` is false. */
 function repo(v = "5.0.1", released = true) {
   const root = mkdtempSync(join(tmpdir(), "wazmrt-release-test-"));
@@ -62,6 +64,8 @@ function repo(v = "5.0.1", released = true) {
     writeFileSync(join(work, f), body(v));
   }
   writeFileSync(join(work, "README.md"), "readme\n");
+  // The release notes the bump needs (round 11), for the next patch and minor of 5.0.1.
+  writeFileSync(join(work, "cmem/release.md"), NOTES);
   sh(work, "add", ".");
   sh(work, "commit", "-q", "-m", "start");
   sh(work, "push", "-q", "origin", "main");
@@ -208,6 +212,16 @@ describe("bump.ts", () => {
     expect(r).toBe(0);
     expect(err).not.toContain("REFUSED");
     expect(sh(work, "log", "-1", "--format=%s")).toBe("bump to v5.0.2");
+  });
+  test("no release-notes entry for the NEW version: refused before anything is written (round 11)", async () => {
+    const { work } = repo();
+    writeFileSync(join(work, "cmem/release.md"), "## Release History\n\n### `5.0.1` — test\n\nThe last.\n");
+    sh(work, "commit", "-q", "-am", "notes without 5.0.2");
+    const [r, err] = await captured(() => bump(["patch"], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: the release notes for 5.0.2");
+    expect(sh(work, "status", "--porcelain")).toBe("");
+    expect(read(work, "src/root.zig")).toBe(FILES["src/root.zig"]("5.0.1"));
   });
   test("a git command failing before any write: a REFUSED line, not a thrown error (round 7)", async () => {
     const { work } = repo();
@@ -666,6 +680,18 @@ describe("push.ts", () => {
     });
     expect(await code(() => push([], work, late))).toBe(0);
     expect(remoteMain(work).split(/\s+/)[0]).toBe(checked);
+  });
+  test("a bump commit whose OWN release notes lack its version: refused before the push (round 11)", async () => {
+    const { work } = repo();
+    writeFileSync(join(work, "cmem/release.md"), "## Release History\n\n### `5.0.1` — test\n\nThe last.\n");
+    sh(work, "commit", "-q", "-am", "notes without 5.0.2");
+    for (const [f, body] of Object.entries(FILES)) writeFileSync(join(work, f), body("5.0.2"));
+    sh(work, "commit", "-q", "-am", "bump to v5.0.2"); // by hand: bump.ts would have refused
+    const before = remoteMain(work);
+    const [r, err] = await captured(() => push([], work, fake(work)));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED: the bump commit's release notes");
+    expect(remoteMain(work)).toBe(before);
   });
   test("a bump that is not ONE level up (5.0.1 -> 5.0.9): refused (round 5)", async () => {
     const { work } = repo();

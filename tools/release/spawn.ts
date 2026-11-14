@@ -46,15 +46,36 @@ export function pathOf(env: Record<string, string | undefined>): string {
 }
 
 /**
- * A Windows PATH split as cmd.exe splits it — measured against cmd.exe itself (rounds 8–10):
- *   - `;` separates entries only OUTSIDE double quotes (`"C:\a;b"` is ONE folder); quotes are dropped;
- *   - spaces are KEPT as written (round 10, measured: cmd finds nothing in `C:\a; D` or `D ;X` or
- *     `"D" ;X` — round 9 trimmed them, and so ran a program cmd would have skipped) — except a
- *     LEADING space on the FIRST entry, which cmd ignores (` D` finds D);
- *   - empty entries are skipped; but a PATH that STARTS with one (`;D`) found nothing in cmd for a
- *     reason not pinned down, so `whichWin` refuses such a PATH instead of guessing.
+ * 🔒 Round 11 (measured against cmd.exe): cmd does NOT read every PATH the same way on every
+ * machine — the first entry's leading spaces and an empty first entry depend on the variable
+ * `NoDefaultCurrentDirectoryInExePath` (set on some machines, unset on GitHub's runners), a quoted
+ * empty entry `""` ENDS cmd's search, a folder written `D.` is found by cmd (Win32 drops the dot)
+ * but not by Node, spaces in PATHEXT make cmd find nothing. No imitation of cmd can be right in
+ * both modes, so the tools do not imitate it on those shapes: a PATH holding one is REFUSED by
+ * name (`checkPath`). On every shape accepted, cmd reads PATH the same way in both modes — held by
+ * a differential test that runs the real cmd.exe, with the variable set and unset.
  */
-export function splitPath(path: string): string[] {
+const PATH_ODD: [RegExp, string][] = [
+  [/^[ \t]|[ \t]$/, "an entry with leading or trailing spaces or tabs"],
+  [/\.$/, "an entry ending in `.` (cmd drops the dot, Node does not)"],
+];
+
+/** Refuse a PATH (or PATHEXT) shape cmd.exe reads differently by machine or from Node; see `PATH_ODD`. */
+export function checkPath(path: string, pathext: string): void {
+  if ((path.match(/"/g)?.length ?? 0) % 2) throw new Error("PATH holds an unclosed double quote; cmd.exe reads the rest of PATH as one entry");
+  const raw = rawEntries(path);
+  if (raw.length > 1 && raw[0].trim() === "") throw new Error('PATH starts with an empty entry (";…"); cmd.exe reads that differently by machine — remove the leading ";"');
+  for (const r of raw) {
+    if (r !== "" && r.replaceAll('"', "") === "") throw new Error('PATH holds a quoted empty entry (""), which ENDS cmd.exe\'s search — remove it');
+    for (const e of [r, r.replaceAll('"', "")])
+      for (const [re, why] of PATH_ODD) if (e !== "" && re.test(e)) throw new Error(`PATH holds ${why}: ${JSON.stringify(r)} — cmd.exe reads it differently by machine; fix PATH`);
+  }
+  for (const e of pathext.split(";"))
+    if (!/^\.[^\s.;]+$/.test(e)) throw new Error(`PATHEXT holds ${JSON.stringify(e)}, not a plain ".EXT" — cmd.exe reads it differently; fix PATHEXT`);
+}
+
+/** PATH split on `;` outside double quotes, each entry as written (quotes kept). */
+function rawEntries(path: string): string[] {
   const raw: string[] = [];
   let cur = "";
   let quoted = false;
@@ -68,12 +89,17 @@ export function splitPath(path: string): string[] {
     cur += ch;
   }
   raw.push(cur);
-  return raw.map((e, i) => (i === 0 ? e.trimStart() : e).replaceAll('"', "")).filter((e) => e !== "");
+  return raw;
 }
 
-/** Does this PATH start with an empty entry (after the first entry's leading spaces)? See `splitPath`. */
-export function startsEmpty(path: string): boolean {
-  return /^\s*;/.test(path);
+/**
+ * A PATH's folders, split as cmd.exe splits an ACCEPTED path (see `checkPath`): on `;` outside
+ * double quotes (`"C:\a;b"` is ONE folder), quotes dropped, empty entries skipped.
+ */
+export function splitPath(path: string): string[] {
+  return rawEntries(path)
+    .map((e) => e.replaceAll('"', ""))
+    .filter((e) => e !== "");
 }
 
 /** The PATHEXT cmd.exe uses when the variable is unset or empty. */
@@ -85,15 +111,20 @@ export const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
  * it already has an extension). Null when there is none.
  */
 export function whichWin(cmd: string, path: string, pathext = DEFAULT_PATHEXT): string | null {
-  const exts = pathext.split(";").map((e) => e.trim()).filter((e) => e !== "");
+  const bare = !/[\\/]/.test(cmd);
+  checkPath(bare ? path : "", pathext); // a path given in full is not searched; its PATHEXT still counts
+  const exts = pathext.split(";");
   const named = /\.[^.\\/]+$/.test(cmd);
   const candidates = (base: string) => (named ? [base, ...exts.map((e) => base + e)] : exts.map((e) => base + e));
   const isFile = (p: string) => {
     try {
       return statSync(p).isFile();
-    } catch {
-      // An App Execution Alias (`…\WindowsApps\winget.exe`) is a reparse point `stat` cannot open
-      // (EACCES), yet cmd runs it (round 10, measured): a non-folder that `lstat` sees counts.
+    } catch (err) {
+      // An App Execution Alias (`…\WindowsApps\winget.exe`) is a reparse point `stat` may not
+      // OPEN (access denied), yet cmd runs it (round 10, measured): a non-folder that `lstat` sees
+      // counts — but not a DANGLING link (`stat`: not found), which cmd skips (round 11, measured).
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === "ENOENT" || code === "ENOTDIR") return false;
       try {
         return !lstatSync(p).isDirectory();
       } catch {
@@ -101,8 +132,6 @@ export function whichWin(cmd: string, path: string, pathext = DEFAULT_PATHEXT): 
       }
     }
   };
-  const bare = !/[\\/]/.test(cmd);
-  if (bare && startsEmpty(path)) throw new Error(`PATH starts with an empty entry (";…"); cmd.exe's search then differs (measured) — remove the leading ";"`);
   const bases = bare ? splitPath(path).map((dir) => win32.join(dir, cmd)) : [cmd];
   for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;
   return null;
