@@ -2,6 +2,9 @@
 // Every refusal must send NO write; every success must read back; every guard has a case that fails
 // without it (review round 1, B8: six guards had none).
 import { describe, expect, test } from "bun:test";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { type Ctx, call, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
 
 const SHA = "a".repeat(40);
@@ -30,6 +33,10 @@ interface MockOpts {
   lag?: Record<string, number>; // GET <exact path> answers 404 this many times first (a lagging read)
   refLagAfterCreate?: number; // after POST /git/refs, the tag's GET answers 404 this many times
   timeoutOn?: string; // "<METHOD> <path>": the fetch throws a TimeoutError
+  bodyTimeoutOn?: string; // "<METHOD> <path>": the answer's HEADERS arrive, then its body times out
+  lagStatus?: number; // what a lagging read answers (default 404)
+  tagObjLagAfterCreate?: number; // after POST /git/refs, GET /git/tags/<sha> answers lagStatus this many times
+  refLagAfterPage?: number; // after POST /releases, the tag's GET answers lagStatus this many times
 }
 
 function mock(o: MockOpts = {}) {
@@ -40,19 +47,30 @@ function mock(o: MockOpts = {}) {
   const bodies: any[] = [];
   const lag = { ...(o.lag ?? {}) };
   let refLag = 0;
+  let tagObjLag = 0;
   let n = 0;
   const reply = (status: number, json?: unknown) => new Response(json === undefined ? "" : JSON.stringify(json), { status });
   const fetch = async (url: string, init: RequestInit): Promise<Response> => {
     const path = url.replace("https://api.test/repos/o/r", "");
     const method = init.method ?? "GET";
     if (o.timeoutOn === `${method} ${path}`) throw new DOMException("The operation timed out.", "TimeoutError");
+    if (o.bodyTimeoutOn === `${method} ${path}`) {
+      if (method !== "GET") writes.push(`${method} ${path}`);
+      const stalled = new ReadableStream({ start: (c) => c.error(new DOMException("The operation timed out.", "TimeoutError")) });
+      return new Response(stalled, { status: method === "GET" ? 200 : 201 });
+    }
+    const lagged = () => reply(o.lagStatus ?? 404);
     if (method === "GET" && lag[path] > 0) {
       lag[path]--;
-      return reply(404);
+      return lagged();
     }
     if (method === "GET" && refLag > 0 && path.startsWith("/git/ref/tags/")) {
       refLag--;
-      return reply(404);
+      return lagged();
+    }
+    if (method === "GET" && tagObjLag > 0 && path.startsWith("/git/tags/")) {
+      tagObjLag--;
+      return lagged();
     }
     if (method !== "GET") {
       writes.push(`${method} ${path}`);
@@ -89,6 +107,7 @@ function mock(o: MockOpts = {}) {
       const b = bodies.at(-1);
       refs[b.ref.replace("refs/tags/", "")] = { type: "tag", sha: b.sha };
       refLag = o.refLagAfterCreate ?? 0;
+      tagObjLag = o.tagObjLagAfterCreate ?? 0;
       o.afterRefPost?.(refs);
       return reply(201, {});
     }
@@ -115,6 +134,7 @@ function mock(o: MockOpts = {}) {
       if (releases[b.tag_name]) return reply(422, { message: "Validation Failed", errors: [{ code: "already_exists", field: "tag_name" }] });
       // What the request asked for, unless the test makes GitHub answer otherwise (round 3, A2).
       releases[b.tag_name] = { draft: o.draftOnCreate ?? b.draft };
+      refLag = o.refLagAfterPage ?? 0;
       o.afterReleasePost?.(refs);
       return reply(201, { tag_name: b.tag_name });
     }
@@ -447,6 +467,35 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, timeoutOn: "POST /releases" });
     await expect(release(m.ctx(), TAG, "notes")).rejects.toThrow("it MAY have been done");
   });
+  test("a WRITE whose BODY times out (headers in) says it may have been done (round 9: it escaped bare)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, bodyTimeoutOn: "POST /releases" });
+    await expect(release(m.ctx(), TAG, "notes")).rejects.toThrow("it MAY have been done");
+  });
+  test("a 5xx is a lagging read too: read again, done (round 9: no test sent one)", async () => {
+    const m = mock({ lag: { [`/compare/${SHA}...main`]: 2 }, lagStatus: 502 });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("the tag OBJECT lags after the create (404): read again, done (round 9)", async () => {
+    const m = mock({ tagObjLagAfterCreate: 1 });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("the tag's ref answers 5xx after the create: read again, done (round 9)", async () => {
+    const m = mock({ refLagAfterCreate: 1, lagStatus: 503 });
+    expect(await tag(m.ctx(), TAG, "x")).toBe(0);
+  });
+  test("a tag read that never settles after the create: the LAST error stands, a failure", async () => {
+    const m = mock({ tagObjLagAfterCreate: 99 });
+    await expect(tag(m.ctx(), TAG, "x")).rejects.toThrow(/reading tag object .*: HTTP 404/);
+  });
+  test("a non-lag error in the read-back is not retried (a tag on a tree)", async () => {
+    const m = mock({ afterRefPost: (refs) => (refs[TAG] = { type: "tree", sha: SHA }) });
+    await expect(tag(m.ctx(), TAG, "x")).rejects.toThrow("not a commit");
+    expect(m.lines.join("\n")).not.toContain("GitHub may lag");
+  });
+  test("the tag read lags once right after the PAGE is made: read again, done (round 9: the second peel untested)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, refLagAfterPage: 1 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(0);
+  });
   test("a READ that times out says only that it timed out", async () => {
     const m = mock({ timeoutOn: `GET /git/ref/tags/${TAG}` });
     const err = await peel(m.ctx(), TAG).catch((e) => e as Error);
@@ -460,6 +509,36 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
   });
   test("the subject is trimmed: `bump to v5.0.1` with a trailing CR or space is the bump (round 8: untested)", async () => {
     expect(await isRelease(mock({ subject: "bump to v5.0.1 \r" }).ctx(), "5.0.1")).toBe(true);
+  });
+});
+
+describe("the CLI (main), end to end against a local fake GitHub", () => {
+  test("is-release APPENDS to GITHUB_OUTPUT, keeping what earlier steps wrote (round 9: untested)", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch(req) {
+        const u = new URL(req.url);
+        if (u.pathname === `/repos/o/r/git/commits/${SHA}`) return Response.json({ message: "docs: not a bump\n" });
+        return new Response("", { status: 404 });
+      },
+    });
+    const dir = mkdtempSync(join(tmpdir(), "wazmrt-ghout-"));
+    const out = join(dir, "github_output.txt");
+    writeFileSync(out, "earlier=1\n");
+    try {
+      const p = Bun.spawn([process.execPath, "tools/release/github.ts", "is-release"], {
+        env: { ...process.env, GITHUB_API_URL: `http://localhost:${server.port}`, GITHUB_REPOSITORY: "o/r", GITHUB_SHA: SHA, GITHUB_OUTPUT: out, GITHUB_TOKEN: "" },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      expect(await p.exited).toBe(0);
+      const text = readFileSync(out, "utf8");
+      expect(text.startsWith("earlier=1\n")).toBe(true);
+      expect(text).toContain("release=false");
+    } finally {
+      server.stop(true);
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

@@ -158,6 +158,37 @@ describe("bump.ts", () => {
     expect(err).not.toContain("RESTORE");
     expect(sh(work, "log", "-1", "--format=%s")).toBe("bump to v5.0.2");
   });
+  /** Move HEAD to a new commit with `subject` on `parent`, without touching the index or the files. */
+  const moveHead = (work: string, subject: string, parent = "HEAD") => {
+    const sha = sh(work, "commit-tree", `${parent}^{tree}`, "-p", parent, "-m", subject);
+    sh(work, "update-ref", "HEAD", sha);
+  };
+  test("HEAD moved during a failed commit, but to ANOTHER subject: not the bump — refused (round 9: untested)", async () => {
+    const { work } = repo();
+    const other = fake(work, "ok", (a) => {
+      if (a[0] === "commit") {
+        moveHead(work, "someone else's commit");
+        return FAIL;
+      }
+    });
+    const [r, err] = await captured(() => bump(["patch"], work, other));
+    expect(r).toBe(1);
+    expect(err).toContain("REFUSED");
+    expect(err).not.toContain("WAS made");
+  });
+  test("a `bump to v5.0.2` commit on the WRONG parent: not this bump — refused (round 9: untested)", async () => {
+    const { work } = repo();
+    const stacked = fake(work, "ok", (a) => {
+      if (a[0] === "commit") {
+        moveHead(work, "in between");
+        moveHead(work, "bump to v5.0.2");
+        return FAIL;
+      }
+    });
+    const [r, err] = await captured(() => bump(["patch"], work, stacked));
+    expect(r).toBe(1);
+    expect(err).not.toContain("WAS made");
+  });
   test("the final `git log` THROWING after a good commit (a runner that throws): exit 0, no REFUSED (round 8: untested)", async () => {
     const { work } = repo();
     const real = fake(work);
@@ -358,7 +389,7 @@ describe("bump.ts", () => {
     } finally {
       process.env[pathKey] = saved;
     }
-  }, 120_000);
+  }, 600_000); // a cold `zig cc` builds the C library first: see ZIG_COLD_MS in gate.test.ts (round 9)
   test("a place that did not move cleanly (the gate rewrote it): refused and restored (B4)", async () => {
     const { work } = repo();
     const run = fake(work);

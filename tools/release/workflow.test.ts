@@ -43,7 +43,7 @@ const EXE_RUN = "& { $PSNativeCommandUseErrorActionPreference = $false;"; // the
  * To change the workflow: edit it, run this test, review the diff of release.yml, then put the new
  * value printed below here — in the same commit, whose message says what changed and why.
  */
-const RELEASE_YML_SHA256 = "d06f4c9a01dfe0e6421995360923e7e7a127985bbb59fdecbbfba6cd1df266c6"; // round 8: last summary lines, colour dropped; RELEASE_TESTS_MIN 185
+const RELEASE_YML_SHA256 = "0fa4662b85726a14d80d83cd5f9fa1de0ee135bdddb3028a46d9422d06484f7f"; // round 9: output streamed (Tee-Object), step timeout 20 min; RELEASE_TESTS_MIN 199
 
 test("release.yml is exactly the reviewed text: any edit moves this pin, in the same commit (round 6)", () => {
   const text = readFileSync(".github/workflows/release.yml", "utf8").replace(/\r\n/g, "\n");
@@ -63,8 +63,17 @@ test("the COMMIT holds exactly one file under .github: release.yml (round 7: a c
 test("the commit holds no bun config: a bunfig preload could make every test pass with the count unchanged (round 8)", () => {
   const r = spawnSync("git", ["ls-tree", "-r", "--name-only", "HEAD"], { encoding: "utf8" });
   expect(r.status).toBe(0);
-  const configs = r.stdout.split(/\r?\n/).filter((f) => /(^|\/)\.?bunfig\.toml$/i.test(f));
+  const configs = r.stdout.split(/\r?\n/).filter((f) => BUNFIG.test(f));
   expect(configs).toEqual([]);
+});
+
+/** A bun config file, anywhere, any case — with a trailing dot or space too: Windows drops it at checkout, and bun then reads the file (round 9). */
+const BUNFIG = /(^|\/)\.?bunfig\.toml[. ]*$/i;
+
+test("BUNFIG matches every name bun would read on a Windows checkout, and nothing else", () => {
+  for (const f of ["bunfig.toml", ".bunfig.toml", "tools/release/bunfig.toml", "BunFig.TOML", "bunfig.toml.", "bunfig.toml ", "a/bunfig.toml. ."])
+    expect(`${f}: ${BUNFIG.test(f)}`).toBe(`${f}: true`);
+  for (const f of ["bunfig.toml.bak", "notbunfig.toml", "bunfig.tomlx", "docs/bunfig.md"]) expect(`${f}: ${BUNFIG.test(f)}`).toBe(`${f}: false`);
 });
 
 test("shellOf reads the workflow-level default (round 3, C1)", () => {
@@ -112,7 +121,8 @@ const OVERRIDE = /\$\{?(?:(?:global|script|local|private|using):)?(?:ErrorAction
 /** The ONE sanctioned scoped override: `$x = & { …$false; & <path>wazmrt.exe <args> }`, nothing else on the line. */
 const EXE_RUN_LINE = /^\$\w+ = & \{ \$PSNativeCommandUseErrorActionPreference = \$false; & ("[^"]*"|\S+)wazmrt\.exe"? [^;{}|&]* \}$/;
 /** The one other sanctioned scoped override: the self-test run, its output kept for the summary check (round 7, A1). */
-const BUN_TEST_LINE = "$t = & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 }";
+const BUN_TEST_LINE =
+  '& { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 } | ForEach-Object { "$_" } | Tee-Object -Variable t';
 /** The exit-code check that must follow it: exactly these shapes, and it must throw. */
 const EXIT_CHECK = /^if \(\$LASTEXITCODE -ne 0( -or \(\$hello -join "`n"\) -ne 'hello from wasi')?\) \{ throw "[^"]*" \}$/;
 
@@ -300,6 +310,9 @@ const STEP_IF: Record<string, string> = Object.fromEntries(
   ].map((s) => [`checks/${s}`, "${{ !cancelled() }}"]),
 );
 
+/** The only step with its own timeout: the self-tests, so a hang fails fast (round 9). */
+const STEP_TIMEOUT: Record<string, number> = { "checks/Release-tool self-tests": 20 };
+
 /** The only steps with an `env`: the three that call GitHub, with the job's token and nothing else. */
 const STEP_ENV: Record<string, Record<string, string>> = {
   "checks/Is this a release?": { GITHUB_TOKEN: "${{ github.token }}" },
@@ -324,7 +337,7 @@ test("the jobs, exactly: runs-on, needs, if, timeout, and no other key (no conti
 });
 
 test("the steps, exactly: names in order; `if` and `env` only where listed; no other key", () => {
-  const allowed = new Set(["name", "id", "run", "if", "env"]);
+  const allowed = new Set(["name", "id", "run", "if", "env", "timeout-minutes"]);
   for (const [name, want] of Object.entries(JOBS)) {
     const steps = wf.jobs[name].steps as any[];
     expect({ name, steps: steps.map((s) => s.name) }).toEqual({ name, steps: want.steps });
@@ -333,6 +346,7 @@ test("the steps, exactly: names in order; `if` and `env` only where listed; no o
       for (const k of Object.keys(s)) expect(`${where}: ${allowed.has(k) ? "ok" : `key ${k}`}`).toBe(`${where}: ok`);
       expect({ where, if: s.if }).toEqual({ where, if: STEP_IF[where] });
       expect({ where, env: s.env }).toEqual({ where, env: STEP_ENV[where] });
+      expect({ where, timeout: s["timeout-minutes"] }).toEqual({ where, timeout: STEP_TIMEOUT[where] });
     }
   }
   expect(wf.jobs.checks.steps.find((s: any) => s.name === "Is this a release?").id).toBe("isrel");
@@ -359,7 +373,7 @@ const CHECK_LINES: Record<string, string[]> = {
   "checks/Release-tool self-tests": [
     BUN_TEST_LINE,
     'if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }',
-    "$s = (($t | ForEach-Object { \"$_\" }) -join \"`n\") -replace '\\x1b\\[[0-9;]*m', ''",
+    "$s = ($t -join \"`n\") -replace '\\x1b\\[[0-9;]*m', ''",
     "$pass = @([regex]::Matches($s, '(?m)^\\s*(\\d+) pass\\s*$')) | Select-Object -Last 1",
     "$fail = @([regex]::Matches($s, '(?m)^\\s*(\\d+) fail\\s*$')) | Select-Object -Last 1",
     `if (-not $pass -or -not $fail -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $fail.Groups[1].Value -ne '0') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }`,

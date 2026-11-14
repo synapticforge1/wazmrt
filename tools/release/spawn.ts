@@ -12,10 +12,11 @@
 // mapping never produces — so 58 also means "interrupted". Elsewhere the child runs directly.
 //
 // "Missing" is never read from an exit code (round 7: a real exit of 9009 — cmd's "not recognized"
-// — or 127 read as missing). On Windows the command is RESOLVED first (`Bun.which`, PATH and
-// PATHEXT) and cmd is handed that absolute path — so a same-named file in the current directory,
-// which cmd would search first, is never the one run; unresolved, it is missing and nothing runs.
-// Elsewhere, missing is the spawn's ENOENT.
+// — or 127 read as missing). On Windows the command is RESOLVED first, by `whichWin`, which searches
+// PATH as cmd.exe does (entries split outside quotes, each folder with each PATHEXT extension in
+// order; round 9 — `Bun.which` could not take an entry holding `;`), and cmd is handed that
+// absolute path — so a same-named file in the current directory, which cmd would search first, is
+// never the one run; unresolved, it is missing and nothing runs. Elsewhere, missing is ENOENT.
 //
 // An argument that would not reach the child EXACTLY is REFUSED, never quoted around (round 6,
 // measured with a stub that prints its argv): `"` ends the quoting; `%` and `!` are expanded by
@@ -25,34 +26,66 @@
 // cmd's limit is refused by name.
 
 import { spawnSync } from "node:child_process";
+import { statSync } from "node:fs";
 import { win32 } from "node:path";
 
 export const EXIT_INTERRUPTED = 130;
 const CMD_UNSAFE = /["%!\r\n]|\\$/;
 const CMD_MAX_LINE = 8000; // cmd.exe's limit is 8191 characters, the mapping included
 
-/**
- * The PATH the child will inherit, found case-insensitively (Windows spells it `Path`). Passed to
- * `Bun.which` explicitly: measured (round 7), its default did not see a PATH changed in
- * `process.env` at run time — it would resolve a command the child itself would not run.
- */
-export function pathOf(env: Record<string, string | undefined>): string {
+/** An environment variable the child will inherit, found case-insensitively (Windows spells it `Path`). */
+function envOf(env: Record<string, string | undefined>, name: string): string {
   // The first NON-EMPTY spelling (round 7: `{PATH: "", Path: "B"}` gave "").
-  const key = Object.keys(env).find((k) => k.toUpperCase() === "PATH" && env[k]);
+  const key = Object.keys(env).find((k) => k.toUpperCase() === name && env[k]);
   return (key && env[key]) || "";
 }
 
+/** The PATH the child will inherit — read at run time (round 7: `Bun.which`'s default did not see a changed PATH). */
+export function pathOf(env: Record<string, string | undefined>): string {
+  return envOf(env, "PATH");
+}
+
 /**
- * A Windows PATH as cmd.exe reads it: each entry's surrounding spaces and double quotes dropped
- * (round 8, measured: `Bun.which` read a `"C:\…\shims"` entry as no entry at all, so a zig that runs
- * was reported missing).
+ * A Windows PATH split as cmd.exe splits it (measured with cmd.exe, rounds 8–9): `;` separates
+ * entries only OUTSIDE double quotes (`"C:\a;b"` is ONE folder); an entry's surrounding spaces are
+ * dropped, then its quotes — spaces INSIDE the quotes stay (cmd finds nothing in `" C:\dir "`).
  */
-export function cleanPath(path: string): string {
-  return path
-    .split(";")
-    .map((e) => e.trim().replace(/^"(.*)"$/, "$1").trim())
-    .filter((e) => e !== "")
-    .join(";");
+export function splitPath(path: string): string[] {
+  const raw: string[] = [];
+  let cur = "";
+  let quoted = false;
+  for (const ch of path) {
+    if (ch === '"') quoted = !quoted;
+    if (ch === ";" && !quoted) {
+      raw.push(cur);
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  raw.push(cur);
+  return raw.map((e) => e.trim().replaceAll('"', "")).filter((e) => e !== "");
+}
+
+/**
+ * The file cmd.exe would run for `cmd`: a name with a folder is looked up where it says; a bare name
+ * in each PATH folder in order, each with each PATHEXT extension in order (and as written first, if
+ * it already has an extension). Null when there is none.
+ */
+export function whichWin(cmd: string, path: string, pathext = ".COM;.EXE;.BAT;.CMD"): string | null {
+  const exts = pathext.split(";").map((e) => e.trim()).filter((e) => e !== "");
+  const named = /\.[^.\\/]+$/.test(cmd);
+  const candidates = (base: string) => (named ? [base, ...exts.map((e) => base + e)] : exts.map((e) => base + e));
+  const isFile = (p: string) => {
+    try {
+      return statSync(p).isFile();
+    } catch {
+      return false;
+    }
+  };
+  const bases = /[\\/]/.test(cmd) ? [cmd] : splitPath(path).map((dir) => win32.join(dir, cmd));
+  for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;
+  return null;
 }
 
 /** What runs: `missing` when the command does not resolve (Windows) — then nothing may run. */
@@ -63,7 +96,7 @@ export function plan(
   args: string[],
   platform: string = process.platform,
   comspec = process.env.ComSpec,
-  resolve: (cmd: string) => string | null = (c) => Bun.which(c, { PATH: cleanPath(pathOf(process.env)) }),
+  resolve: (cmd: string) => string | null = (c) => whichWin(c, pathOf(process.env), envOf(process.env, "PATHEXT") || undefined),
 ): Plan {
   if (platform !== "win32") return { file: cmd, args, windowsVerbatimArguments: false };
   const exe = resolve(cmd);
@@ -74,7 +107,8 @@ export function plan(
   // the mapping, so a 256 reads as a pass again. Both refused; zig, git and bun are `.exe`.
   // `\dir\x.exe` counts as absolute to `isAbsolute` but is DRIVE-relative (round 8): refused too;
   // a UNC path (`\\server\…`) and a drive path pass.
-  if (!win32.isAbsolute(exe) || /^[\\/](?![\\/])/.test(exe))
+  // Three leading separators is no UNC path either (round 9).
+  if (!win32.isAbsolute(exe) || /^[\\/](?![\\/])/.test(exe) || /^[\\/]{3}/.test(exe))
     throw new Error(`${cmd} resolves to ${exe}, a relative path (a relative PATH entry); refusing to guess which file runs`);
   if (/\.(cmd|bat)$/i.test(exe)) throw new Error(`${cmd} resolves to the batch file ${exe}; its own \`exit\` would bypass the exit-code mapping — put the real .exe first on PATH`);
   if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds " % or !, which cmd.exe would change; install it on a path without them`);

@@ -13,6 +13,35 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 9 — round 8's fixes, and CI read by the owner (owner: "proceed")
+
+Three fresh reviewers on Sonnet (`github.ts`; `push` / `bump` / `spawn`; the workflow's summary
+check) — **no wrong tag, page or verdict** — and **two CI facts only the owner could read**: round
+6's push went RED in "Release-tool self-tests" (`1 tests failed: (unnamed) [120037.98ms] — a
+beforeEach/afterEach hook timed out`), and the round-8 run looked stuck in that step. All fixed.
+`bun test tools/release` 185 → **199**; `RELEASE_TESTS_MIN` 199, the pin moved (diff reviewed);
+13 mutants, all caught. Committed and pushed 2026-11-13 after the owner's pause (gate green on
+resume) — that push's CI run is the first pwsh 7 run of the streamed step.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A1** | 🔒 CI red for correct work: a Zig compile against a COLD cache | CI's self-test step runs before any build, so Zig's cache is empty; the stub builds (and the one real `zig build` case) had 120 s. Measured here, 32 logical processors: a cold `zig cc` of a C stub 12.1 s (it builds the C library first), 0.1 s warm; a Zig-only stub 4 s cold; a windows-latest runner has 4. Every case or hook that waits on a Zig compile now has 10 minutes (`ZIG_COLD_MS`), the reason beside it. The log names no file, so WHICH hook timed out is inferred | the owner's log; the measurements; ⚠️ CI's next run is the proof |
+| **A2** | the self-test step was SILENT for minutes (captured whole) | a hang would show nothing until the job's 60 minutes. The output now streams through `Tee-Object` and is kept for the summary check; the step has `timeout-minutes: 20` (held by the structure table) | 5.1: lines stream, `$LASTEXITCODE` survives the pipeline (3 / 0), `$t` holds every line; ⚠️ pwsh 7 is CI's half |
+| **B1** | a timeout while reading the BODY escaped bare | the body is read under the same handling as the request | R11G1; a case where headers arrive and the body stalls |
+| **B2** | the tag read-back retried only an ABSENT ref | a 404 / 5xx inside the peel (the ref or the tag object) is a lagging read too; the last error stands; a non-lag error is not retried | R11G2–G3; four cases |
+| **B3** | a quoted PATH entry holding `;` read as missing | measured: cmd.exe finds a program in `"C:\a;b"`. `Bun.which` takes PATH as one `;`-joined string and cannot express that, so the lookup is now our own, as cmd does it: `splitPath` (split outside quotes; outer spaces dropped, spaces inside quotes kept — cmd finds nothing in `" C:\dir "`), then each folder × each PATHEXT extension in order (`whichWin`) | R11S1–S3; an end-to-end run from a folder named `a;b`. A freshly copied .exe's FIRST run took 11.5 s here (likely the antivirus scan): that case has 60 s |
+| **C** | guards no test held | `landed()`'s subject and parent (two cases that move HEAD wrongly during a "failed" commit); the 5xx retry; the page's second tag read; `GITHUB_OUTPUT` appended — now run end to end: the CLI against a local fake GitHub (`Bun.serve`), an earlier step's line kept | R11K1–K2, R11G4–G6 |
+| **D** | small | a committed `bunfig.toml.` / `bunfig.toml ` (Windows drops the dot or space at checkout) is caught, the pattern held by its own cases; three leading separators is no UNC path | R11W1, R11S4 |
+
+**Not fixed:** a future test printing a bare "N fail" line AFTER bun's summary would be read as the
+summary (nothing prints one; it would be a loud refusal, not a silent pass).
+
+🎓 **The owner's CI log found what nine rounds of review could not**: the reviewers and this
+session see only one machine with a warm cache. "CI's half" is not a footnote — it is the only test
+of anything that depends on the runner.
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 8 — round 7's fixes and the last two items (owner: "fix all")
 
 Three fresh reviewers on Sonnet (`spawn` / `bump` / `push` / `gate`; the workflow and its new
@@ -34,7 +63,9 @@ and pushed 2026-11-13.
 | **C3** | small | `GITHUB_OUTPUT` appended, never rewritten (a failed read dropped earlier outputs) — not seen by a test (the CLI's `main`); a QUOTED PATH entry read as cmd reads it (measured: `Bun.which` ignored it); a path rooted without a drive refused | R10S1–S2; cases |
 
 **Not fixed:** "PUSH ATTEMPTED" when the push process never started (cmd.exe gone) — it errs toward
-caution. ⚠️ Whether pwsh 7 runs the self-test step as written is CI's half (the owner reads the run).
+caution. ✅ **CI's half, read by the owner 2026-11-13: the run for `9067e03` is GREEN** — pwsh 7
+runs the self-test step's capture, exit-code check and summary check as written (the 120 s stub
+builds also got through on that run; round 9 makes that margin ten minutes).
 
 ---
 

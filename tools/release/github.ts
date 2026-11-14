@@ -60,6 +60,7 @@ export async function call(ctx: Ctx, method: string, path: string, body?: unknow
   if (ctx.token) headers.Authorization = `Bearer ${ctx.token}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
   let res: Response;
+  let text: string;
   try {
     res = await ctx.fetch(`${ctx.api}/repos/${ctx.repo}${path}`, {
       method,
@@ -67,6 +68,9 @@ export async function call(ctx: Ctx, method: string, path: string, body?: unknow
       body: body === undefined ? undefined : JSON.stringify(body),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
+    // The body is read under the same signal: a timeout HERE (headers in, body stalled) is the same
+    // case — for a write, the server had already answered (round 9: it escaped as a bare error).
+    text = await res.text();
   } catch (err) {
     const name = (err as { name?: string } | null)?.name;
     if (name !== "TimeoutError" && name !== "AbortError") throw err;
@@ -77,7 +81,6 @@ export async function call(ctx: Ctx, method: string, path: string, body?: unknow
         (method === "GET" ? "" : "; it MAY have been done — re-run the job: it reads what exists first and finishes or reports done"),
     );
   }
-  const text = await res.text();
   let json: any = null;
   try {
     json = text ? JSON.parse(text) : null;
@@ -103,17 +106,31 @@ export async function peel(ctx: Ctx, tag: string): Promise<string | null> {
   return obj.sha;
 }
 
-/** `peel` for a READ-BACK right after a write: "absent" is read again, briefly, before it counts (round 8). */
+/**
+ * `peel` for a READ-BACK right after a write: "absent" is read again, briefly, before it counts
+ * (round 8) — and so is a lagging read INSIDE the peel, of the ref or of the tag object, answered
+ * 404 or 5xx (round 9: only an absent ref was retried). Any other error, and the last one, stands.
+ */
 export async function peelSettled(ctx: Ctx, tag: string): Promise<string | null> {
   const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
-  let at = await peel(ctx, tag);
-  for (const ms of SETTLE_WAITS_MS) {
+  for (let i = 0; ; i++) {
+    let at: string | null = null;
+    let lagging: unknown = null;
+    try {
+      at = await peel(ctx, tag);
+    } catch (err) {
+      if (!/: HTTP (404|5\d\d)$/.test(err instanceof Error ? err.message : "")) throw err;
+      lagging = err;
+    }
     if (at !== null) return at;
-    ctx.log(`tag ${tag}: not visible yet; read again in ${ms / 1000} s (GitHub may lag)`);
+    if (i === SETTLE_WAITS_MS.length) {
+      if (lagging) throw lagging;
+      return null;
+    }
+    const ms = SETTLE_WAITS_MS[i];
+    ctx.log(`tag ${tag}: ${lagging ? (lagging as Error).message : "not visible yet"}; read again in ${ms / 1000} s (GitHub may lag)`);
     await sleep(ms);
-    at = await peel(ctx, tag);
   }
-  return at;
 }
 
 /** `src/root.zig`'s `pub const version` — the one truth in code (`cmem/releasing.md`). */

@@ -3,11 +3,11 @@
 // real runner: what Bun alone reads as 0 must be a failure, and Ctrl-C must read as interrupted.
 // Run: `bun test tools/release`.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { cleanPath, pathOf, plan, runner, status } from "./spawn.ts";
+import { pathOf, plan, runner, splitPath, status, whichWin } from "./spawn.ts";
 
 test("plan: elsewhere the child runs directly", () => {
   expect(plan("zig", ["build", "test"], "linux")).toEqual({ file: "zig", args: ["build", "test"], windowsVerbatimArguments: false });
@@ -39,9 +39,51 @@ test("plan: a path rooted without a drive is drive-relative: refused; UNC and dr
   expect(plan("zig", [], "win32", "cmd.exe", () => "C:/tools/zig.exe").missing).toBeUndefined();
 });
 
-test("cleanPath: quoted and padded PATH entries read as cmd.exe reads them (round 8)", () => {
-  expect(cleanPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toBe("C:\\a b\\shims;C:\\x;D:\\y");
+test("splitPath: entries split as cmd.exe splits them (rounds 8, 9)", () => {
+  expect(splitPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toEqual(["C:\\a b\\shims", "C:\\x", "D:\\y"]);
+  expect(splitPath('"C:\\a;b";C:\\c')).toEqual(["C:\\a;b", "C:\\c"]); // `;` inside quotes is part of the folder
+  expect(splitPath('" C:\\dir "')).toEqual([" C:\\dir "]); // spaces INSIDE the quotes stay, as in cmd
+  expect(splitPath(";;")).toEqual([]);
 });
+
+test("plan: three leading separators is no UNC path: refused (round 9)", () => {
+  expect(() => plan("zig", [], "win32", "cmd.exe", () => "\\\\\\x\\zig.exe")).toThrow("a relative path");
+});
+
+test("whichWin: PATH folders in order, PATHEXT in order, a named file as written first", () => {
+  const d1 = join(stubDir, "w1");
+  const d2 = join(stubDir, "w2");
+  mkdirSync(d1, { recursive: true });
+  mkdirSync(d2, { recursive: true });
+  writeFileSync(join(d1, "tool.cmd"), "");
+  writeFileSync(join(d2, "tool.exe"), "");
+  writeFileSync(join(d2, "tool.com"), "");
+  // The first FOLDER wins, whatever the extension (cmd's order), then PATHEXT within a folder.
+  // NTFS is case-blind: the result carries PATHEXT's spelling of the extension.
+  const lc = (p: string | null) => p?.toLowerCase() ?? null;
+  expect(lc(whichWin("tool", `${d1};${d2}`))).toBe(lc(join(d1, "tool.cmd")));
+  expect(lc(whichWin("tool", d2))).toBe(lc(join(d2, "tool.com")));
+  expect(lc(whichWin("tool", d2, ".EXE;.COM"))).toBe(lc(join(d2, "tool.exe")));
+  expect(lc(whichWin(join(d2, "tool.exe"), ""))).toBe(lc(join(d2, "tool.exe")));
+  expect(whichWin("nothing-here", `${d1};${d2}`)).toBeNull();
+});
+
+test("end to end: a command in a QUOTED PATH entry holding `;` is found and runs (round 9, measured with cmd)", () => {
+  if (process.platform !== "win32") return;
+  const odd = join(stubDir, "a;b");
+  mkdirSync(odd, { recursive: true });
+  copyFileSync(echo, join(odd, "semi-echo.exe"));
+  const pathKey = Object.keys(process.env).find((k) => k.toUpperCase() === "PATH") ?? "PATH";
+  const saved = process.env[pathKey];
+  process.env[pathKey] = `"${odd}";${saved ?? ""}`;
+  try {
+    const r = runner(stubDir)("semi-echo", ["s"]);
+    expect(r.missing).toBe(false);
+    expect(r.out).toBe("[s]");
+  } finally {
+    process.env[pathKey] = saved;
+  }
+}, 60_000); // the FIRST run of a freshly copied .exe is slow on Windows (measured 11.5 s here; likely the antivirus scan)
 
 test("end to end: a command on a QUOTED PATH entry is found, not 'missing' (round 8, measured)", () => {
   if (process.platform !== "win32") return;
@@ -127,7 +169,7 @@ int main(int argc, char **argv) { for (int i = 1; i < argc; i++) printf("[%s]\\n
     const cc = spawnSync("zig", ["cc", join(stubDir, src), "-o", out], { encoding: "utf8" });
     if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
   }
-}, 120_000);
+}, 600_000); // a cold `zig cc` builds the C library first: see ZIG_COLD_MS in gate.test.ts (round 9)
 
 test("end to end: every argument the plan ALLOWS arrives exactly, one argument each (round 6)", () => {
   const args = ["Program Files (x86)", "a&b", "a|b", "a<b", "a>b", "a^b", "a b c", "C:\\dir\\x", "", "=,;@~", "HEAD~1:src/root.zig", "-Dtestsuite=D:\\a\\_temp\\corpus\\x"];

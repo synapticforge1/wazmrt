@@ -6,6 +6,12 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { childEnv, errorLines, escape, escapeProperty, exitCode, frame } from "./gate.ts";
 
+// Every case or hook that waits on a Zig compile (a `zig cc` stub, a `zig build`) gets ten minutes
+// (round 9: CI went red when a hook hit its 120 s limit). CI's self-test step runs BEFORE any build,
+// so Zig's cache is empty there: measured on 32 logical processors, a cold `zig cc` of a C stub
+// takes 12.1 s (it builds the C library first) against 0.1 s warm, and a windows-latest runner has 4.
+const ZIG_COLD_MS = 600_000;
+
 test("exitCode: zig's own code passes through; a signal-killed child (null) is a failure (round 4)", () => {
   expect(exitCode(0)).toBe(0);
   expect(exitCode(3)).toBe(3);
@@ -84,7 +90,7 @@ test("end to end: exit codes and the stop/resume frame", () => {
   const pass = spawnSync("bun", ["tools/release/gate.ts", "--help"], { encoding: "utf8" });
   expect(pass.status).toBe(0);
   expect(pass.stdout).not.toContain("::error");
-}, 120_000);
+}, ZIG_COLD_MS);
 
 // A stub `zig`, first on PATH, that reports what the build would SEE (round 3, A4: the wiring was
 // held only by a source-text match). It also writes its last bytes to STDERR with no newline (A3,
@@ -112,7 +118,7 @@ int main(void) {
   const exe = join(stubDir, process.platform === "win32" ? "zig.exe" : "zig");
   const cc = spawnSync("zig", ["cc", join(stubDir, "stub.c"), "-o", exe], { encoding: "utf8" });
   if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
-}, 120_000);
+}, ZIG_COLD_MS);
 
 test("end to end with a stub zig: nothing withheld reaches the build; stderr framed; resume on its own line; a failure", () => {
   const env = stubEnv();
@@ -129,7 +135,7 @@ test("end to end with a stub zig: nothing withheld reaches the build; stderr fra
   const token = lines.find((l) => l.startsWith("::stop-commands::"))!.slice("::stop-commands::".length);
   expect(lines).toContain(`::${token}::`); // a line of its own, not glued to the stub's last bytes
   expect(lines.some((l) => l.startsWith("::error title=") && l.includes("no newline at the end"))).toBe(true);
-}, 120_000);
+}, ZIG_COLD_MS);
 
 function stubEnv(): Record<string, string> {
   const env: Record<string, string> = {};
@@ -156,4 +162,4 @@ test("end to end: a build failing with exit 256 or 512 is a failed step, not a g
     expect(r.stdout).toContain("stub ran");
     expect(r.status).not.toBe(0);
   }
-}, 120_000);
+}, ZIG_COLD_MS);

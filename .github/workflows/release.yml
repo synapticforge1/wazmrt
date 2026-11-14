@@ -42,7 +42,7 @@ env:
   CORPUS_PATH: "tests/module/wasm_wast/testsuite-main"
   # The fewest release-tool tests the self-test step accepts (review round 7, A1): raise it when
   # tests are added — with the workflow pin, in the same commit.
-  RELEASE_TESTS_MIN: "185"
+  RELEASE_TESTS_MIN: "199"
 
 jobs:
   checks:
@@ -91,6 +91,8 @@ jobs:
           "$env:RUNNER_TEMP\bun-windows-x64" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
 
       - name: Release-tool self-tests
+        # A hang fails here, not at the job's 60 minutes (round 9); a full run takes about 5.
+        timeout-minutes: 20
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -98,12 +100,13 @@ jobs:
           bun --version
           # 🔒 The summary is checked HERE, outside `bun test` (review round 7, A1): a test file or a
           # preload that exits early ends the run with 0 having run nothing; only the summary shows it.
-          $t = & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 }
+          # The output streams to the log AS IT RUNS and is kept in $t (round 9: captured whole, the
+          # step was silent for minutes).
+          & { $PSNativeCommandUseErrorActionPreference = $false; & bun test tools/release 2>&1 } | ForEach-Object { "$_" } | Tee-Object -Variable t
           if ($LASTEXITCODE -ne 0) { throw "bun test tools/release exited $($LASTEXITCODE)" }
           # Colour codes dropped (a FORCE_COLOR would hide the summary); the LAST count lines are bun's
           # own summary — a test that prints "N pass" earlier cannot stand in for it (round 8).
-          $s = (($t | ForEach-Object { "$_" }) -join "`n") -replace '\x1b\[[0-9;]*m', ''
-          $s
+          $s = ($t -join "`n") -replace '\x1b\[[0-9;]*m', ''
           $pass = @([regex]::Matches($s, '(?m)^\s*(\d+) pass\s*$')) | Select-Object -Last 1
           $fail = @([regex]::Matches($s, '(?m)^\s*(\d+) fail\s*$')) | Select-Object -Last 1
           if (-not $pass -or -not $fail -or [int]$pass.Groups[1].Value -lt [int]$env:RELEASE_TESTS_MIN -or $fail.Groups[1].Value -ne '0') { throw "bun test tools/release: the summary does not show 0 fail and at least $env:RELEASE_TESTS_MIN pass" }
