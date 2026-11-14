@@ -115,7 +115,7 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   2026-11-13. Round 12 found three classes; the owner switched to CLASS BY CLASS (C → B → A;
   `working-rules.md` § "Reviews"). **Class C in progress** — paused by the owner 2026-11-13:
   re-check 1's six fixed (`fb855fa`) and re-check 2's three fixed (the next commit; owner:
-  "commit") — both committed, NOT pushed (`bun test tools/release` 224 pass; `RELEASE_TESTS_MIN`
+  "commit") — both committed and pushed 2026-11-13 (owner: "push") (`bun test tools/release` 224 pass; `RELEASE_TESTS_MIN`
   224, pin moved; mutants R14C1–C8 caught). **On resume:** the gate (`bun test tools/release`,
   `zig build test --cache-dir C:\zig-cache\wazmrt`), then class-C RE-CHECK 3 (a fresh reviewer, class C
   only); when one comes back clear, class B, then class A (`known-issues.md` § REVIEW 2026-11-13,

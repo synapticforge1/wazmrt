@@ -23,7 +23,7 @@ class's findings, re-check THAT class only with a fresh reviewer until clear, th
 
 | class | what it is | state |
 | --- | --- | --- |
-| **C** | tests or evidence tools that do not prove what they claim; documents that do not match the code; project knowledge outside this folder | IN PROGRESS — round 12's C fixed; re-check 1 found six, fixed (committed `fb855fa`); re-check 2 found three minor (the runner passed an EMPTY list; the manifest said "the newest" commit; round 12's three new tests had no kept list), fixed and committed (not pushed); **next: re-check 3** |
+| **C** | tests or evidence tools that do not prove what they claim; documents that do not match the code; project knowledge outside this folder | IN PROGRESS — round 12's C fixed; re-check 1 found six, fixed (committed `fb855fa`); re-check 2 found three minor (the runner passed an EMPTY list; the manifest said "the newest" commit; round 12's three new tests had no kept list), fixed, committed and pushed; **next: re-check 3** |
 | **B** | loud: correct work refused, misleading messages | waiting — a trailing `;` in PATHEXT refused (cmd accepts it); the page job's first tag read not lag-retried (says "does not exist" falsely); paths over 260 characters; an over-long summary passing every check then failing after the tag; a CRLF heading read as "no entry"; "Zig ?"; the summary rule not enforced; "a draft is invisible" stated as fact |
 | **A** | silent | waiting — a folder ending in `.` in the MIDDLE of a PATH entry (`D.\`): cmd drops the dot and runs D's program, the lookup does not |
 
