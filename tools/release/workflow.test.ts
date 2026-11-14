@@ -43,7 +43,7 @@ const EXE_RUN = "& { $PSNativeCommandUseErrorActionPreference = $false;"; // the
  * To change the workflow: edit it, run this test, review the diff of release.yml, then put the new
  * value printed below here — in the same commit, whose message says what changed and why.
  */
-const RELEASE_YML_SHA256 = "0fa4662b85726a14d80d83cd5f9fa1de0ee135bdddb3028a46d9422d06484f7f"; // round 9: output streamed (Tee-Object), step timeout 20 min; RELEASE_TESTS_MIN 199
+const RELEASE_YML_SHA256 = "9e8ede2c546f38c0339913998784b52f3de6daa49155eb63eb92f0a8c267c771"; // round 10: RELEASE_TESTS_MIN 199 -> 207
 
 test("release.yml is exactly the reviewed text: any edit moves this pin, in the same commit (round 6)", () => {
   const text = readFileSync(".github/workflows/release.yml", "utf8").replace(/\r\n/g, "\n");

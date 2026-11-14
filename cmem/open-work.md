@@ -104,7 +104,12 @@ is in [`roadmap.md`](roadmap.md)'s milestone table.
   round 6's push RED (a stub-build hook hit 120 s on a cold Zig cache) → 10-minute limits; the
   self-test step streams its output and has a 20-minute timeout; PATH looked up as cmd does —
   committed and pushed 2026-11-13 (owner: "yes", after a pause; 13 mutants caught; gate green on
-  resume). **Next: round 10**; ⏳ owner reads that push's CI run (the streamed self-test step). CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
+  resume). Round 10 STARTED 2026-11-13 (owner: "Go ahead and start round 10"): three reviewers
+  on Sonnet — the new PATH resolver; `github.ts`'s body-timeout and read-back retries; the
+  streamed CI step and the cold-compile limits. Fixed (owner: "Fix A, B and C"): PATH spaces kept
+  as cmd keeps them; aliases found; failures after a write say what was done; 207 tests —
+  committed and pushed 2026-11-13 (owner: "yes"). **Next: round 11.** ⏳ Owner reads the CI runs
+  of `24dcd5b` (the streamed step's first pwsh 7 run) and of this push. CI: `9067e03` (round 8) GREEN (owner, 2026-11-13) — the
   summary check works under pwsh 7; ⏳ the next push proves round 9's streamed step. on round 5's fixes; the review stops at the
   first round that finds nothing. A2 (the `.lib`
   size follows the cache path) was found and left out of scope.

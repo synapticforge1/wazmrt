@@ -26,7 +26,7 @@
 // cmd's limit is refused by name.
 
 import { spawnSync } from "node:child_process";
-import { statSync } from "node:fs";
+import { lstatSync, statSync } from "node:fs";
 import { win32 } from "node:path";
 
 export const EXIT_INTERRUPTED = 130;
@@ -46,9 +46,13 @@ export function pathOf(env: Record<string, string | undefined>): string {
 }
 
 /**
- * A Windows PATH split as cmd.exe splits it (measured with cmd.exe, rounds 8–9): `;` separates
- * entries only OUTSIDE double quotes (`"C:\a;b"` is ONE folder); an entry's surrounding spaces are
- * dropped, then its quotes — spaces INSIDE the quotes stay (cmd finds nothing in `" C:\dir "`).
+ * A Windows PATH split as cmd.exe splits it — measured against cmd.exe itself (rounds 8–10):
+ *   - `;` separates entries only OUTSIDE double quotes (`"C:\a;b"` is ONE folder); quotes are dropped;
+ *   - spaces are KEPT as written (round 10, measured: cmd finds nothing in `C:\a; D` or `D ;X` or
+ *     `"D" ;X` — round 9 trimmed them, and so ran a program cmd would have skipped) — except a
+ *     LEADING space on the FIRST entry, which cmd ignores (` D` finds D);
+ *   - empty entries are skipped; but a PATH that STARTS with one (`;D`) found nothing in cmd for a
+ *     reason not pinned down, so `whichWin` refuses such a PATH instead of guessing.
  */
 export function splitPath(path: string): string[] {
   const raw: string[] = [];
@@ -64,15 +68,23 @@ export function splitPath(path: string): string[] {
     cur += ch;
   }
   raw.push(cur);
-  return raw.map((e) => e.trim().replaceAll('"', "")).filter((e) => e !== "");
+  return raw.map((e, i) => (i === 0 ? e.trimStart() : e).replaceAll('"', "")).filter((e) => e !== "");
 }
+
+/** Does this PATH start with an empty entry (after the first entry's leading spaces)? See `splitPath`. */
+export function startsEmpty(path: string): boolean {
+  return /^\s*;/.test(path);
+}
+
+/** The PATHEXT cmd.exe uses when the variable is unset or empty. */
+export const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 
 /**
  * The file cmd.exe would run for `cmd`: a name with a folder is looked up where it says; a bare name
  * in each PATH folder in order, each with each PATHEXT extension in order (and as written first, if
  * it already has an extension). Null when there is none.
  */
-export function whichWin(cmd: string, path: string, pathext = ".COM;.EXE;.BAT;.CMD"): string | null {
+export function whichWin(cmd: string, path: string, pathext = DEFAULT_PATHEXT): string | null {
   const exts = pathext.split(";").map((e) => e.trim()).filter((e) => e !== "");
   const named = /\.[^.\\/]+$/.test(cmd);
   const candidates = (base: string) => (named ? [base, ...exts.map((e) => base + e)] : exts.map((e) => base + e));
@@ -80,10 +92,18 @@ export function whichWin(cmd: string, path: string, pathext = ".COM;.EXE;.BAT;.C
     try {
       return statSync(p).isFile();
     } catch {
-      return false;
+      // An App Execution Alias (`…\WindowsApps\winget.exe`) is a reparse point `stat` cannot open
+      // (EACCES), yet cmd runs it (round 10, measured): a non-folder that `lstat` sees counts.
+      try {
+        return !lstatSync(p).isDirectory();
+      } catch {
+        return false;
+      }
     }
   };
-  const bases = /[\\/]/.test(cmd) ? [cmd] : splitPath(path).map((dir) => win32.join(dir, cmd));
+  const bare = !/[\\/]/.test(cmd);
+  if (bare && startsEmpty(path)) throw new Error(`PATH starts with an empty entry (";…"); cmd.exe's search then differs (measured) — remove the leading ";"`);
+  const bases = bare ? splitPath(path).map((dir) => win32.join(dir, cmd)) : [cmd];
   for (const base of bases) for (const c of candidates(base)) if (isFile(c)) return c;
   return null;
 }
@@ -111,6 +131,11 @@ export function plan(
   if (!win32.isAbsolute(exe) || /^[\\/](?![\\/])/.test(exe) || /^[\\/]{3}/.test(exe))
     throw new Error(`${cmd} resolves to ${exe}, a relative path (a relative PATH entry); refusing to guess which file runs`);
   if (/\.(cmd|bat)$/i.test(exe)) throw new Error(`${cmd} resolves to the batch file ${exe}; its own \`exit\` would bypass the exit-code mapping — put the real .exe first on PATH`);
+  // A name with an extension OUTSIDE PATHEXT (`z.ps1`, `x.txt`) is opened by its file association,
+  // whose exit code is not the program's (round 10): only a PATHEXT program runs.
+  const exts = (envOf(process.env, "PATHEXT") || DEFAULT_PATHEXT).split(";").map((e) => e.trim().toUpperCase());
+  if (!exts.includes(win32.extname(exe).toUpperCase()))
+    throw new Error(`${cmd} resolves to ${exe}, which is not a program (its extension is not in PATHEXT)`);
   if (CMD_UNSAFE.test(exe)) throw new Error(`${cmd} resolves to ${exe}, whose path holds " % or !, which cmd.exe would change; install it on a path without them`);
   for (const a of args)
     if (CMD_UNSAFE.test(a))

@@ -118,6 +118,9 @@ int main(void) {
   const exe = join(stubDir, process.platform === "win32" ? "zig.exe" : "zig");
   const cc = spawnSync("zig", ["cc", join(stubDir, "stub.c"), "-o", exe], { encoding: "utf8" });
   if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
+  // Run it once HERE: the first run of a new .exe is slow on Windows (measured 11.5 s; likely the
+  // antivirus scan), and the cases that use it run under shorter limits (round 10).
+  spawnSync(exe, [], { encoding: "utf8" });
 }, ZIG_COLD_MS);
 
 test("end to end with a stub zig: nothing withheld reaches the build; stderr framed; resume on its own line; a failure", () => {

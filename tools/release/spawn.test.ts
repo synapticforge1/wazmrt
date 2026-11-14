@@ -3,9 +3,9 @@
 // real runner: what Bun alone reads as 0 must be a failure, and Ctrl-C must read as interrupted.
 // Run: `bun test tools/release`.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathOf, plan, runner, splitPath, status, whichWin } from "./spawn.ts";
 
@@ -39,11 +39,53 @@ test("plan: a path rooted without a drive is drive-relative: refused; UNC and dr
   expect(plan("zig", [], "win32", "cmd.exe", () => "C:/tools/zig.exe").missing).toBeUndefined();
 });
 
-test("splitPath: entries split as cmd.exe splits them (rounds 8, 9)", () => {
-  expect(splitPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toEqual(["C:\\a b\\shims", "C:\\x", "D:\\y"]);
+test("splitPath: entries split as cmd.exe splits them — spaces KEPT, but the first entry's leading ones (rounds 8–10, measured)", () => {
+  expect(splitPath(' "C:\\a b\\shims" ;C:\\x; ;"D:\\y"')).toEqual(["C:\\a b\\shims ", "C:\\x", " ", "D:\\y"]);
   expect(splitPath('"C:\\a;b";C:\\c')).toEqual(["C:\\a;b", "C:\\c"]); // `;` inside quotes is part of the folder
   expect(splitPath('" C:\\dir "')).toEqual([" C:\\dir "]); // spaces INSIDE the quotes stay, as in cmd
-  expect(splitPath(";;")).toEqual([]);
+  expect(splitPath("X; D;Y")).toEqual(["X", " D", "Y"]); // cmd finds nothing in " D"
+  expect(splitPath("  D;Y")).toEqual(["D", "Y"]); // ... but ignores the FIRST entry's leading spaces
+  expect(splitPath("D;;Y;")).toEqual(["D", "Y"]);
+});
+
+test("whichWin: a padded entry is SKIPPED as cmd skips it, so the later folder's program runs (round 10, measured)", () => {
+  const padded = join(stubDir, "pad1");
+  const later = join(stubDir, "pad2");
+  mkdirSync(padded, { recursive: true });
+  mkdirSync(later, { recursive: true });
+  writeFileSync(join(padded, "ptool.exe"), "");
+  writeFileSync(join(later, "ptool.exe"), "");
+  const lc = (p: string | null) => p?.toLowerCase() ?? null;
+  for (const path of [`X; ${padded};${later}`, `X;${padded} ;${later}`, `X;"${padded}" ;${later}`])
+    expect(lc(whichWin("ptool", path))).toBe(lc(join(later, "ptool.exe")));
+  expect(lc(whichWin("ptool", ` ${padded};${later}`))).toBe(lc(join(padded, "ptool.exe"))); // the first entry's leading space
+});
+
+test("whichWin: a PATH that STARTS with an empty entry is refused, not guessed (round 10: cmd found nothing there)", () => {
+  expect(() => whichWin("zig", ";C:\\bin")).toThrow("starts with an empty entry");
+  expect(() => whichWin("zig", "  ;C:\\bin")).toThrow("starts with an empty entry");
+  expect(() => whichWin("C:\\bin\\zig.exe", ";C:\\bin")).not.toThrow(); // a path is not searched
+});
+
+test("whichWin: an App Execution Alias (stat cannot open it) counts as a program, as cmd runs it (round 10, measured)", () => {
+  if (process.platform !== "win32") return;
+  const apps = join(process.env.LOCALAPPDATA ?? "", "Microsoft", "WindowsApps");
+  // Only where such an alias exists (not on every runner): the alias itself is the proof.
+  const alias = ["winget.exe", "python.exe", "wt.exe"].map((n) => join(apps, n)).find((p) => {
+    try {
+      lstatSync(p);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+  if (!alias) return;
+  expect(whichWin(basename(alias, ".exe"), apps)?.toLowerCase()).toBe(alias.toLowerCase());
+});
+
+test("plan: a resolved file whose extension is not in PATHEXT is refused — it would open by file association (round 10)", () => {
+  expect(() => plan("z.ps1", [], "win32", "cmd.exe", () => "C:\\bin\\z.ps1")).toThrow("not a program");
+  expect(() => plan("v.txt", [], "win32", "cmd.exe", () => "C:\\bin\\v.txt")).toThrow("not a program");
 });
 
 test("plan: three leading separators is no UNC path: refused (round 9)", () => {
@@ -168,6 +210,9 @@ int main(int argc, char **argv) { for (int i = 1; i < argc; i++) printf("[%s]\\n
   for (const [src, out] of [["stub.c", stub], ["echo.c", echo]]) {
     const cc = spawnSync("zig", ["cc", join(stubDir, src), "-o", out], { encoding: "utf8" });
     if (cc.status !== 0) throw new Error(`zig cc failed: ${cc.stderr}`);
+    // Run each once HERE: the first run of a new .exe is slow on Windows (measured 11.5 s; likely the
+    // antivirus scan), and a test's own limit is Bun's 5 s (round 10).
+    spawnSync(out, ["0"], { encoding: "utf8" });
   }
 }, 600_000); // a cold `zig cc` builds the C library first: see ZIG_COLD_MS in gate.test.ts (round 9)
 

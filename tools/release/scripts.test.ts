@@ -173,7 +173,7 @@ describe("bump.ts", () => {
     });
     const [r, err] = await captured(() => bump(["patch"], work, other));
     expect(r).toBe(1);
-    expect(err).toContain("REFUSED");
+    expect(err).toContain("REFUSED: git commit");
     expect(err).not.toContain("WAS made");
   });
   test("a `bump to v5.0.2` commit on the WRONG parent: not this bump — refused (round 9: untested)", async () => {
@@ -187,6 +187,7 @@ describe("bump.ts", () => {
     });
     const [r, err] = await captured(() => bump(["patch"], work, stacked));
     expect(r).toBe(1);
+    expect(err).toContain("REFUSED: git commit"); // the commit's own failure, not some other path (round 10)
     expect(err).not.toContain("WAS made");
   });
   test("the final `git log` THROWING after a good commit (a runner that throws): exit 0, no REFUSED (round 8: untested)", async () => {

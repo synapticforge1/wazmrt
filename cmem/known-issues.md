@@ -13,6 +13,28 @@ Line numbers are hints (they drift) — the function/construct name is the durab
 
 ---
 
+## 🔍 REVIEW 2026-11-13, round 10 — round 9's fixes (owner: "Fix A, B and C")
+
+Three fresh reviewers on Sonnet (the PATH resolver, measured against cmd.exe; `github.ts`; the
+streamed CI step and the cold-compile limits). **No wrong tag, page or verdict; one way to run a
+program cmd itself would skip; failures that hid what had already happened; tests not holding
+their guards.** All fixed. `bun test tools/release` 199 → **207**; `RELEASE_TESTS_MIN` 207, the pin
+moved (the diff: that one line); 9 mutants, all caught. Committed and pushed 2026-11-13.
+
+| # | class | found → fixed | proof |
+| --- | --- | --- | --- |
+| **A** | 🔒 a different program than cmd.exe would run | measured with stubs against cmd: cmd KEEPS spaces in PATH entries — `X; D;Y`, `D ;X`, `"D" ;X` find nothing in D — so round 9's trim ran D's program where cmd runs a LATER folder's. Spaces now kept, except the first entry's leading ones (cmd ignores those, measured); a PATH that STARTS with an empty entry (`;D`: cmd found nothing, cause not pinned down) is refused instead of guessed | R12S1–S3; padded-entry and empty-start cases |
+| **B1** | a real install read as missing | measured: an App Execution Alias (`…\WindowsApps\winget.exe`) is a reparse point `stat` cannot open (EACCES), yet cmd runs it. A non-folder `lstat` sees now counts | R12S4; a case where such an alias exists |
+| **B2** | a created tag or page, then a bare read error | a read-back that fails after a write says the tag / page WAS CREATED and that a re-run finishes or reports done (exit 1) | R12G2; three cases |
+| **B3** | a write cut off another way, unlabelled | not only a timeout: a reset, a body broken mid-read — any failed WRITE says it may have been done; a read is thrown as it is | R12G1; reset cases for a write and a read |
+| **B4** | a new .exe's slow FIRST run under a 5 s limit | each stub is run once inside its setup hook (the first run measured 11.5 s here, likely the antivirus scan) | the hooks; ⚠️ the runner's first-run cost is CI's half |
+| **C** | guards no test held; a weak case; a gap | the read-back retry's `$` anchor (now `LAGGING`, with its own cases); both `landed()` cases now require `REFUSED: git commit`; the CLI's end-to-end test kills a hung child, shows its stderr, ignores an inherited proxy, runs from the repo root; a resolved file whose extension is not in PATHEXT (`z.ps1`, opened by file association) is refused | R12G3, R12K1, R12S5; cases |
+
+**Not changed:** a GET that times out gets one try, then the run is red — as before, as the tests
+require. 🔁 Round 9's B3 row and A2's 5.1 note are corrected in place.
+
+---
+
 ## 🔍 REVIEW 2026-11-13, round 9 — round 8's fixes, and CI read by the owner (owner: "proceed")
 
 Three fresh reviewers on Sonnet (`github.ts`; `push` / `bump` / `spawn`; the workflow's summary
@@ -26,10 +48,10 @@ resume) — that push's CI run is the first pwsh 7 run of the streamed step.
 | # | class | found → fixed | proof |
 | --- | --- | --- | --- |
 | **A1** | 🔒 CI red for correct work: a Zig compile against a COLD cache | CI's self-test step runs before any build, so Zig's cache is empty; the stub builds (and the one real `zig build` case) had 120 s. Measured here, 32 logical processors: a cold `zig cc` of a C stub 12.1 s (it builds the C library first), 0.1 s warm; a Zig-only stub 4 s cold; a windows-latest runner has 4. Every case or hook that waits on a Zig compile now has 10 minutes (`ZIG_COLD_MS`), the reason beside it. The log names no file, so WHICH hook timed out is inferred | the owner's log; the measurements; ⚠️ CI's next run is the proof |
-| **A2** | the self-test step was SILENT for minutes (captured whole) | a hang would show nothing until the job's 60 minutes. The output now streams through `Tee-Object` and is kept for the summary check; the step has `timeout-minutes: 20` (held by the structure table) | 5.1: lines stream, `$LASTEXITCODE` survives the pipeline (3 / 0), `$t` holds every line; ⚠️ pwsh 7 is CI's half |
+| **A2** | the self-test step was SILENT for minutes (captured whole) | a hang would show nothing until the job's 60 minutes. The output now streams through `Tee-Object` and is kept for the summary check; the step has `timeout-minutes: 20` (held by the structure table) | 5.1: lines stream, `$LASTEXITCODE` survives the pipeline (3 / 0), `$t` holds every line — 🔁 (round 10) measured under `$ErrorActionPreference = 'Continue'`: under `'Stop'` 5.1 THROWS on the first redirected stderr line, pwsh 7 does not; ⚠️ pwsh 7 is CI's half |
 | **B1** | a timeout while reading the BODY escaped bare | the body is read under the same handling as the request | R11G1; a case where headers arrive and the body stalls |
 | **B2** | the tag read-back retried only an ABSENT ref | a 404 / 5xx inside the peel (the ref or the tag object) is a lagging read too; the last error stands; a non-lag error is not retried | R11G2–G3; four cases |
-| **B3** | a quoted PATH entry holding `;` read as missing | measured: cmd.exe finds a program in `"C:\a;b"`. `Bun.which` takes PATH as one `;`-joined string and cannot express that, so the lookup is now our own, as cmd does it: `splitPath` (split outside quotes; outer spaces dropped, spaces inside quotes kept — cmd finds nothing in `" C:\dir "`), then each folder × each PATHEXT extension in order (`whichWin`) | R11S1–S3; an end-to-end run from a folder named `a;b`. A freshly copied .exe's FIRST run took 11.5 s here (likely the antivirus scan): that case has 60 s |
+| **B3** | a quoted PATH entry holding `;` read as missing | measured: cmd.exe finds a program in `"C:\a;b"`. `Bun.which` takes PATH as one `;`-joined string and cannot express that, so the lookup is now our own, as cmd does it: `splitPath` (split outside quotes; outer spaces dropped — 🔁 WRONG, round 10 measured cmd KEEPS them but for the first entry's leading ones; spaces inside quotes kept — cmd finds nothing in `" C:\dir "`), then each folder × each PATHEXT extension in order (`whichWin`) | R11S1–S3; an end-to-end run from a folder named `a;b`. A freshly copied .exe's FIRST run took 11.5 s here (likely the antivirus scan): that case has 60 s |
 | **C** | guards no test held | `landed()`'s subject and parent (two cases that move HEAD wrongly during a "failed" commit); the 5xx retry; the page's second tag read; `GITHUB_OUTPUT` appended — now run end to end: the CLI against a local fake GitHub (`Bun.serve`), an earlier step's line kept | R11K1–K2, R11G4–G6 |
 | **D** | small | a committed `bunfig.toml.` / `bunfig.toml ` (Windows drops the dot or space at checkout) is caught, the pattern held by its own cases; three leading separators is no UNC path | R11W1, R11S4 |
 

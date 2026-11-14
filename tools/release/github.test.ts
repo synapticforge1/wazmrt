@@ -5,9 +5,10 @@ import { describe, expect, test } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type Ctx, call, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
+import { type Ctx, LAGGING, call, isRelease, peel, release, releaseNotes, rootVersion, tag } from "./github.ts";
 
 const SHA = "a".repeat(40);
+const REPO_ROOT = join(import.meta.dir, "..", ".."); // the CLI reads src/root.zig from its cwd
 const OTHER = "b".repeat(40);
 const TAG = "v5.0.1";
 
@@ -34,6 +35,7 @@ interface MockOpts {
   refLagAfterCreate?: number; // after POST /git/refs, the tag's GET answers 404 this many times
   timeoutOn?: string; // "<METHOD> <path>": the fetch throws a TimeoutError
   bodyTimeoutOn?: string; // "<METHOD> <path>": the answer's HEADERS arrive, then its body times out
+  resetOn?: string; // "<METHOD> <path>": the fetch fails another way (a connection reset)
   lagStatus?: number; // what a lagging read answers (default 404)
   tagObjLagAfterCreate?: number; // after POST /git/refs, GET /git/tags/<sha> answers lagStatus this many times
   refLagAfterPage?: number; // after POST /releases, the tag's GET answers lagStatus this many times
@@ -54,6 +56,7 @@ function mock(o: MockOpts = {}) {
     const path = url.replace("https://api.test/repos/o/r", "");
     const method = init.method ?? "GET";
     if (o.timeoutOn === `${method} ${path}`) throw new DOMException("The operation timed out.", "TimeoutError");
+    if (o.resetOn === `${method} ${path}`) throw new TypeError("connection reset");
     if (o.bodyTimeoutOn === `${method} ${path}`) {
       if (method !== "GET") writes.push(`${method} ${path}`);
       const stalled = new ReadableStream({ start: (c) => c.error(new DOMException("The operation timed out.", "TimeoutError")) });
@@ -483,14 +486,38 @@ describe("lagging reads, timeouts and exact matches (round 8)", () => {
     const m = mock({ refLagAfterCreate: 1, lagStatus: 503 });
     expect(await tag(m.ctx(), TAG, "x")).toBe(0);
   });
-  test("a tag read that never settles after the create: the LAST error stands, a failure", async () => {
+  test("a tag read that never settles after the create: a failure that says the tag WAS created and a re-run finishes (round 10)", async () => {
     const m = mock({ tagObjLagAfterCreate: 99 });
-    await expect(tag(m.ctx(), TAG, "x")).rejects.toThrow(/reading tag object .*: HTTP 404/);
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+    const log = m.lines.join("\n");
+    expect(log).toMatch(/READ-BACK FAILED: the tag was CREATED, but v5\.0\.1 could not be read back \(reading tag object .*: HTTP 404\); re-run/);
   });
-  test("a non-lag error in the read-back is not retried (a tag on a tree)", async () => {
+  test("a non-lag error in the read-back is not retried (a tag on a tree), and still says the tag was created", async () => {
     const m = mock({ afterRefPost: (refs) => (refs[TAG] = { type: "tree", sha: SHA }) });
-    await expect(tag(m.ctx(), TAG, "x")).rejects.toThrow("not a commit");
+    expect(await tag(m.ctx(), TAG, "x")).toBe(1);
+    expect(m.lines.join("\n")).toContain("the tag was CREATED");
+    expect(m.lines.join("\n")).toContain("not a commit");
     expect(m.lines.join("\n")).not.toContain("GitHub may lag");
+  });
+  test("the page's second tag read never settles: a failure that says the page WAS created (round 10)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, refLagAfterPage: 99, lagStatus: 502 });
+    expect(await release(m.ctx(), TAG, "notes")).toBe(1);
+    expect(m.lines.join("\n")).toContain("READ-BACK FAILED: the page was CREATED");
+  });
+  test("a WRITE cut off another way (a connection reset) says it may have been done (round 10)", async () => {
+    const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, resetOn: "POST /releases" });
+    await expect(release(m.ctx(), TAG, "notes")).rejects.toThrow(/POST \/releases: connection reset.*it MAY have been done/);
+  });
+  test("a READ cut off by a reset is thrown as it is (no 'may have been done')", async () => {
+    const m = mock({ resetOn: `GET /git/ref/tags/${TAG}` });
+    const err = await peel(m.ctx(), TAG).catch((e) => e as Error);
+    expect(String(err)).toContain("connection reset");
+    expect(String(err)).not.toContain("MAY have been done");
+  });
+  test("LAGGING: the status must END the message (round 10: the anchor held)", () => {
+    for (const m of ["reading tag v1: HTTP 404", "reading tag object abc: HTTP 503", "reading tag v1: HTTP 500"]) expect(`${m}: ${LAGGING.test(m)}`).toBe(`${m}: true`);
+    for (const m of ["reading tag v1: HTTP 404 (later)", "reading tag v1: HTTP 4044", "reading tag v1: HTTP 403", "tag v1 points at a tree, not a commit"])
+      expect(`${m}: ${LAGGING.test(m)}`).toBe(`${m}: false`);
   });
   test("the tag read lags once right after the PAGE is made: read again, done (round 9: the second peel untested)", async () => {
     const m = mock({ refs: { [TAG]: { type: "commit", sha: SHA } }, refLagAfterPage: 1 });
@@ -526,12 +553,17 @@ describe("the CLI (main), end to end against a local fake GitHub", () => {
     const out = join(dir, "github_output.txt");
     writeFileSync(out, "earlier=1\n");
     try {
-      const p = Bun.spawn([process.execPath, "tools/release/github.ts", "is-release"], {
-        env: { ...process.env, GITHUB_API_URL: `http://localhost:${server.port}`, GITHUB_REPOSITORY: "o/r", GITHUB_SHA: SHA, GITHUB_OUTPUT: out, GITHUB_TOKEN: "" },
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      expect(await p.exited).toBe(0);
+      // No inherited proxy may carry the localhost call elsewhere (round 10).
+      const env: Record<string, string | undefined> = { ...process.env };
+      for (const k of Object.keys(env)) if (/^(https?|all)_proxy$/i.test(k)) delete env[k];
+      Object.assign(env, { NO_PROXY: "*", GITHUB_API_URL: `http://localhost:${server.port}`, GITHUB_REPOSITORY: "o/r", GITHUB_SHA: SHA, GITHUB_OUTPUT: out, GITHUB_TOKEN: "" });
+      const p = Bun.spawn([process.execPath, "tools/release/github.ts", "is-release"], { cwd: REPO_ROOT, env, stdout: "pipe", stderr: "pipe" });
+      // A hang is killed, not left running past the test (round 10).
+      const killer = setTimeout(() => p.kill(), 30_000);
+      const code = await p.exited;
+      clearTimeout(killer);
+      const stderr = await new Response(p.stderr).text();
+      expect(`exit ${code}; stderr: ${stderr}`).toBe("exit 0; stderr: ");
       const text = readFileSync(out, "utf8");
       expect(text.startsWith("earlier=1\n")).toBe(true);
       expect(text).toContain("release=false");

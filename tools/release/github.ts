@@ -73,13 +73,16 @@ export async function call(ctx: Ctx, method: string, path: string, body?: unknow
     text = await res.text();
   } catch (err) {
     const name = (err as { name?: string } | null)?.name;
-    if (name !== "TimeoutError" && name !== "AbortError") throw err;
-    // A WRITE that timed out may still have been done (round 8): say so, and that a re-run is
+    const timedOut = name === "TimeoutError" || name === "AbortError";
+    const what = timedOut ? `no answer in ${TIMEOUT_MS / 1000} s` : `${err instanceof Error ? err.message : err}`;
+    if (method === "GET") {
+      if (!timedOut) throw err;
+      throw new Error(`${method} ${path}: ${what}`);
+    }
+    // A WRITE that did not answer cleanly — timed out (round 8) or cut off any other way, a reset
+    // or a body broken mid-read (round 10) — may still have been done: say so, and that a re-run is
     // safe — every job reads what exists before it writes.
-    throw new Error(
-      `${method} ${path}: no answer in ${TIMEOUT_MS / 1000} s` +
-        (method === "GET" ? "" : "; it MAY have been done — re-run the job: it reads what exists first and finishes or reports done"),
-    );
+    throw new Error(`${method} ${path}: ${what}; it MAY have been done — re-run the job: it reads what exists first and finishes or reports done`);
   }
   let json: any = null;
   try {
@@ -111,6 +114,9 @@ export async function peel(ctx: Ctx, tag: string): Promise<string | null> {
  * (round 8) — and so is a lagging read INSIDE the peel, of the ref or of the tag object, answered
  * 404 or 5xx (round 9: only an absent ref was retried). Any other error, and the last one, stands.
  */
+/** A `peel` error that is a lagging read: the status ENDS the message (round 10: the anchor held by its own cases). */
+export const LAGGING = /: HTTP (404|5\d\d)$/;
+
 export async function peelSettled(ctx: Ctx, tag: string): Promise<string | null> {
   const sleep = ctx.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   for (let i = 0; ; i++) {
@@ -119,7 +125,7 @@ export async function peelSettled(ctx: Ctx, tag: string): Promise<string | null>
     try {
       at = await peel(ctx, tag);
     } catch (err) {
-      if (!/: HTTP (404|5\d\d)$/.test(err instanceof Error ? err.message : "")) throw err;
+      if (!LAGGING.test(err instanceof Error ? err.message : "")) throw err;
       lagging = err;
     }
     if (at !== null) return at;
@@ -130,6 +136,19 @@ export async function peelSettled(ctx: Ctx, tag: string): Promise<string | null>
     const ms = SETTLE_WAITS_MS[i];
     ctx.log(`tag ${tag}: ${lagging ? (lagging as Error).message : "not visible yet"}; read again in ${ms / 1000} s (GitHub may lag)`);
     await sleep(ms);
+  }
+}
+
+/**
+ * The read-back after a WRITE: `peelSettled`, but a read that still fails says what was done
+ * before it (round 10: a created tag or page ended in a bare read error). undefined = failed, logged.
+ */
+async function readBack(ctx: Ctx, name: string, done: string): Promise<string | null | undefined> {
+  try {
+    return await peelSettled(ctx, name);
+  } catch (err) {
+    ctx.log(`READ-BACK FAILED: ${done}, but ${name} could not be read back (${err instanceof Error ? err.message : err}); re-run the job: it reads what exists first and finishes or reports done`);
+    return undefined;
   }
 }
 
@@ -241,7 +260,8 @@ export async function tag(ctx: Ctx, name: string, message: string): Promise<numb
     ctx.log(`creating ref refs/tags/${name}: HTTP ${ref.status}`);
     return 1;
   }
-  const back = await peelSettled(ctx, name);
+  const back = await readBack(ctx, name, "the tag was CREATED");
+  if (back === undefined) return 1;
   if (back !== ctx.sha) {
     ctx.log(`READ-BACK FAILED: ${name} peels to ${back}, expected ${ctx.sha}`);
     return 1;
@@ -344,7 +364,8 @@ export async function release(ctx: Ctx, name: string, body: string): Promise<num
     ctx.log(`READ-BACK FAILED: release ${name}: HTTP ${back.status}, draft=${back.json?.draft}`);
     return 1;
   }
-  const again = await peelSettled(ctx, name);
+  const again = await readBack(ctx, name, "the page was CREATED");
+  if (again === undefined) return 1;
   if (again !== ctx.sha) {
     ctx.log(`READ-BACK FAILED: after the page, ${name} peels to ${again}, expected ${ctx.sha}`);
     return 1;
